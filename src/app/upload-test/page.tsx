@@ -15,6 +15,7 @@ export default function UploadTestPage() {
   const [success, setSuccess] = useState<string | null>(null);
   const [resultUrl, setResultUrl] = useState<string | null>(null);
   const [resultMime, setResultMime] = useState<string | null>(null);
+  const [previewError, setPreviewError] = useState<string | null>(null);
 
   async function onUpload() {
     if (!file) return;
@@ -23,6 +24,7 @@ export default function UploadTestPage() {
     setSuccess(null);
     setResultUrl(null);
     setResultMime(null);
+    setPreviewError(null);
 
     try {
       const token = getAccessToken();
@@ -72,7 +74,7 @@ export default function UploadTestPage() {
       if (!resolvedUrl) throw new Error('Media URL missing from API response');
 
       setResultUrl(resolvedUrl);
-      setResultMime(data.mimeType);
+      setResultMime(typeof data.mimeType === 'string' ? data.mimeType : null);
       setSuccess('آپلود با موفقیت انجام شد');
     } catch (e) {
       setError(e instanceof Error ? e.message : 'خطا در آپلود');
@@ -81,7 +83,7 @@ export default function UploadTestPage() {
     }
   }
 
-  const canPreviewImage = (resultMime ?? '').startsWith('image/');
+  const canPreviewImage = (resultMime ?? '').toLowerCase().startsWith('image/');
 
   return (
     <AuthGate>
@@ -135,11 +137,18 @@ export default function UploadTestPage() {
                 </a>
 
                 {canPreviewImage ? (
-                  <img
-                    src={resultUrl}
-                    alt="preview"
-                    className="max-h-72 w-full rounded-2xl border border-slate-200 bg-white object-contain"
-                  />
+                  <div className="space-y-2">
+                    <div className="text-sm font-semibold">Preview</div>
+                    {previewError ? (
+                      <div className="text-sm font-semibold text-red-600">{previewError}</div>
+                    ) : null}
+                    <img
+                      src={resultUrl}
+                      alt="preview"
+                      onError={() => setPreviewError('تصویر قابل نمایش نیست (ممکن است دسترسی/نوع فایل مشکل داشته باشد)')}
+                      className="max-h-72 w-full rounded-2xl border border-slate-200 bg-white object-contain"
+                    />
+                  </div>
                 ) : null}
               </div>
             ) : null}
