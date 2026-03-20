@@ -24,18 +24,28 @@ export function Navbar() {
         <div className="text-sm font-extrabold text-slate-900">توت</div>
 
         <nav className="flex items-center gap-3">
-          <Link
-            href="/home"
-            className="text-sm font-semibold text-slate-900 underline-offset-4 hover:underline"
-          >
-            Home
-          </Link>
-          <Link
-            href="/profile"
-            className="text-sm font-semibold text-slate-900 underline-offset-4 hover:underline"
-          >
-            Profile
-          </Link>
+          {tokenPresent ? (
+            <>
+              <Link
+                href="/home"
+                className="text-sm font-semibold text-slate-900 underline-offset-4 hover:underline"
+              >
+                Home
+              </Link>
+              <Link
+                href="/profile"
+                className="text-sm font-semibold text-slate-900 underline-offset-4 hover:underline"
+              >
+                Profile
+              </Link>
+              <Link
+                href="/upload-test"
+                className="text-sm font-semibold text-slate-900 underline-offset-4 hover:underline"
+              >
+                Upload
+              </Link>
+            </>
+          ) : null}
 
           <button
             type="button"
