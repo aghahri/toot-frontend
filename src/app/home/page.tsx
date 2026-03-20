@@ -1,21 +1,12 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
 import { useMemo } from 'react';
 import { AuthGate } from '@/components/AuthGate';
-import { clearAccessToken, getAccessToken } from '@/lib/auth';
-import { Button } from '@/components/ui/Button';
+import { getAccessToken } from '@/lib/auth';
 import { Card } from '@/components/ui/Card';
 
 export default function HomePage() {
-  const router = useRouter();
-
   const token = useMemo(() => getAccessToken(), []);
-
-  function onLogout() {
-    clearAccessToken();
-    router.replace('/login');
-  }
 
   return (
     <AuthGate>
@@ -33,9 +24,6 @@ export default function HomePage() {
             <div className="break-all text-xs text-slate-500">
               توکن: {token ? `${token.slice(0, 16)}...` : '-'}
             </div>
-            <Button type="button" onClick={onLogout}>
-              خروج از حساب
-            </Button>
           </div>
         </Card>
       </main>

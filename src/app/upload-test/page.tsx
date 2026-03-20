@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react';
 import { AuthGate } from '@/components/AuthGate';
 import { getAccessToken } from '@/lib/auth';
-import { getApiBaseUrl } from '@/lib/api';
+import { getApiBaseUrl, getErrorMessageFromResponse } from '@/lib/api';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { buildMediaUrl } from '@/lib/media';
@@ -13,6 +13,7 @@ export default function UploadTestPage() {
   const [file, setFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
   const [resultUrl, setResultUrl] = useState<string | null>(null);
   const [resultMime, setResultMime] = useState<string | null>(null);
 
@@ -20,6 +21,7 @@ export default function UploadTestPage() {
     if (!file) return;
     setUploading(true);
     setError(null);
+    setSuccess(null);
     setResultUrl(null);
     setResultMime(null);
 
@@ -51,8 +53,8 @@ export default function UploadTestPage() {
       });
 
       if (!res.ok) {
-        const text = await res.text().catch(() => '');
-        throw new Error(text || `Upload failed with ${res.status}`);
+        const message = await getErrorMessageFromResponse(res);
+        throw new Error(message);
       }
 
       const data = (await res.json()) as {
@@ -67,6 +69,7 @@ export default function UploadTestPage() {
 
       setResultUrl(resolvedUrl);
       setResultMime(data.mimeType);
+      setSuccess('آپلود با موفقیت انجام شد');
     } catch (e) {
       setError(e instanceof Error ? e.message : 'خطا در آپلود');
     } finally {
@@ -86,6 +89,11 @@ export default function UploadTestPage() {
 
         <Card>
           <div className="space-y-4">
+            {success ? (
+              <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800">
+                {success}
+              </div>
+            ) : null}
             <label className="block">
               <div className="mb-2 text-sm font-semibold text-slate-700">فایل</div>
               <input

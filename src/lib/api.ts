@@ -13,6 +13,36 @@ function buildUrl(path: string) {
   return `${trimmedBase}/${trimmedPath}`;
 }
 
+function extractMessageFromBody(body: unknown): string | null {
+  if (!body || typeof body !== 'object') return null;
+  const record = body as Record<string, unknown>;
+
+  const message = record.message;
+  if (typeof message === 'string') return message;
+  if (Array.isArray(message) && message.every((m) => typeof m === 'string')) return message.join(' ');
+
+  // NestJS Validation errors sometimes come as message array of strings
+  const error = record.error;
+  if (typeof error === 'string') return error;
+
+  return null;
+}
+
+export async function getErrorMessageFromResponse(res: Response): Promise<string> {
+  const contentType = res.headers.get('content-type') ?? '';
+  if (contentType.includes('application/json')) {
+    try {
+      const body = (await res.json()) as unknown;
+      return extractMessageFromBody(body) ?? `Request failed with ${res.status}`;
+    } catch {
+      // fall back to text below
+    }
+  }
+
+  const text = await res.text().catch(() => '');
+  return text || `Request failed with ${res.status}`;
+}
+
 export async function apiFetch<T>(
   path: string,
   options: RequestInit & { token?: string } = {},
@@ -28,8 +58,8 @@ export async function apiFetch<T>(
   });
 
   if (!res.ok) {
-    const text = await res.text().catch(() => '');
-    throw new Error(text || `Request failed with ${res.status}`);
+    const message = await getErrorMessageFromResponse(res);
+    throw new Error(message);
   }
 
   return (await res.json()) as T;

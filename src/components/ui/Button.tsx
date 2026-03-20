@@ -17,7 +17,15 @@ export function Button({ loading, disabled, children, ...rest }: Props) {
         'disabled:opacity-50 disabled:cursor-not-allowed',
       ].join(' ')}
     >
-      {loading ? '...' : children}
+      <span className="inline-flex items-center justify-center gap-2">
+        {loading ? (
+          <span
+            aria-hidden
+            className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white"
+          />
+        ) : null}
+        {children}
+      </span>
     </button>
   );
 }
