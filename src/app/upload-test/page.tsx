@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { AuthGate } from '@/components/AuthGate';
 import { getAccessToken } from '@/lib/auth';
 import { getApiBaseUrl, getErrorMessageFromResponse } from '@/lib/api';
@@ -9,7 +9,6 @@ import { Card } from '@/components/ui/Card';
 import { buildMediaUrl } from '@/lib/media';
 
 export default function UploadTestPage() {
-  const token = useMemo(() => getAccessToken(), []);
   const [file, setFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -26,6 +25,11 @@ export default function UploadTestPage() {
     setResultMime(null);
 
     try {
+      const token = getAccessToken();
+      if (!token) {
+        throw new Error('توکن احراز هویت پیدا نشد. لطفا دوباره وارد شوید.');
+      }
+
       const maxBytes = 20 * 1024 * 1024;
       if (file.size > maxBytes) {
         throw new Error('حجم فایل از 20MB بیشتر است');
