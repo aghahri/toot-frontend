@@ -14,6 +14,8 @@ export default function UploadTestPage() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [resultUrl, setResultUrl] = useState<string | null>(null);
+  const [resultKey, setResultKey] = useState<string | null>(null);
+  const [previewSrc, setPreviewSrc] = useState<string | null>(null);
   const [resultMime, setResultMime] = useState<string | null>(null);
   const [previewError, setPreviewError] = useState<string | null>(null);
 
@@ -23,6 +25,8 @@ export default function UploadTestPage() {
     setError(null);
     setSuccess(null);
     setResultUrl(null);
+    setResultKey(null);
+    setPreviewSrc(null);
     setResultMime(null);
     setPreviewError(null);
 
@@ -74,6 +78,8 @@ export default function UploadTestPage() {
       if (!resolvedUrl) throw new Error('Media URL missing from API response');
 
       setResultUrl(resolvedUrl);
+      setResultKey(typeof data.key === 'string' ? data.key : null);
+      setPreviewSrc(resolvedUrl);
       setResultMime(typeof data.mimeType === 'string' ? data.mimeType : null);
       setSuccess('آپلود با موفقیت انجام شد');
     } catch (e) {
@@ -109,6 +115,8 @@ export default function UploadTestPage() {
                   const chosen = e.target.files?.[0] ?? null;
                   setFile(chosen);
                   setResultUrl(null);
+                  setResultKey(null);
+                  setPreviewSrc(null);
                   setResultMime(null);
                   setError(null);
                 }}
@@ -143,9 +151,22 @@ export default function UploadTestPage() {
                       <div className="text-sm font-semibold text-red-600">{previewError}</div>
                     ) : null}
                     <img
-                      src={resultUrl}
+                      src={previewSrc ?? resultUrl}
                       alt="preview"
-                      onError={() => setPreviewError('تصویر قابل نمایش نیست (ممکن است دسترسی/نوع فایل مشکل داشته باشد)')}
+                      onError={() => {
+                        const fallback =
+                          resultKey && (previewSrc ?? resultUrl) !== buildMediaUrl(resultKey)
+                            ? buildMediaUrl(resultKey)
+                            : null;
+                        if (fallback) {
+                          setPreviewSrc(fallback);
+                          setPreviewError(null);
+                          return;
+                        }
+                        setPreviewError(
+                          'تصویر قابل نمایش نیست (ممکن است دسترسی/نوع فایل مشکل داشته باشد)',
+                        );
+                      }}
                       className="max-h-72 w-full rounded-2xl border border-slate-200 bg-white object-contain"
                     />
                   </div>
