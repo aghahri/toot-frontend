@@ -8,44 +8,68 @@ import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { apiFetch, getApiBaseUrl, getErrorMessageFromResponse } from '@/lib/api';
 import { buildMediaUrl } from '@/lib/media';
+import Link from 'next/link';
 
+type FeedMedia = {
+  id: string;
+  url: string;
+  type: string;
+  mimeType?: string;
+  originalName?: string | null;
+  size?: number;
+  createdAt?: string;
+};
+
+type FeedPost = {
+  id: string;
+  userId: string;
+  text: string;
+  mediaUrl: string | null;
+  createdAt: string;
+  user: { id: string; name: string; avatar: string | null };
+  media: FeedMedia[];
+};
+type SelectedPreview = {
+  id: string;
+  file: File;
+  previewUrl: string;
+};
 export default function HomePage() {
   const token = useMemo(() => getAccessToken(), []);
 
   const [text, setText] = useState('');
-  const [file, setFile] = useState<File | null>(null);
+  const [files, setFiles] = useState<File[]>([]);
+  const [previews, setPreviews] = useState<SelectedPreview[]>([]);  
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const [posts, setPosts] = useState<
-    Array<{
-      id: string;
-      userId: string;
-      text: string;
-      mediaUrl: string | null;
-      createdAt: string;
-      user: { id: string; name: string; avatar: string | null };
-    }>
-  >([]);
+  const [posts, setPosts] = useState<FeedPost[]>([]);
   const [loadingFeed, setLoadingFeed] = useState(true);
   const abortRef = useRef<AbortController | null>(null);
 
-  async function loadFeed() {
+useEffect(() => {
+  const nextPreviews = files.map((file, index) => ({
+    id: `${file.name}-${file.size}-${index}`,
+    file,
+    previewUrl: URL.createObjectURL(file),
+  }));
+
+  setPreviews(nextPreviews);
+
+  return () => {
+    nextPreviews.forEach((item) => URL.revokeObjectURL(item.previewUrl));
+  };
+}, [files]);  
+async function loadFeed() {
     const t = getAccessToken();
     if (!t) return;
     setLoadingFeed(true);
     setError(null);
     try {
-      const data = await apiFetch<
-        Array<{
-          id: string;
-          userId: string;
-          text: string;
-          mediaUrl: string | null;
-          createdAt: string;
-          user: { id: string; name: string; avatar: string | null };
-        }>
-      >('posts/feed', { method: 'GET', token: t });
+      const data = await apiFetch<FeedPost[]>('posts/feed', {
+        method: 'GET',
+        token: t,
+      });
       setPosts(data);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'خطا در دریافت فید');
@@ -62,44 +86,80 @@ export default function HomePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  async function uploadOptionalImage(t: string): Promise<string | null> {
-    if (!file) return null;
-
-    const maxBytes = 20 * 1024 * 1024;
-    if (file.size > maxBytes) {
-      throw new Error('حجم فایل از 20MB بیشتر است');
-    }
-
-    const mime = file.type || '';
-    if (!mime.startsWith('image/')) {
-      throw new Error('فقط تصویر مجاز است');
-    }
-
-    const form = new FormData();
-    form.append('file', file);
-
-    abortRef.current?.abort();
-    abortRef.current = new AbortController();
+  async function uploadSelectedMedia(
+    t: string,
+  ): Promise<Array<{ id: string; url: string; type: string; mimeType: string }>> {
+    if (files.length === 0) return [];
 
     const uploadUrl = `${getApiBaseUrl().replace(/\/+$/, '')}/media/upload`;
-    const res = await fetch(uploadUrl, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${t}` },
-      body: form,
-      signal: abortRef.current.signal,
-    });
+    const uploaded: Array<{ id: string; url: string; type: string; mimeType: string }> = [];
 
-    if (!res.ok) {
-      const message = await getErrorMessageFromResponse(res);
-      throw new Error(message);
+    for (const file of files) {
+      const isVideo = file.type.startsWith('video/');
+      const maxBytes = isVideo ? 100 * 1024 * 1024 : 20 * 1024 * 1024;
+
+      if (file.size > maxBytes) {
+        throw new Error(
+          isVideo
+            ? `حجم ویدیو ${file.name} از 100MB بیشتر است`
+            : `حجم فایل ${file.name} از 20MB بیشتر است`,
+        );
+      }
+
+      const mime = file.type || '';
+      const allowed = mime.startsWith('image/') || mime.startsWith('video/');
+      if (!allowed) {
+        throw new Error(`فرمت فایل ${file.name} مجاز نیست`);
+      }
+
+      const form = new FormData();
+      form.append('file', file);
+
+
+      const res = await fetch(uploadUrl, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${t}` },
+        body: form,
+      });
+
+      if (!res.ok) {
+        const message = await getErrorMessageFromResponse(res);
+        throw new Error(message);
+      }
+
+      const data = (await res.json()) as {
+        url?: string;
+        key?: string;
+        media?: {
+          id: string;
+          url: string;
+          type: string;
+          mimeType: string;
+        };
+      };
+
+      const resolvedUrl = data.key ? buildMediaUrl(data.key) : data.url ?? null;
+      const mediaId = data.media?.id;
+      const mediaType = data.media?.type ?? 'FILE';
+      const mimeType = data.media?.mimeType ?? '';
+
+      if (!resolvedUrl || !mediaId) {
+        throw new Error('Media upload response is incomplete');
+      }
+
+      uploaded.push({
+        id: mediaId,
+        url: resolvedUrl,
+        type: mediaType,
+        mimeType,
+      });
     }
 
-    const data = (await res.json()) as { url?: string; key?: string; mimeType?: string };
-    const resolvedUrl = data.url ?? (data.key ? buildMediaUrl(data.key) : null);
-    if (!resolvedUrl) throw new Error('Media URL missing from API response');
-    return resolvedUrl;
+    return uploaded;
   }
-
+function removeSelectedFile(indexToRemove: number) {
+  setFiles((prev) => prev.filter((_, index) => index !== indexToRemove));
+}
   async function onCreatePost(e: FormEvent) {
     e.preventDefault();
     const t = getAccessToken();
@@ -108,23 +168,23 @@ export default function HomePage() {
     setSubmitting(true);
     setError(null);
     try {
-      const mediaUrl = await uploadOptionalImage(t);
-      const created = await apiFetch<{
-        id: string;
-        userId: string;
-        text: string;
-        mediaUrl: string | null;
-        createdAt: string;
-        user: { id: string; name: string; avatar: string | null };
-      }>('posts', {
+      const uploadedMedia = await uploadSelectedMedia(t);
+      const mediaIds = uploadedMedia.map((m) => m.id);
+      const fallbackMediaUrl = uploadedMedia[0]?.url ?? null;
+
+      const created = await apiFetch<FeedPost>('posts', {
         method: 'POST',
         token: t,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text, mediaUrl }),
+        body: JSON.stringify({
+          text,
+          mediaUrl: fallbackMediaUrl,
+          mediaIds,
+        }),
       });
 
       setText('');
-      setFile(null);
+      setFiles([]);
       setPosts((prev) => [created, ...prev]);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'خطا در ایجاد پست');
@@ -136,15 +196,21 @@ export default function HomePage() {
   return (
     <AuthGate>
       <main className="mx-auto w-full max-w-md p-4">
-        <div className="mb-4">
-          <h1 className="text-2xl font-extrabold">خانه</h1>
-          <p className="mt-1 text-sm text-slate-700">به پنل اصلی خوش آمدید.</p>
-        </div>
+<div className="mb-4 flex items-center justify-between gap-3">
+  <div>
+    <h1 className="text-2xl font-extrabold">خانه</h1>
+    <p className="mt-1 text-sm text-slate-700">به پنل اصلی خوش آمدید.</p>
+  </div>
 
+  <Link href="/direct" className="text-sm font-semibold text-slate-700 underline">
+    پیام خصوصی
+  </Link>
+</div>
         <div className="space-y-4">
           <Card>
             <form onSubmit={onCreatePost} className="space-y-3">
               <div className="text-sm font-semibold text-slate-800">ایجاد پست</div>
+
               <textarea
                 value={text}
                 onChange={(e) => setText(e.target.value)}
@@ -155,22 +221,63 @@ export default function HomePage() {
               />
 
               <label className="block">
-                <div className="mb-2 text-xs font-semibold text-slate-700">تصویر (اختیاری)</div>
+                <div className="mb-2 text-xs font-semibold text-slate-700">
+                  عکس / ویدیو (اختیاری)
+                </div>
                 <input
                   type="file"
-                  accept="image/*"
+                  accept="image/*,video/*"
+                  multiple
                   disabled={submitting}
-                  onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+                  onChange={(e) => setFiles(Array.from(e.target.files ?? []))}
                   className="w-full rounded-xl border border-slate-200 bg-white p-2 text-sm"
                 />
               </label>
 
-              {file ? (
-                <div className="text-xs text-slate-600">
-                  فایل انتخاب شده: <span className="font-semibold">{file.name}</span>
-                </div>
-              ) : null}
+{previews.length > 0 ? (
+  <div className="space-y-3">
+    <div className="text-xs font-semibold text-slate-700">پیش‌نمایش فایل‌ها</div>
 
+    <div className="grid grid-cols-2 gap-3">
+      {previews.map((item, index) => {
+        const isVideo = item.file.type.startsWith('video/');
+
+        return (
+          <div
+            key={item.id}
+            className="overflow-hidden rounded-2xl border border-slate-200 bg-white p-2"
+          >
+            <div className="mb-2 text-[11px] text-slate-600 break-all">
+              {item.file.name}
+            </div>
+
+            {isVideo ? (
+              <video
+                src={item.previewUrl}
+                controls
+                className="h-40 w-full rounded-xl bg-black object-cover"
+              />
+            ) : (
+              <img
+                src={item.previewUrl}
+                alt={item.file.name}
+                className="h-40 w-full rounded-xl object-cover"
+              />
+            )}
+
+            <button
+              type="button"
+              onClick={() => removeSelectedFile(index)}
+              className="mt-2 w-full rounded-xl border border-red-200 px-3 py-2 text-xs font-semibold text-red-600"
+            >
+              حذف این فایل
+            </button>
+          </div>
+        );
+      })}
+    </div>
+  </div>
+) : null}
               {error ? <div className="text-sm font-semibold text-red-600">{error}</div> : null}
 
               <Button type="submit" loading={submitting}>
@@ -223,7 +330,27 @@ export default function HomePage() {
                       <div className="whitespace-pre-wrap text-sm text-slate-800">{p.text}</div>
                     ) : null}
 
-                    {p.mediaUrl ? (
+                    {p.media && p.media.length > 0 ? (
+                      <div className="grid grid-cols-1 gap-3">
+                        {p.media.map((m) =>
+                          m.type === 'VIDEO' || m.mimeType?.startsWith('video/') ? (
+                            <video
+                              key={m.id}
+                              src={m.url}
+                              controls
+                              className="max-h-96 w-full rounded-2xl border border-slate-200 bg-black"
+                            />
+                          ) : (
+                            <img
+                              key={m.id}
+                              src={m.url}
+                              alt={m.originalName || 'post media'}
+                              className="max-h-80 w-full rounded-2xl border border-slate-200 bg-white object-contain"
+                            />
+                          ),
+                        )}
+                      </div>
+                    ) : p.mediaUrl ? (
                       <img
                         src={p.mediaUrl}
                         alt="post media"
@@ -240,4 +367,3 @@ export default function HomePage() {
     </AuthGate>
   );
 }
-
