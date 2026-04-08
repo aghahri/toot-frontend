@@ -1,40 +1,103 @@
 'use client';
 
-import { FormEvent, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { AuthGate } from '@/components/AuthGate';
 import { getAccessToken } from '@/lib/auth';
-import { apiFetch, getApiBaseUrl } from '@/lib/api';
+import { apiFetch, getApiBaseUrl, getErrorMessageFromResponse } from '@/lib/api';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { io } from 'socket.io-client';
+import { FormEvent, useEffect, useRef, useState } from 'react';
+
+type MessageMedia = {
+  id: string;
+  type: string;
+  url: string;
+  mimeType: string;
+  originalName: string | null;
+  size: number;
+  createdAt: string;
+};
 
 type Message = {
   id: string;
   conversationId: string;
   senderId: string;
   text: string;
+  mediaId: string | null;
+  deliveredAt?: string | null;
+  seenAt?: string | null;
   createdAt: string;
   sender: {
     id: string;
     name: string;
     avatar: string | null;
   };
+  media?: MessageMedia | null;
+pending?: boolean;
 };
 
 export default function DirectConversationPage() {
   const params = useParams();
   const conversationId = Array.isArray(params?.id) ? params.id[0] : params?.id ?? '';
-
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [text, setText] = useState('');
+  const [file, setFile] = useState<File | null>(null);
   const [myUserId, setMyUserId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const bottomRef = useRef<HTMLDivElement | null>(null);
+  const [uploadProgress, setUploadProgress] = useState<number | null>(null);
+  const [otherTyping, setOtherTyping] = useState(false);
+  const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+const socketRef = useRef<ReturnType<typeof io> | null>(null);
+useEffect(() => {
+  if (!file) {
+    setPreviewUrl(null);
+    return;
+  }
 
-  async function loadMessages() {
+  const objectUrl = URL.createObjectURL(file);
+  setPreviewUrl(objectUrl);
+
+  return () => {
+    URL.revokeObjectURL(objectUrl);
+  };
+}, [file]);
+
+function renderMessageStatus(msg: Message, mine: boolean) {
+  if (!mine || msg.pending) return null;
+
+  if (msg.seenAt) {
+    return <span className="text-sky-400">✓✓</span>;
+  }
+
+  if (msg.deliveredAt) {
+    return <span className="text-slate-400">✓✓</span>;
+  }
+
+  return <span className="text-slate-400">✓</span>;
+}
+function clearSelectedFile() {
+  setFile(null);
+  setPreviewUrl(null);
+}
+function scrollToBottom() {
+  requestAnimationFrame(() => {
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+  });
+}
+useEffect(() => {
+  if (loading) return;
+  if (messages.length === 0) return;
+
+  scrollToBottom();
+}, [loading, messages.length, otherTyping]);
+
+async function loadMessages() {
     const token = getAccessToken();
     if (!token || !conversationId) return;
 
@@ -57,7 +120,15 @@ export default function DirectConversationPage() {
       );
 
       setMessages(data);
-    } catch (e) {
+await apiFetch(`direct/conversations/${conversationId}/seen`, {
+  method: 'POST',
+  token,
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({}),
+});    
+
+
+} catch (e) {
       setError(e instanceof Error ? e.message : 'خطا در دریافت پیام‌ها');
     } finally {
       setLoading(false);
@@ -69,34 +140,188 @@ export default function DirectConversationPage() {
     loadMessages();
   }, [conversationId]);
 
-  useEffect(() => {
-    const token = getAccessToken();
-    if (!token || !conversationId) return;
+useEffect(() => {
+  const token = getAccessToken();
+  if (!token || !conversationId) return;
 
-    const socket = io(getApiBaseUrl().replace(/\/+$/, ''), {
-      transports: ['websocket'],
-      auth: { token },
-    });
+  const socket = io(getApiBaseUrl().replace(/\/+$/, ''), {
+    transports: ['websocket'],
+    auth: { token },
+  });
 
-    socket.on('connect', () => {
-      socket.emit('join_direct', { conversationId });
-    });
+  socketRef.current = socket;
 
-    socket.on('direct_message', (message: Message) => {
-      if (message.conversationId !== conversationId) return;
+  socket.on('connect', () => {
+    socket.emit('join_direct', { conversationId });
+  });
 
-      setMessages((prev) => {
-        const exists = prev.some((m) => m.id === message.id);
-        if (exists) return prev;
-        return [...prev, message];
+socket.on('direct_message', async (message: Message) => {
+  if (message.conversationId !== conversationId) return;
+
+  setMessages((prev) => {
+    const exists = prev.some((m) => m.id === message.id);
+    if (exists) return prev;
+    return [...prev, message];
+  });
+
+  // 👇 اینو اضافه کن (کلید حل مشکل)
+  if (message.senderId !== myUserId) {
+    try {
+      await apiFetch(`direct/conversations/${conversationId}/seen`, {
+        method: 'POST',
+        token,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
       });
-    });
+    } catch (e) {
+      console.error('seen error', e);
+    }
+  }
+});
+  socket.on(
+    'direct_typing',
+    (payload: { conversationId: string; userId: string; isTyping: boolean }) => {
+      if (payload.conversationId !== conversationId) return;
+      if (payload.userId === myUserId) return;
 
-    return () => {
-      socket.emit('leave_direct', { conversationId });
-      socket.disconnect();
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+        typingTimeoutRef.current = null;
+      }
+
+      if (payload.isTyping) {
+        setOtherTyping(true);
+
+        typingTimeoutRef.current = setTimeout(() => {
+          setOtherTyping(false);
+          typingTimeoutRef.current = null;
+        }, 1500);
+      } else {
+        setOtherTyping(false);
+      }
+    },
+  );
+socket.on(
+  'direct_message_delivered',
+  (payload: {
+    conversationId: string;
+    updates: Array<{ id: string; deliveredAt: string | null; seenAt: string | null }>;
+  }) => {
+    if (payload.conversationId !== conversationId) return;
+
+    setMessages((prev) =>
+      prev.map((m) => {
+        const update = payload.updates.find((u) => u.id === m.id);
+        return update
+          ? {
+              ...m,
+              deliveredAt: update.deliveredAt,
+              seenAt: update.seenAt,
+            }
+          : m;
+      }),
+    );
+  },
+);
+
+socket.on(
+  'direct_message_seen',
+  (payload: {
+    conversationId: string;
+    updates: Array<{ id: string; deliveredAt: string | null; seenAt: string | null }>;
+  }) => {
+    if (payload.conversationId !== conversationId) return;
+
+    setMessages((prev) =>
+      prev.map((m) => {
+        const update = payload.updates.find((u) => u.id === m.id);
+        return update
+          ? {
+              ...m,
+              deliveredAt: update.deliveredAt,
+              seenAt: update.seenAt,
+            }
+          : m;
+      }),
+    );
+  },
+);
+  return () => {
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current);
+      typingTimeoutRef.current = null;
+    }
+
+    socket.emit('leave_direct', { conversationId });
+socket.emit('direct_typing', {
+  conversationId,
+  isTyping: false,
+});
+
+    socket.disconnect();
+    socketRef.current = null;
+  };
+}, [conversationId, myUserId]);
+async function uploadSelectedFile(token: string): Promise<string | null> {
+  if (!file) return null;
+
+  const mime = file.type || '';
+  const isVideo = mime.startsWith('video/');
+  const isImage = mime.startsWith('image/');
+
+  if (!isImage && !isVideo) {
+    throw new Error('فقط عکس و ویدیو مجاز است');
+  }
+
+  const maxBytes = isVideo ? 100 * 1024 * 1024 : 20 * 1024 * 1024;
+  if (file.size > maxBytes) {
+    throw new Error(isVideo ? 'حجم ویدیو از 100MB بیشتر است' : 'حجم تصویر از 20MB بیشتر است');
+  }
+
+  const form = new FormData();
+  form.append('file', file);
+
+  const uploadUrl = `${getApiBaseUrl().replace(/\/+$/, '')}/media/upload`;
+
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+
+    xhr.open('POST', uploadUrl);
+    xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+
+    xhr.upload.onprogress = (event) => {
+      if (!event.lengthComputable) return;
+      const percent = Math.round((event.loaded / event.total) * 100);
+      setUploadProgress(percent);
     };
-  }, [conversationId]);
+
+    xhr.onload = () => {
+      try {
+        if (xhr.status < 200 || xhr.status >= 300) {
+          reject(new Error('خطا در آپلود فایل'));
+          return;
+        }
+
+        const data = JSON.parse(xhr.responseText) as {
+          media?: { id: string };
+        };
+
+        resolve(data.media?.id ?? null);
+      } catch {
+        reject(new Error('پاسخ آپلود معتبر نیست'));
+      }
+    };
+
+    xhr.onerror = () => {
+      reject(new Error('خطا در ارتباط هنگام آپلود'));  };
+
+    xhr.onabort = () => {
+      reject(new Error('آپلود لغو شد'));
+    };
+
+    xhr.send(form);
+  });
+}
 
   async function onSend(e: FormEvent) {
     e.preventDefault();
@@ -104,24 +329,38 @@ export default function DirectConversationPage() {
     if (!token) return;
 
     const trimmed = text.trim();
-    if (!trimmed) return;
+    if (!trimmed && !file) return;
 
-    setSending(true);
-    setError(null);
+	setSending(true);
+	setError(null);
+	setUploadProgress(file ? 0 : null);
 
-    try {
+      try {
+      const mediaId = await uploadSelectedFile(token);
+
       await apiFetch<Message>(`direct/conversations/${conversationId}/messages`, {
         method: 'POST',
         token,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: trimmed }),
+        body: JSON.stringify({
+          text: trimmed || undefined,
+          mediaId: mediaId || undefined,
+        }),
       });
 
-      setText('');
-    } catch (e) {
+    setText('');
+    setFile(null);
+    setPreviewUrl(null);
+socketRef.current?.emit('direct_typing', {
+  conversationId,
+  isTyping: false,
+});    
+} catch (e) {
       setError(e instanceof Error ? e.message : 'خطا در ارسال پیام');
     } finally {
       setSending(false);
+      setUploadProgress(null);
+    
     }
   }
 
@@ -161,54 +400,162 @@ export default function DirectConversationPage() {
               <div className="text-sm text-slate-700">هنوز پیامی در این گفتگو نیست.</div>
             </Card>
           ) : (
-            messages.map((msg) => {
-              const mine = msg.senderId === myUserId;
+            <>
+              {messages.map((msg) => {
+                const mine = msg.senderId === myUserId;
+                const media = msg.media;
 
-              return (
-                <div
-                  key={msg.id}
-                  className={`flex ${mine ? 'justify-end' : 'justify-start'}`}
-                >
+                return (
                   <div
-                    className={`max-w-[85%] rounded-2xl px-3 py-2 ${
-                      mine
-                        ? 'bg-slate-900 text-white'
-                        : 'border border-slate-200 bg-white text-slate-900'
-                    }`}
+                    key={msg.id}
+                    className={`flex ${mine ? 'justify-end' : 'justify-start'}`}
                   >
-                    <div className="mb-1 text-[11px] opacity-70">{msg.sender.name}</div>
-                    <div className="whitespace-pre-wrap text-sm">{msg.text}</div>
-                    <div className="mt-1 text-[10px] opacity-70">
-                      {new Date(msg.createdAt).toLocaleString('fa-IR')}
+                    <div
+                      className={`max-w-[85%] rounded-2xl px-3 py-2 ${
+                        mine
+                          ? 'bg-slate-900 text-white'
+                          : 'border border-slate-200 bg-white text-slate-900'
+                      }`}
+                    >
+                      <div className="mb-1 text-[11px] opacity-70">{msg.sender.name}</div>
+
+                      {media ? (
+                        media.type === 'VIDEO' || media.mimeType?.startsWith('video/') ? (
+                          <video
+                            src={media.url}
+                            controls
+                            className="mb-2 max-h-80 w-full rounded-xl bg-black"
+                          />
+                        ) : (
+                          <img
+                            src={media.url}
+                            alt={media.originalName || 'message media'}
+                            className="mb-2 max-h-80 w-full rounded-xl bg-white object-contain"
+                          />
+                        )
+                      ) : null}
+
+                      {msg.text ? (
+                        <div className="whitespace-pre-wrap text-sm">{msg.text}</div>
+                      ) : null}
+
+			<div className="mt-1 flex items-center gap-2 text-[10px] opacity-70">
+  			<span>{new Date(msg.createdAt).toLocaleString('fa-IR')}</span>
+  			{renderMessageStatus(msg, mine)}
+			</div>
                     </div>
                   </div>
-                </div>
-              );
-            })
+                );
+              })}
+
+{otherTyping ? (
+  <div className="flex justify-start">
+    <div className="max-w-[85%] rounded-2xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-500">
+      طرف مقابل در حال تایپ است...
+    </div>
+  </div>
+) : null}
+
+              <div ref={bottomRef} />
+            </>
           )}
         </div>
-
         <div className="mt-4">
           <Card>
             <form onSubmit={onSend} className="space-y-3">
               <div className="text-sm font-semibold text-slate-800">ارسال پیام</div>
 
-              <textarea
-                value={text}
-                onChange={(e) => setText(e.target.value)}
+
+<textarea
+  value={text}
+  onChange={(e) => {
+    const value = e.target.value;
+    setText(value);
+
+    socketRef.current?.emit('direct_typing', {
+      conversationId,
+      isTyping: value.trim().length > 0,
+    });
+  }}
+  onBlur={() => {
+    socketRef.current?.emit('direct_typing', {
+      conversationId,
+      isTyping: false,
+    });
+  }}
+
                 placeholder="پیام خود را بنویسید..."
                 rows={3}
                 disabled={sending}
                 className="w-full resize-none rounded-xl border border-slate-200 bg-white p-3 text-sm outline-none focus:border-slate-400"
               />
 
-              <Button type="submit" loading={sending}>
-                {sending ? 'در حال ارسال...' : 'ارسال'}
-              </Button>
-            </form>
+              <label className="block">
+                <div className="mb-2 text-xs font-semibold text-slate-700">
+                  عکس / ویدیو (اختیاری)
+                </div>
+                <input
+                  type="file"
+                  accept="image/*,video/*"
+                  disabled={sending}
+                  onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+                  className="w-full rounded-xl border border-slate-200 bg-white p-2 text-sm"
+                />
+              </label>
+
+{file ? (
+  <div className="space-y-3">
+    <div className="text-xs text-slate-600">
+      فایل انتخاب شده: <span className="font-semibold">{file.name}</span>
+    </div>
+
+    {previewUrl ? (
+      file.type.startsWith('video/') ? (
+        <video
+          src={previewUrl}
+          controls
+          className="max-h-72 w-full rounded-2xl border border-slate-200 bg-black"
+        />
+      ) : (
+        <img
+          src={previewUrl}
+          alt={file.name}
+          className="max-h-72 w-full rounded-2xl border border-slate-200 bg-white object-contain"
+        />
+      )
+    ) : null}
+
+    <button
+      type="button"
+      onClick={clearSelectedFile}
+      className="rounded-xl border border-red-200 px-3 py-2 text-xs font-semibold text-red-600"
+    >
+      حذف فایل انتخاب‌شده
+    </button>
+  </div>
+) : null}
+
+{uploadProgress !== null ? (
+  <div className="space-y-2">
+    <div className="text-xs font-semibold text-slate-700">
+      در حال آپلود: {uploadProgress}%
+    </div>
+    <div className="h-2 w-full overflow-hidden rounded-full bg-slate-200">
+      <div
+        className="h-full rounded-full bg-slate-900 transition-all"
+        style={{ width: `${uploadProgress}%` }}
+      />
+    </div>
+  </div>
+) : null}
+
+<Button type="submit" loading={sending}>
+  {sending ? 'در حال ارسال...' : 'ارسال'}
+</Button>            </form>
           </Card>
         </div>
       </main>
     </AuthGate>
   );
 }
+
