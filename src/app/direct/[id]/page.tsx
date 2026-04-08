@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation';
 import { AuthGate } from '@/components/AuthGate';
 import { getAccessToken } from '@/lib/auth';
 import { apiFetch, getApiBaseUrl, getErrorMessageFromResponse } from '@/lib/api';
+import { markDirectConversationRead } from '@/lib/mark-direct-read';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { io } from 'socket.io-client';
@@ -138,6 +139,25 @@ await apiFetch(`direct/conversations/${conversationId}/seen`, {
   useEffect(() => {
     if (!conversationId) return;
     loadMessages();
+  }, [conversationId]);
+
+  useEffect(() => {
+    if (!conversationId) return;
+
+    const markRead = () => {
+      const token = getAccessToken();
+      if (!token) return;
+      void markDirectConversationRead(token, conversationId).catch(() => {});
+    };
+
+    markRead();
+
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') markRead();
+    };
+
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => document.removeEventListener('visibilitychange', onVisibility);
   }, [conversationId]);
 
 useEffect(() => {
