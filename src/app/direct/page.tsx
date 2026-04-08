@@ -26,6 +26,10 @@ type Conversation = {
     };
   }>;
   messages: Array<DirectConversationRowMessage>;
+  /** Present when the API returns direct unread metadata. */
+  unreadCount?: number;
+  lastMessage?: DirectConversationRowMessage;
+  lastActivityAt?: string;
 };
 
 function ConversationListSkeleton() {
@@ -182,11 +186,14 @@ export default function DirectPage() {
                 item.participants.find((p) => p.user.id !== myUserId)?.user ??
                 item.participants[0]?.user;
 
-              const lastMessage = item.messages[0];
+              const lastMessage = item.lastMessage ?? item.messages[0];
               const preview = lastMessage?.text?.trim()
                 ? lastMessage.text
                 : 'هنوز پیامی ارسال نشده';
-              const previewTimeIso = lastMessage?.createdAt ?? item.updatedAt;
+              const previewTimeIso =
+                lastMessage?.createdAt ?? item.lastActivityAt ?? item.updatedAt;
+              const unreadCount =
+                typeof item.unreadCount === 'number' ? item.unreadCount : 0;
 
               return (
                 <DirectConversationRow
@@ -199,6 +206,7 @@ export default function DirectPage() {
                   previewTimeIso={previewTimeIso}
                   myUserId={myUserId}
                   lastMessage={lastMessage}
+                  unreadCount={unreadCount}
                 />
               );
             })

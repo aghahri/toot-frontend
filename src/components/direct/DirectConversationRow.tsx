@@ -58,6 +58,8 @@ type Props = {
   previewTimeIso: string | null;
   myUserId: string | null;
   lastMessage: DirectConversationRowMessage | undefined;
+  /** From GET direct/conversations when the API includes unread metadata. */
+  unreadCount?: number;
 };
 
 export function DirectConversationRow({
@@ -69,10 +71,12 @@ export function DirectConversationRow({
   previewTimeIso,
   myUserId,
   lastMessage,
+  unreadCount = 0,
 }: Props) {
   const label = peerName || 'کاربر';
   const timeLabel = previewTimeIso ? formatShortTime(previewTimeIso) : '';
   const outgoing = !!(lastMessage && myUserId && lastMessage.sender.id === myUserId);
+  const unread = typeof unreadCount === 'number' && unreadCount > 0 ? unreadCount : 0;
 
   return (
     <Link
@@ -93,14 +97,24 @@ export function DirectConversationRow({
         <div className="min-w-0 flex-1">
           <div className="flex items-baseline justify-between gap-2">
             <div className="min-w-0 truncate text-base font-extrabold text-slate-900">{label}</div>
-            {timeLabel ? (
-              <time
-                dateTime={previewTimeIso ?? undefined}
-                className="shrink-0 text-[11px] font-medium text-slate-500 tabular-nums"
-              >
-                {timeLabel}
-              </time>
-            ) : null}
+            <div className="flex shrink-0 items-center gap-1.5">
+              {unread > 0 ? (
+                <span
+                  className="inline-flex min-h-[1.25rem] min-w-[1.25rem] items-center justify-center rounded-full bg-sky-600 px-1.5 text-[10px] font-extrabold text-white tabular-nums"
+                  aria-label={`${unread} پیام خوانده‌نشده`}
+                >
+                  {unread > 99 ? '99+' : unread}
+                </span>
+              ) : null}
+              {timeLabel ? (
+                <time
+                  dateTime={previewTimeIso ?? undefined}
+                  className="text-[11px] font-medium text-slate-500 tabular-nums"
+                >
+                  {timeLabel}
+                </time>
+              ) : null}
+            </div>
           </div>
           <div className="mt-0.5 truncate text-[11px] text-slate-400" title={peerId}>
             {peerId}
