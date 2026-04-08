@@ -2,6 +2,7 @@ import './globals.css';
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
 import { Navbar } from '@/components/Navbar';
+import { AppShell } from '@/components/AppShell';
 
 export const metadata: Metadata = {
   title: 'Toot',
@@ -14,7 +15,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
       <body>
         <div className="min-h-screen">
           <Navbar />
-          {children}
+          <AppShell>{children}</AppShell>
         </div>
       </body>
     </html>
