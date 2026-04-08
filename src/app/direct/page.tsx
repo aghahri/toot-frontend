@@ -7,6 +7,10 @@ import { getAccessToken } from '@/lib/auth';
 import { apiFetch } from '@/lib/api';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
+import {
+  DirectConversationRow,
+  type DirectConversationRowMessage,
+} from '@/components/direct/DirectConversationRow';
 
 type Conversation = {
   id: string;
@@ -21,17 +25,18 @@ type Conversation = {
       avatar: string | null;
     };
   }>;
-  messages: Array<{
-    id: string;
-    text: string;
-    createdAt: string;
-    sender: {
-      id: string;
-      name: string;
-      avatar: string | null;
-    };
-  }>;
+  messages: Array<DirectConversationRowMessage>;
 };
+
+function ConversationListSkeleton() {
+  return (
+    <div className="space-y-2" aria-hidden>
+      {[0, 1, 2].map((i) => (
+        <div key={i} className="h-[5.25rem] animate-pulse rounded-2xl bg-slate-100/90" />
+      ))}
+    </div>
+  );
+}
 
 export default function DirectPage() {
   const [items, setItems] = useState<Conversation[]>([]);
@@ -100,14 +105,17 @@ export default function DirectPage() {
 
   return (
     <AuthGate>
-      <main className="mx-auto w-full max-w-md p-4">
-        <div className="mb-4 flex items-center justify-between gap-3">
+      <main className="mx-auto w-full max-w-md px-4 pb-4 pt-3">
+        <div className="mb-5 flex items-start justify-between gap-3">
           <div>
-            <h1 className="text-2xl font-extrabold">پیام خصوصی</h1>
-            <p className="mt-1 text-sm text-slate-700">گفتگوهای مستقیم شما</p>
+            <h1 className="text-2xl font-extrabold tracking-tight text-slate-900">پیام خصوصی</h1>
+            <p className="mt-1 text-sm leading-relaxed text-slate-600">گفتگوهای مستقیم شما</p>
           </div>
 
-          <Link href="/home" className="text-sm font-semibold text-slate-700 underline">
+          <Link
+            href="/home"
+            className="shrink-0 rounded-xl px-2 py-1.5 text-sm font-semibold text-slate-700 underline-offset-4 hover:underline"
+          >
             خانه
           </Link>
         </div>
@@ -120,7 +128,7 @@ export default function DirectPage() {
               value={otherUserId}
               onChange={(e) => setOtherUserId(e.target.value)}
               placeholder="otherUserId"
-              className="w-full rounded-xl border border-slate-200 bg-white p-3 text-sm outline-none focus:border-slate-400"
+              className="w-full rounded-xl border border-slate-200 bg-white p-3.5 text-sm outline-none transition-colors focus:border-slate-400"
             />
 
             <Button type="button" onClick={createConversation}>
@@ -128,35 +136,46 @@ export default function DirectPage() {
             </Button>
 
             {myUserId ? (
-              <div className="break-all text-[11px] text-slate-500">شناسه شما: {myUserId}</div>
+              <div className="break-all text-[11px] leading-relaxed text-slate-500">
+                شناسه شما: {myUserId}
+              </div>
             ) : null}
           </div>
         </Card>
 
-        <div className="mt-4 flex items-center justify-between">
-          <div className="text-sm font-semibold">لیست گفتگوها</div>
+        <div className="mt-6 flex items-center justify-between gap-2">
+          <h2 className="text-base font-extrabold text-slate-900">گفتگوها</h2>
           <button
             type="button"
             onClick={loadMeAndConversations}
-            className="text-xs font-semibold text-slate-700 underline"
+            disabled={loading}
+            className="rounded-lg px-2 py-1 text-xs font-semibold text-slate-700 underline-offset-4 hover:underline disabled:opacity-50"
           >
-            رفرش
+            {loading ? '…' : 'رفرش'}
           </button>
         </div>
 
-        <div className="mt-3 space-y-3">
+        <div className="mt-3 space-y-2">
           {loading ? (
-            <Card>
-              <div className="text-sm text-slate-700">در حال دریافت گفتگوها...</div>
-            </Card>
+            <ConversationListSkeleton />
           ) : error ? (
-            <Card>
-              <div className="text-sm font-semibold text-red-600">{error}</div>
-            </Card>
+            <div className="rounded-2xl border border-red-100 bg-red-50/90 px-4 py-4">
+              <p className="text-sm font-semibold text-red-800">{error}</p>
+              <button
+                type="button"
+                onClick={loadMeAndConversations}
+                className="mt-3 text-xs font-semibold text-red-900 underline"
+              >
+                تلاش دوباره
+              </button>
+            </div>
           ) : items.length === 0 ? (
-            <Card>
-              <div className="text-sm text-slate-700">هنوز گفتگوی خصوصی ندارید.</div>
-            </Card>
+            <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50/90 px-4 py-10 text-center">
+              <p className="text-base font-extrabold text-slate-900">هنوز گفتگویی ندارید</p>
+              <p className="mx-auto mt-2 max-w-[18rem] text-sm leading-relaxed text-slate-600">
+                با وارد کردن شناسه کاربر بالا، اولین گفتگو را بسازید. لیست اینجا به‌مرور پر می‌شود.
+              </p>
+            </div>
           ) : (
             items.map((item) => {
               const other =
@@ -164,32 +183,23 @@ export default function DirectPage() {
                 item.participants[0]?.user;
 
               const lastMessage = item.messages[0];
+              const preview = lastMessage?.text?.trim()
+                ? lastMessage.text
+                : 'هنوز پیامی ارسال نشده';
+              const previewTimeIso = lastMessage?.createdAt ?? item.updatedAt;
 
               return (
-                <Link key={item.id} href={`/direct/${item.id}`} className="block">
-                  <Card>
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between gap-3">
-                        <div className="min-w-0">
-                          <div className="truncate text-sm font-extrabold text-slate-900">
-                            {other?.name ?? 'کاربر'}
-                          </div>
-                          <div className="truncate text-[11px] text-slate-500">
-                            {other?.id ?? '-'}
-                          </div>
-                        </div>
-
-                        <div className="text-[11px] text-slate-500">
-                          {new Date(item.updatedAt).toLocaleString('fa-IR')}
-                        </div>
-                      </div>
-
-                      <div className="truncate text-sm text-slate-700">
-                        {lastMessage?.text ?? 'هنوز پیامی ارسال نشده'}
-                      </div>
-                    </div>
-                  </Card>
-                </Link>
+                <DirectConversationRow
+                  key={item.id}
+                  href={`/direct/${item.id}`}
+                  peerName={other?.name ?? 'کاربر'}
+                  peerAvatarUrl={other?.avatar ?? null}
+                  peerId={other?.id ?? '-'}
+                  preview={preview}
+                  previewTimeIso={previewTimeIso}
+                  myUserId={myUserId}
+                  lastMessage={lastMessage}
+                />
               );
             })
           )}
