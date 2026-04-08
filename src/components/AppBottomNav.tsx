@@ -15,10 +15,10 @@ export function AppBottomNav() {
 
   return (
     <nav
-      className="fixed bottom-0 left-0 right-0 z-20 border-t border-slate-200 bg-white/95 backdrop-blur-md"
+      className="fixed bottom-0 left-0 right-0 z-20 border-t border-slate-200 bg-white/95 shadow-[0_-4px_24px_-8px_rgba(15,23,42,0.12)] backdrop-blur-md"
       aria-label="ناوبری اصلی"
     >
-      <div className="mx-auto flex max-w-md items-stretch justify-around gap-1 px-2 pb-[env(safe-area-inset-bottom,0px)] pt-2">
+      <div className="mx-auto flex max-w-md items-stretch justify-around gap-1.5 px-3 pb-[max(0.5rem,env(safe-area-inset-bottom,0px))] pt-2.5">
         {tabs.map((tab) => {
           const active = tab.match(pathname);
           return (
@@ -26,7 +26,7 @@ export function AppBottomNav() {
               key={tab.href}
               href={tab.href}
               className={[
-                'flex min-h-[3rem] min-w-0 flex-1 flex-col items-center justify-center rounded-xl px-1 py-1 text-center text-xs font-semibold transition-colors',
+                'flex min-h-[3.25rem] min-w-0 flex-1 flex-col items-center justify-center rounded-xl px-1.5 py-1.5 text-center text-xs font-semibold transition-colors',
                 active
                   ? 'bg-slate-900 text-white'
                   : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900',
