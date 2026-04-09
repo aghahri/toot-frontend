@@ -39,6 +39,22 @@ type ReplyToSummary = {
 
 const DIRECT_OLDER_PAGE_SIZE = 30;
 
+function formatLastSeenFa(iso: string | null): string {
+  if (!iso) return '';
+  const d = new Date(iso);
+  const t = d.getTime();
+  if (Number.isNaN(t)) return '';
+  const sec = Math.round((Date.now() - t) / 1000);
+  if (sec < 45) return 'همین الان';
+  const min = Math.floor(sec / 60);
+  if (min < 60) return `${min} دقیقه پیش`;
+  const hr = Math.floor(min / 60);
+  if (hr < 24) return `${hr} ساعت پیش`;
+  const day = Math.floor(hr / 24);
+  if (day < 7) return `${day} روز پیش`;
+  return d.toLocaleDateString('fa-IR', { dateStyle: 'medium' });
+}
+
 type Message = {
   id: string;
   conversationId: string;
@@ -145,6 +161,10 @@ export default function DirectConversationPage() {
   const [loadingOlder, setLoadingOlder] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
   const [otherTyping, setOtherTyping] = useState(false);
+  const [peerPresence, setPeerPresence] = useState<{
+    online: boolean;
+    lastSeenAt: string | null;
+  }>({ online: false, lastSeenAt: null });
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [replyDraft, setReplyDraft] = useState<{
     id: string;
@@ -170,6 +190,23 @@ export default function DirectConversationPage() {
     if (!t) return '?';
     return t.slice(0, 1);
   }, [peerDisplay.name]);
+
+  const headerStatusLine = useMemo(() => {
+    if (otherTyping) {
+      return { text: 'در حال تایپ…', className: 'font-semibold text-emerald-600' };
+    }
+    if (peerPresence.online) {
+      return { text: 'آنلاین', className: 'font-semibold text-emerald-600' };
+    }
+    if (peerPresence.lastSeenAt) {
+      return {
+        text: `آخرین بازدید ${formatLastSeenFa(peerPresence.lastSeenAt)}`,
+        className: 'text-stone-500',
+      };
+    }
+    return { text: 'گفتگوی خصوصی', className: 'text-stone-500' };
+  }, [otherTyping, peerPresence]);
+
 useEffect(() => {
   if (!file) {
     setPreviewUrl(null);
@@ -467,12 +504,30 @@ useEffect(() => {
   const token = getAccessToken();
   if (!token || !conversationId) return;
 
+  setPeerPresence({ online: false, lastSeenAt: null });
+
   const socket = io(getApiBaseUrl().replace(/\/+$/, ''), {
     transports: ['websocket'],
     auth: { token },
   });
 
   socketRef.current = socket;
+
+  const onDirectPresence = (payload: {
+    conversationId: string;
+    userId: string;
+    online: boolean;
+    lastSeenAt: string | null;
+  }) => {
+    if (payload.conversationId !== conversationId) return;
+    if (myUserId && payload.userId === myUserId) return;
+    setPeerPresence({
+      online: payload.online,
+      lastSeenAt: payload.lastSeenAt,
+    });
+  };
+
+  socket.on('direct_presence', onDirectPresence);
 
   socket.on('connect', () => {
     socket.emit('join_direct', { conversationId });
@@ -658,6 +713,7 @@ socket.on(
       typingTimeoutRef.current = null;
     }
 
+    socket.off('direct_presence', onDirectPresence);
     socket.off('direct_message_edited');
     socket.off('direct_message_deleted');
 
@@ -869,10 +925,8 @@ socketRef.current?.emit('direct_typing', {
               <h1 className="truncate text-[16px] font-bold leading-tight text-stone-900">
                 {peerDisplay.name}
               </h1>
-              <p
-                className={`mt-0.5 truncate text-[11px] ${otherTyping ? 'font-semibold text-emerald-600' : 'text-stone-500'}`}
-              >
-                {otherTyping ? 'در حال تایپ…' : 'گفتگوی خصوصی'}
+              <p className={`mt-0.5 truncate text-[11px] ${headerStatusLine.className}`}>
+                {headerStatusLine.text}
               </p>
             </div>
 

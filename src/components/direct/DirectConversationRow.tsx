@@ -61,6 +61,8 @@ type Props = {
   lastMessage: DirectConversationRowMessage | undefined;
   /** From GET direct/conversations when the API includes unread metadata. */
   unreadCount?: number;
+  /** In-memory online flag from server; list may be stale until refresh. */
+  peerOnline?: boolean;
 };
 
 export function DirectConversationRow({
@@ -73,6 +75,7 @@ export function DirectConversationRow({
   myUserId,
   lastMessage,
   unreadCount = 0,
+  peerOnline = false,
 }: Props) {
   const label = peerName || 'کاربر';
   const timeLabel = previewTimeIso ? formatShortTime(previewTimeIso) : '';
@@ -93,6 +96,13 @@ export function DirectConversationRow({
               {initials(label)}
             </span>
           )}
+          {peerOnline ? (
+            <span
+              className="absolute bottom-0 left-0 z-[1] h-3 w-3 rounded-full border-[2px] border-white bg-emerald-500 shadow-sm"
+              title="آنلاین"
+              aria-hidden
+            />
+          ) : null}
         </div>
 
         <div className="min-w-0 flex-1">

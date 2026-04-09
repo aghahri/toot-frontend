@@ -17,6 +17,7 @@ type PeerUser = {
   avatar: string | null;
   username: string;
   phoneMasked: string;
+  lastSeenAt?: string | null;
 };
 
 type Conversation = {
@@ -32,6 +33,7 @@ type Conversation = {
   unreadCount?: number;
   lastMessage?: DirectConversationRowMessage;
   lastActivityAt?: string;
+  peerOnline?: boolean;
 };
 
 function ConversationListSkeleton() {
@@ -249,6 +251,7 @@ export default function DirectPage() {
                     myUserId={myUserId}
                     lastMessage={lastMessage}
                     unreadCount={unreadCount}
+                    peerOnline={item.peerOnline === true}
                   />
                 );
               })}
