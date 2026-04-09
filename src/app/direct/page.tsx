@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { AuthGate } from '@/components/AuthGate';
 import { getAccessToken } from '@/lib/auth';
@@ -11,6 +11,14 @@ import {
   type DirectConversationRowMessage,
 } from '@/components/direct/DirectConversationRow';
 
+type PeerUser = {
+  id: string;
+  name: string;
+  avatar: string | null;
+  username: string;
+  phoneMasked: string;
+};
+
 type Conversation = {
   id: string;
   createdAt: string;
@@ -18,11 +26,7 @@ type Conversation = {
   participants: Array<{
     id: string;
     userId: string;
-    user: {
-      id: string;
-      name: string;
-      avatar: string | null;
-    };
+    user: PeerUser;
   }>;
   messages: Array<DirectConversationRowMessage>;
   unreadCount?: number;
@@ -46,13 +50,29 @@ function ConversationListSkeleton() {
   );
 }
 
+type UserSearchHit = {
+  id: string;
+  name: string;
+  username: string;
+  phoneMasked: string;
+};
+
+function peerSubtitle(u: PeerUser | undefined): string {
+  if (!u) return '';
+  const parts = [`@${u.username}`, u.phoneMasked].filter(Boolean);
+  return parts.join(' · ');
+}
+
 export default function DirectPage() {
   const [items, setItems] = useState<Conversation[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [myUserId, setMyUserId] = useState<string | null>(null);
-  const [otherUserId, setOtherUserId] = useState('');
   const [newChatOpen, setNewChatOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchHits, setSearchHits] = useState<UserSearchHit[]>([]);
+  const [searching, setSearching] = useState(false);
+  const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   async function loadMeAndConversations() {
     const token = getAccessToken();
@@ -86,15 +106,44 @@ export default function DirectPage() {
     loadMeAndConversations();
   }, []);
 
-  async function createConversation() {
-    const token = getAccessToken();
-    if (!token) return;
+  useEffect(() => {
+    if (!newChatOpen) return;
 
-    const trimmed = otherUserId.trim();
-    if (!trimmed) {
-      setError('شناسه کاربر مقصد را وارد کنید');
+    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+
+    const q = searchQuery.trim();
+    if (q.length < 2) {
+      setSearchHits([]);
+      setSearching(false);
       return;
     }
+
+    searchDebounceRef.current = setTimeout(async () => {
+      const token = getAccessToken();
+      if (!token) return;
+
+      setSearching(true);
+      try {
+        const hits = await apiFetch<UserSearchHit[]>(
+          `users/search?q=${encodeURIComponent(q)}&limit=20`,
+          { method: 'GET', token },
+        );
+        setSearchHits(Array.isArray(hits) ? hits : []);
+      } catch {
+        setSearchHits([]);
+      } finally {
+        setSearching(false);
+      }
+    }, 320);
+
+    return () => {
+      if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    };
+  }, [searchQuery, newChatOpen]);
+
+  async function startConversationWithUser(otherUserId: string) {
+    const token = getAccessToken();
+    if (!token) return;
 
     try {
       setError(null);
@@ -103,11 +152,12 @@ export default function DirectPage() {
         method: 'POST',
         token,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ otherUserId: trimmed }),
+        body: JSON.stringify({ otherUserId }),
       });
 
       setNewChatOpen(false);
-      setOtherUserId('');
+      setSearchQuery('');
+      setSearchHits([]);
       window.location.href = `/direct/${conversation.id}`;
     } catch (e) {
       setError(e instanceof Error ? e.message : 'خطا در ساخت گفتگو');
@@ -139,6 +189,8 @@ export default function DirectPage() {
               onClick={() => {
                 setNewChatOpen(true);
                 setError(null);
+                setSearchQuery('');
+                setSearchHits([]);
               }}
               title="گفتگوی جدید"
               className="flex h-11 w-11 items-center justify-center rounded-full bg-emerald-500 text-white shadow-md shadow-emerald-600/25 transition hover:bg-emerald-600 active:scale-95"
@@ -191,7 +243,7 @@ export default function DirectPage() {
                     href={`/direct/${item.id}`}
                     peerName={other?.name ?? 'کاربر'}
                     peerAvatarUrl={other?.avatar ?? null}
-                    peerId={other?.id ?? '-'}
+                    peerSubtitle={peerSubtitle(other)}
                     preview={preview}
                     previewTimeIso={previewTimeIso}
                     myUserId={myUserId}
@@ -219,11 +271,6 @@ export default function DirectPage() {
           </Link>
         </div>
 
-        {myUserId ? (
-          <p className="mt-2 break-all px-4 text-center text-[10px] text-stone-400" dir="ltr">
-            شناسه شما: {myUserId}
-          </p>
-        ) : null}
       </main>
 
       {newChatOpen ? (
@@ -232,7 +279,11 @@ export default function DirectPage() {
           role="dialog"
           aria-modal="true"
           aria-labelledby="new-chat-title"
-          onClick={() => setNewChatOpen(false)}
+          onClick={() => {
+            setNewChatOpen(false);
+            setSearchQuery('');
+            setSearchHits([]);
+          }}
           dir="rtl"
         >
           <div
@@ -242,35 +293,60 @@ export default function DirectPage() {
             <h2 id="new-chat-title" className="text-base font-bold text-stone-900">
               گفتگوی جدید
             </h2>
-            <p className="mt-1 text-xs text-stone-500">شناسهٔ کاربر مقصد را وارد کنید.</p>
+            <p className="mt-1 text-xs text-stone-500">
+              نام، نام کاربری یا بخشی از شماره موبایل را جستجو کنید (حداقل ۲ نویسه).
+            </p>
 
             <input
-              value={otherUserId}
-              onChange={(e) => setOtherUserId(e.target.value)}
-              placeholder="شناسه کاربر"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="جستجو…"
               className="mt-4 w-full rounded-xl border border-stone-200 bg-stone-50/50 p-3.5 text-sm outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
-              dir="ltr"
+              autoComplete="off"
+              dir="rtl"
             />
+
+            <div className="mt-2 max-h-56 overflow-y-auto rounded-xl border border-stone-100 bg-stone-50/40">
+              {searchQuery.trim().length < 2 ? (
+                <p className="px-3 py-4 text-center text-xs text-stone-400">برای شروع تایپ کنید.</p>
+              ) : searching ? (
+                <p className="px-3 py-4 text-center text-xs text-stone-500">در حال جستجو…</p>
+              ) : searchHits.length === 0 ? (
+                <p className="px-3 py-4 text-center text-xs text-stone-500">نتیجه‌ای یافت نشد.</p>
+              ) : (
+                <ul className="divide-y divide-stone-100">
+                  {searchHits.map((hit) => (
+                    <li key={hit.id}>
+                      <button
+                        type="button"
+                        className="flex w-full flex-col items-start gap-0.5 px-3 py-3 text-right transition hover:bg-white"
+                        onClick={() => void startConversationWithUser(hit.id)}
+                      >
+                        <span className="text-sm font-bold text-stone-900">{hit.name}</span>
+                        <span className="text-[11px] font-medium text-stone-500" dir="ltr">
+                          @{hit.username} · {hit.phoneMasked}
+                        </span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
 
             {error ? <p className="mt-2 text-xs font-semibold text-red-600">{error}</p> : null}
 
             <div className="mt-4 flex gap-2">
               <button
                 type="button"
-                onClick={createConversation}
-                className="min-h-[48px] flex-1 rounded-xl bg-emerald-500 px-4 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-emerald-600 active:scale-[0.99]"
-              >
-                شروع گفتگو
-              </button>
-              <button
-                type="button"
                 onClick={() => {
                   setNewChatOpen(false);
                   setError(null);
+                  setSearchQuery('');
+                  setSearchHits([]);
                 }}
-                className="min-h-[48px] rounded-xl border border-stone-200 px-4 py-3 text-sm font-semibold text-stone-700 hover:bg-stone-50"
+                className="min-h-[48px] w-full rounded-xl border border-stone-200 px-4 py-3 text-sm font-semibold text-stone-700 hover:bg-stone-50"
               >
-                انصراف
+                بستن
               </button>
             </div>
           </div>

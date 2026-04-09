@@ -52,7 +52,8 @@ type Props = {
   href: string;
   peerName: string;
   peerAvatarUrl: string | null;
-  peerId: string;
+  /** Subtitle under the name (e.g. @username · masked phone) — not an internal id. */
+  peerSubtitle: string;
   preview: string;
   /** ISO time for the preview line (message time preferred). */
   previewTimeIso: string | null;
@@ -66,7 +67,7 @@ export function DirectConversationRow({
   href,
   peerName,
   peerAvatarUrl,
-  peerId,
+  peerSubtitle,
   preview,
   previewTimeIso,
   myUserId,
@@ -116,8 +117,8 @@ export function DirectConversationRow({
               ) : null}
             </div>
           </div>
-          <div className="mt-0.5 truncate text-[10px] text-stone-400" title={peerId}>
-            {peerId}
+          <div className="mt-0.5 truncate text-[10px] text-stone-400" title={peerSubtitle}>
+            {peerSubtitle}
           </div>
           <div className="mt-2 flex items-end justify-between gap-2">
             <p className="line-clamp-2 min-h-[2.35rem] flex-1 text-[13px] leading-snug text-stone-600">

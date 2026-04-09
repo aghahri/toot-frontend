@@ -13,6 +13,7 @@ export default function RegisterPage() {
 
   const [email, setEmail] = useState('');
   const [name, setName] = useState('');
+  const [username, setUsername] = useState('');
   const [mobile, setMobile] = useState('');
   const [bio, setBio] = useState('');
   const [password, setPassword] = useState('');
@@ -39,7 +40,8 @@ export default function RegisterPage() {
         email: email.trim(),
         password,
         name: name.trim(),
-        mobile: mobile.trim() ? mobile.trim() : undefined,
+        username: username.trim(),
+        mobile: mobile.trim(),
         bio: bio.trim() ? bio.trim() : undefined,
       });
       setSuccess('ثبت‌نام با موفقیت انجام شد');
@@ -87,12 +89,24 @@ export default function RegisterPage() {
             required
           />
           <TextInput
-            label="موبایل (اختیاری)"
+            label="نام کاربری (انگلیسی، یکتا)"
+            type="text"
+            autoComplete="username"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            disabled={loading}
+            required
+            dir="ltr"
+          />
+          <TextInput
+            label="موبایل (الزامی، یکتا)"
             type="tel"
             inputMode="tel"
+            autoComplete="tel"
             value={mobile}
             onChange={(e) => setMobile(e.target.value)}
             disabled={loading}
+            required
           />
           <label className="block">
             <div className="mb-1 text-sm font-semibold text-slate-700">بیو (اختیاری)</div>
