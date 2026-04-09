@@ -67,6 +67,16 @@ function isWindowNearBottom(thresholdPx: number): boolean {
   return window.innerHeight + window.scrollY >= el.scrollHeight - thresholdPx;
 }
 
+/** Uses scroll metrics from *before* the latest DOM reflow (see layoutScrollSnapshotRef). */
+function wasPinnedToBottomSnapshot(
+  snap: { scrollY: number; scrollHeight: number },
+  thresholdPx: number,
+): boolean {
+  if (typeof window === 'undefined') return false;
+  if (snap.scrollHeight <= 0) return false;
+  return window.innerHeight + snap.scrollY >= snap.scrollHeight - thresholdPx;
+}
+
 function replySnippetForMessage(msg: Message): string {
   if (msg.isDeleted) return 'این پیام حذف شده است';
   const t = msg.text?.trim();
@@ -121,6 +131,8 @@ export default function DirectConversationPage() {
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const threadEndRef = useRef<HTMLDivElement | null>(null);
+  /** Last committed scrollY + scrollHeight (before the current paint grew the document). */
+  const layoutScrollSnapshotRef = useRef({ scrollY: 0, scrollHeight: 0 });
   const wasLoadingRef = useRef(false);
   const awaitingFirstLoadScrollRef = useRef(true);
   const forceScrollAfterLoadRef = useRef(false);
@@ -204,9 +216,25 @@ function scrollThreadEnd(behavior: ScrollBehavior = 'auto') {
       const root = document.documentElement;
       const y = root.scrollHeight - window.innerHeight;
       window.scrollTo({ top: Math.max(0, y), left: 0, behavior });
+      layoutScrollSnapshotRef.current = {
+        scrollY: window.scrollY,
+        scrollHeight: document.documentElement.scrollHeight,
+      };
     });
   });
 }
+
+  function scheduleLayoutScrollSnapshot() {
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        if (typeof window === 'undefined') return;
+        layoutScrollSnapshotRef.current = {
+          scrollY: window.scrollY,
+          scrollHeight: document.documentElement.scrollHeight,
+        };
+      });
+    });
+  }
 
   useEffect(() => {
     if (!conversationId) return;
@@ -214,6 +242,7 @@ function scrollThreadEnd(behavior: ScrollBehavior = 'auto') {
     awaitingFirstLoadScrollRef.current = true;
     forceScrollAfterLoadRef.current = false;
     prevMessageTailRef.current = null;
+    layoutScrollSnapshotRef.current = { scrollY: 0, scrollHeight: 0 };
     setOpenActionsMessageId(null);
     setHasMoreOlder(true);
   }, [conversationId]);
@@ -242,6 +271,18 @@ function scrollThreadEnd(behavior: ScrollBehavior = 'auto') {
   useEffect(() => {
     if (loading) wasLoadingRef.current = true;
   }, [loading]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const onScroll = () => {
+      layoutScrollSnapshotRef.current = {
+        scrollY: window.scrollY,
+        scrollHeight: document.documentElement.scrollHeight,
+      };
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
 
   useLayoutEffect(() => {
     if (!conversationId) return;
@@ -279,7 +320,10 @@ function scrollThreadEnd(behavior: ScrollBehavior = 'auto') {
       lastId: tailId,
       firstId: headId,
     };
-    if (!prev) return;
+    if (!prev) {
+      scheduleLayoutScrollSnapshot();
+      return;
+    }
 
     /** Only true when new row(s) were appended at the end (not prepend, delete, edit, or status-only). */
     const appendedAtTail =
@@ -287,10 +331,22 @@ function scrollThreadEnd(behavior: ScrollBehavior = 'auto') {
       tailId !== prev.lastId &&
       (headId === (prev.firstId ?? '') || prev.len === 0);
 
-    if (!appendedAtTail) return;
-    if (!isWindowNearBottom(120)) return;
+    if (!appendedAtTail) {
+      scheduleLayoutScrollSnapshot();
+      return;
+    }
 
-    scrollThreadEnd('auto');
+    const snap = layoutScrollSnapshotRef.current;
+    const wasPinnedBeforeAppend =
+      wasPinnedToBottomSnapshot(snap, 120) ||
+      (snap.scrollHeight <= 0 && isWindowNearBottom(120)) ||
+      prev.len === 0;
+
+    if (wasPinnedBeforeAppend) {
+      scrollThreadEnd('auto');
+    } else {
+      scheduleLayoutScrollSnapshot();
+    }
   }, [loading, messages, conversationId]);
 
 async function loadMessages() {
