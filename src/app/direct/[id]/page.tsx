@@ -122,6 +122,8 @@ export default function DirectConversationPage() {
     senderName: string;
     preview: string;
   } | null>(null);
+  const [editMode, setEditMode] = useState(false);
+  const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
   const socketRef = useRef<ReturnType<typeof io> | null>(null);
 useEffect(() => {
   if (!file) {
@@ -153,6 +155,15 @@ function renderMessageStatus(msg: Message, mine: boolean) {
 function clearSelectedFile() {
   setFile(null);
   setPreviewUrl(null);
+}
+function cancelEdit() {
+  setEditMode(false);
+  setEditingMessageId(null);
+  setText('');
+  socketRef.current?.emit('direct_typing', {
+    conversationId,
+    isTyping: false,
+  });
 }
 function scrollToBottom() {
   requestAnimationFrame(() => {
@@ -525,6 +536,41 @@ async function uploadSelectedFile(token: string): Promise<string | null> {
     if (!token) return;
 
     const trimmed = text.trim();
+
+    if (editMode && editingMessageId) {
+      if (!trimmed) return;
+
+      setSending(true);
+      setError(null);
+      try {
+        const updated = await apiFetch<Message>(
+          `direct/conversations/${conversationId}/messages/${editingMessageId}`,
+          {
+            method: 'PATCH',
+            token,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text: trimmed }),
+          },
+        );
+
+        setMessages((prev) =>
+          prev.map((m) => (m.id === editingMessageId ? { ...m, ...updated } : m)),
+        );
+        setEditMode(false);
+        setEditingMessageId(null);
+        setText('');
+        socketRef.current?.emit('direct_typing', {
+          conversationId,
+          isTyping: false,
+        });
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'خطا در ویرایش پیام');
+      } finally {
+        setSending(false);
+      }
+      return;
+    }
+
     if (!trimmed && !file) return;
 
 	setSending(true);
@@ -641,6 +687,27 @@ socketRef.current?.emit('direct_typing', {
                             پاسخ
                           </button>
 
+                          {mine && !msg.isDeleted ? (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditMode(true);
+                                setEditingMessageId(msg.id);
+                                setText(msg.text ?? '');
+                                setReplyDraft(null);
+                                setFile(null);
+                                setPreviewUrl(null);
+                              }}
+                              className={`rounded-md px-1.5 py-0.5 text-[10px] font-semibold ${
+                                mine
+                                  ? 'text-white/85 hover:bg-white/15'
+                                  : 'text-slate-600 hover:bg-slate-100'
+                              }`}
+                            >
+                              ویرایش
+                            </button>
+                          ) : null}
+
                           {mine && !deleted ? (
                             <button
                               type="button"
@@ -712,7 +779,24 @@ socketRef.current?.emit('direct_typing', {
             <form onSubmit={onSend} className="space-y-3">
               <div className="text-sm font-semibold text-slate-800">ارسال پیام</div>
 
-              {replyDraft ? (
+              {editMode && editingMessageId ? (
+                <div
+                  className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 p-2.5"
+                  dir="rtl"
+                >
+                  <div className="min-w-0 flex-1 text-right">
+                    <div className="text-[10px] font-semibold text-amber-800">ویرایش پیام</div>
+                    <div className="truncate text-xs text-amber-900/90">متن را اصلاح کنید و ذخیره بزنید.</div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={cancelEdit}
+                    className="shrink-0 rounded-lg px-2 py-1 text-xs font-semibold text-amber-900 hover:bg-amber-100/80"
+                  >
+                    لغو ویرایش
+                  </button>
+                </div>
+              ) : replyDraft ? (
                 <div
                   className="flex items-start gap-2 rounded-xl border border-slate-200 bg-slate-50 p-2.5"
                   dir="rtl"
@@ -764,7 +848,7 @@ socketRef.current?.emit('direct_typing', {
                 <input
                   type="file"
                   accept="image/*,video/*"
-                  disabled={sending}
+                  disabled={sending || editMode}
                   onChange={(e) => setFile(e.target.files?.[0] ?? null)}
                   className="w-full rounded-xl border border-slate-200 bg-white p-2 text-sm"
                 />
@@ -817,7 +901,13 @@ socketRef.current?.emit('direct_typing', {
 ) : null}
 
 <Button type="submit" loading={sending}>
-  {sending ? 'در حال ارسال...' : 'ارسال'}
+  {sending
+    ? editMode
+      ? 'در حال ذخیره...'
+      : 'در حال ارسال...'
+    : editMode
+      ? 'ذخیره'
+      : 'ارسال'}
 </Button>            </form>
           </Card>
         </div>
