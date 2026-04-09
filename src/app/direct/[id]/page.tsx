@@ -26,6 +26,7 @@ type ReplyToSummary = {
   text: string | null;
   senderId: string;
   mediaId: string | null;
+  media?: MessageMedia | null;
   isDeleted?: boolean;
   deletedAt?: string | null;
   editedAt?: string | null;
@@ -369,6 +370,7 @@ socket.on(
                   deletedAt: payload.deletedAt,
                   text: null,
                   mediaId: null,
+                  media: null,
                 }
               : m.replyToMessage,
           };
@@ -405,7 +407,7 @@ socket.on(
               ? {
                   ...m.replyToMessage,
                   text: payload.text,
-                  editedAt: payload.editedAt ?? m.replyToMessage.editedAt,
+                  editedAt: payload.editedAt,
                 }
               : m.replyToMessage,
           };
