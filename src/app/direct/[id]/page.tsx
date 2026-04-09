@@ -60,6 +60,12 @@ type Message = {
   pending?: boolean;
 };
 
+function isWindowNearBottom(thresholdPx: number): boolean {
+  if (typeof window === 'undefined') return true;
+  const el = document.documentElement;
+  return window.innerHeight + window.scrollY >= el.scrollHeight - thresholdPx;
+}
+
 function replySnippetForMessage(msg: Message): string {
   if (msg.isDeleted) return 'این پیام حذف شده است';
   const t = msg.text?.trim();
@@ -113,7 +119,11 @@ export default function DirectConversationPage() {
   const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const bottomRef = useRef<HTMLDivElement | null>(null);
+  const threadEndRef = useRef<HTMLDivElement | null>(null);
+  const wasLoadingRef = useRef(false);
+  const awaitingFirstLoadScrollRef = useRef(true);
+  const forceScrollAfterLoadRef = useRef(false);
+  const prevMessageTailRef = useRef<{ len: number; lastId: string } | null>(null);
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
   const [otherTyping, setOtherTyping] = useState(false);
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -165,17 +175,58 @@ function cancelEdit() {
     isTyping: false,
   });
 }
-function scrollToBottom() {
+function scrollThreadEnd(behavior: ScrollBehavior = 'auto') {
   requestAnimationFrame(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+    requestAnimationFrame(() => {
+      threadEndRef.current?.scrollIntoView({ block: 'end', behavior });
+    });
   });
 }
-useEffect(() => {
-  if (loading) return;
-  if (messages.length === 0) return;
 
-  scrollToBottom();
-}, [loading, messages.length, otherTyping]);
+  useEffect(() => {
+    if (!conversationId) return;
+    wasLoadingRef.current = false;
+    awaitingFirstLoadScrollRef.current = true;
+    forceScrollAfterLoadRef.current = false;
+    prevMessageTailRef.current = null;
+  }, [conversationId]);
+
+  useEffect(() => {
+    if (loading) wasLoadingRef.current = true;
+  }, [loading]);
+
+  useEffect(() => {
+    if (!conversationId) return;
+    if (loading) return;
+    if (!wasLoadingRef.current && messages.length === 0) return;
+
+    const tailId = messages[messages.length - 1]?.id ?? '';
+
+    if (forceScrollAfterLoadRef.current) {
+      forceScrollAfterLoadRef.current = false;
+      scrollThreadEnd('auto');
+      prevMessageTailRef.current = { len: messages.length, lastId: tailId };
+      return;
+    }
+
+    if (awaitingFirstLoadScrollRef.current) {
+      awaitingFirstLoadScrollRef.current = false;
+      scrollThreadEnd('auto');
+      prevMessageTailRef.current = { len: messages.length, lastId: tailId };
+      return;
+    }
+
+    const prev = prevMessageTailRef.current;
+    prevMessageTailRef.current = { len: messages.length, lastId: tailId };
+    if (!prev) return;
+
+    const newAtTail =
+      messages.length > prev.len || (messages.length > 0 && tailId !== prev.lastId);
+    if (!newAtTail) return;
+    if (!isWindowNearBottom(120)) return;
+
+    scrollThreadEnd('auto');
+  }, [loading, messages, conversationId]);
 
 async function loadMessages() {
     const token = getAccessToken();
@@ -623,7 +674,14 @@ socketRef.current?.emit('direct_typing', {
         </div>
 
         <div className="mb-4">
-          <Button type="button" onClick={loadMessages} loading={loading}>
+          <Button
+            type="button"
+            onClick={() => {
+              forceScrollAfterLoadRef.current = true;
+              void loadMessages();
+            }}
+            loading={loading}
+          >
             {loading ? 'در حال بارگذاری...' : 'رفرش پیام‌ها'}
           </Button>
         </div>
@@ -770,7 +828,6 @@ socketRef.current?.emit('direct_typing', {
   </div>
 ) : null}
 
-              <div ref={bottomRef} />
             </>
           )}
         </div>
@@ -911,6 +968,7 @@ socketRef.current?.emit('direct_typing', {
 </Button>            </form>
           </Card>
         </div>
+        <div ref={threadEndRef} className="h-px w-full shrink-0" aria-hidden />
       </main>
     </AuthGate>
   );
