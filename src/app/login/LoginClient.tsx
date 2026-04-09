@@ -80,8 +80,8 @@ export default function LoginClient() {
     }
   }
 
-  const showDevOtpBadge =
-    process.env.NODE_ENV === 'development' && Boolean(devOtpCode && phoneMask);
+  /** Shown only when the backend includes debug fields (e.g. AUTH_DEV_OTP_IN_RESPONSE). */
+  const showDevOtpBadge = Boolean(devOtpCode && phoneMask);
 
   async function onVerifyOtp(e: FormEvent) {
     e.preventDefault();
