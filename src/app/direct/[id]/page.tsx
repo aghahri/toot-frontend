@@ -133,6 +133,7 @@ export default function DirectConversationPage() {
   } | null>(null);
   const [editMode, setEditMode] = useState(false);
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
+  const [openActionsMessageId, setOpenActionsMessageId] = useState<string | null>(null);
   const socketRef = useRef<ReturnType<typeof io> | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -203,7 +204,29 @@ function scrollThreadEnd(behavior: ScrollBehavior = 'auto') {
     awaitingFirstLoadScrollRef.current = true;
     forceScrollAfterLoadRef.current = false;
     prevMessageTailRef.current = null;
+    setOpenActionsMessageId(null);
   }, [conversationId]);
+
+  useEffect(() => {
+    if (!openActionsMessageId) return;
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpenActionsMessageId(null);
+    };
+
+    const onPointerDown = (e: PointerEvent) => {
+      const t = e.target;
+      if (!(t instanceof Element)) return;
+      if (!t.closest('[data-direct-msg-actions]')) setOpenActionsMessageId(null);
+    };
+
+    document.addEventListener('keydown', onKeyDown);
+    document.addEventListener('pointerdown', onPointerDown, true);
+    return () => {
+      document.removeEventListener('keydown', onKeyDown);
+      document.removeEventListener('pointerdown', onPointerDown, true);
+    };
+  }, [openActionsMessageId]);
 
   useEffect(() => {
     if (loading) wasLoadingRef.current = true;
@@ -767,7 +790,7 @@ socketRef.current?.emit('direct_typing', {
                     className={`flex ${mine ? 'justify-end' : 'justify-start'}`}
                   >
                     <div
-                      className={`max-w-[88%] rounded-[1.15rem] px-3.5 py-2.5 shadow-sm ${
+                      className={`relative max-w-[88%] rounded-[1.15rem] px-3.5 py-2.5 shadow-sm ${
                         deleted
                           ? mine
                             ? 'bg-slate-800/75 text-white/85 ring-1 ring-white/10'
@@ -785,60 +808,85 @@ socketRef.current?.emit('direct_typing', {
                         >
                           {msg.sender.name}
                         </span>
-                        <div className="flex shrink-0 items-center gap-0.5">
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setReplyDraft({
-                                id: msg.id,
-                                senderName: msg.sender.name,
-                                preview: replySnippetForMessage(msg),
-                              })
-                            }
-                            className={`rounded-lg px-2 py-1 text-[10px] font-semibold transition ${
-                              mine
-                                ? 'text-white/90 hover:bg-white/15'
-                                : 'text-slate-600 hover:bg-slate-100'
-                            }`}
-                          >
-                            پاسخ
-                          </button>
-
-                          {mine && !msg.isDeleted ? (
+                        {!msg.isDeleted ? (
+                          <div className="relative shrink-0" data-direct-msg-actions>
                             <button
                               type="button"
-                              onClick={() => {
-                                setEditMode(true);
-                                setEditingMessageId(msg.id);
-                                setText(msg.text ?? '');
-                                setReplyDraft(null);
-                                setFile(null);
-                                setPreviewUrl(null);
+                              aria-haspopup="menu"
+                              aria-expanded={openActionsMessageId === msg.id}
+                              aria-label="اقدامات پیام"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setOpenActionsMessageId((id) => (id === msg.id ? null : msg.id));
                               }}
-                              className={`rounded-lg px-2 py-1 text-[10px] font-semibold transition ${
+                              className={`flex h-9 min-h-[44px] min-w-[44px] items-center justify-center rounded-full text-lg leading-none transition ${
                                 mine
-                                  ? 'text-white/90 hover:bg-white/15'
-                                  : 'text-slate-600 hover:bg-slate-100'
+                                  ? 'text-white/80 hover:bg-white/15 active:bg-white/20'
+                                  : 'text-slate-500 hover:bg-slate-100 active:bg-slate-200'
                               }`}
                             >
-                              ویرایش
+                              <span className="select-none" aria-hidden>
+                                ⋮
+                              </span>
                             </button>
-                          ) : null}
-
-                          {mine && !deleted ? (
-                            <button
-                              type="button"
-                              onClick={() => onDeleteMessage(msg.id)}
-                              className={`rounded-lg px-2 py-1 text-[10px] font-semibold transition ${
-                                mine
-                                  ? 'text-red-200 hover:bg-white/15'
-                                  : 'text-red-600 hover:bg-slate-100'
-                              }`}
-                            >
-                              حذف
-                            </button>
-                          ) : null}
-                        </div>
+                            {openActionsMessageId === msg.id ? (
+                              <div
+                                role="menu"
+                                className="absolute end-0 top-full z-40 mt-1 min-w-[10.5rem] overflow-hidden rounded-xl border border-slate-200/90 bg-white py-1 shadow-lg ring-1 ring-slate-900/5"
+                                dir="rtl"
+                              >
+                                <button
+                                  type="button"
+                                  role="menuitem"
+                                  className="flex w-full px-4 py-3 text-right text-sm font-medium text-slate-800 transition hover:bg-slate-100 active:bg-slate-200"
+                                  onClick={() => {
+                                    setReplyDraft({
+                                      id: msg.id,
+                                      senderName: msg.sender.name,
+                                      preview: replySnippetForMessage(msg),
+                                    });
+                                    setOpenActionsMessageId(null);
+                                  }}
+                                >
+                                  پاسخ
+                                </button>
+                                {mine ? (
+                                  <>
+                                    <button
+                                      type="button"
+                                      role="menuitem"
+                                      className="flex w-full px-4 py-3 text-right text-sm font-medium text-slate-800 transition hover:bg-slate-100 active:bg-slate-200"
+                                      onClick={() => {
+                                        setEditMode(true);
+                                        setEditingMessageId(msg.id);
+                                        setText(msg.text ?? '');
+                                        setReplyDraft(null);
+                                        setFile(null);
+                                        setPreviewUrl(null);
+                                        setOpenActionsMessageId(null);
+                                      }}
+                                    >
+                                      ویرایش
+                                    </button>
+                                    {!deleted ? (
+                                      <button
+                                        type="button"
+                                        role="menuitem"
+                                        className="flex w-full px-4 py-3 text-right text-sm font-medium text-red-600 transition hover:bg-red-50 active:bg-red-100"
+                                        onClick={() => {
+                                          setOpenActionsMessageId(null);
+                                          void onDeleteMessage(msg.id);
+                                        }}
+                                      >
+                                        حذف
+                                      </button>
+                                    ) : null}
+                                  </>
+                                ) : null}
+                              </div>
+                            ) : null}
+                          </div>
+                        ) : null}
                       </div>
 
                       {msg.replyToMessage ? (
