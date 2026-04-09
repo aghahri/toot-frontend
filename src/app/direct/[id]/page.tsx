@@ -320,6 +320,36 @@ socket.on(
     );
   },
 );
+
+socket.on(
+  'direct_message_deleted',
+  (payload: {
+    conversationId: string;
+    messageId: string;
+    isDeleted: boolean;
+    deletedAt: string | null;
+    text: null;
+    mediaId: null;
+    media: null;
+  }) => {
+    if (payload.conversationId !== conversationId) return;
+
+    setMessages((prev) =>
+      prev.map((m) =>
+        m.id === payload.messageId
+          ? {
+              ...m,
+              isDeleted: payload.isDeleted,
+              deletedAt: payload.deletedAt,
+              text: null,
+              mediaId: null,
+              media: null,
+            }
+          : m,
+      ),
+    );
+  },
+);
   return () => {
     if (typingTimeoutRef.current) {
       clearTimeout(typingTimeoutRef.current);
