@@ -7,9 +7,8 @@ import { getAccessToken } from '@/lib/auth';
 import { apiFetch, getApiBaseUrl, getErrorMessageFromResponse } from '@/lib/api';
 import { markDirectConversationRead } from '@/lib/mark-direct-read';
 import { Card } from '@/components/ui/Card';
-import { Button } from '@/components/ui/Button';
 import { io } from 'socket.io-client';
-import { FormEvent, useEffect, useRef, useState } from 'react';
+import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 
 type MessageMedia = {
   id: string;
@@ -95,15 +94,15 @@ function ReplyQuoteBlock({
 
   return (
     <div
-      className={`mb-2 rounded-lg border-s-4 px-2 py-1.5 text-start text-[11px] leading-snug ${
-        isDeleted ? 'border-s-slate-400' : 'border-s-sky-500'
-      } ${mine ? 'bg-white/10 text-white/95' : 'bg-slate-100 text-slate-700'} ${
-        isDeleted ? 'opacity-80' : ''
+      className={`mb-2 rounded-xl border-s-[3px] px-2.5 py-2 text-start text-[11px] leading-snug shadow-sm ${
+        isDeleted ? 'border-s-slate-400/80' : 'border-s-sky-500'
+      } ${mine ? 'bg-black/15 text-white/95' : 'bg-slate-100/90 text-slate-700 ring-1 ring-slate-200/60'} ${
+        isDeleted ? 'opacity-75' : ''
       }`}
       dir="auto"
     >
-      <div className="truncate font-semibold opacity-90">{reply.sender.name}</div>
-      <div className="line-clamp-2 opacity-90">{body}</div>
+      <div className="truncate text-[10px] font-semibold opacity-80">{reply.sender.name}</div>
+      <div className="line-clamp-2 mt-0.5 opacity-90">{body}</div>
     </div>
   );
 }
@@ -135,6 +134,21 @@ export default function DirectConversationPage() {
   const [editMode, setEditMode] = useState(false);
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
   const socketRef = useRef<ReturnType<typeof io> | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  const peerDisplay = useMemo(() => {
+    const other = messages.find((m) => myUserId != null && m.senderId !== myUserId);
+    if (other) {
+      return { name: other.sender.name, avatar: other.sender.avatar };
+    }
+    return { name: 'مخاطب', avatar: null as string | null };
+  }, [messages, myUserId]);
+
+  const peerInitial = useMemo(() => {
+    const t = peerDisplay.name.trim();
+    if (!t) return '?';
+    return t.slice(0, 1);
+  }, [peerDisplay.name]);
 useEffect(() => {
   if (!file) {
     setPreviewUrl(null);
@@ -661,38 +675,73 @@ socketRef.current?.emit('direct_typing', {
 
   return (
     <AuthGate>
-      <main className="mx-auto w-full max-w-md p-4">
-        <div className="mb-4 flex items-center justify-between gap-3">
-          <div>
-            <h1 className="text-2xl font-extrabold">گفتگوی خصوصی</h1>
-            <p className="mt-1 break-all text-xs text-slate-500">{conversationId}</p>
+      <main className="mx-auto flex min-h-[100dvh] w-full max-w-md flex-col bg-slate-100/80">
+        <header
+          className="sticky top-0 z-30 border-b border-slate-200/90 bg-white/95 shadow-sm backdrop-blur-md"
+          dir="rtl"
+        >
+          <div className="flex items-center gap-3 px-3 py-2.5">
+            <Link
+              href="/direct"
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-slate-700 transition hover:bg-slate-100 active:bg-slate-200"
+              aria-label="بازگشت"
+            >
+              <span className="text-xl font-semibold leading-none text-slate-800" aria-hidden>
+                ›
+              </span>
+            </Link>
+
+            <div className="relative h-11 w-11 shrink-0 overflow-hidden rounded-full bg-gradient-to-br from-slate-200 to-slate-300 ring-2 ring-white shadow-sm">
+              {peerDisplay.avatar ? (
+                <img
+                  src={peerDisplay.avatar}
+                  alt=""
+                  className="h-full w-full object-cover"
+                />
+              ) : (
+                <span className="flex h-full w-full items-center justify-center text-sm font-bold text-slate-600">
+                  {peerInitial}
+                </span>
+              )}
+            </div>
+
+            <div className="min-w-0 flex-1 text-right">
+              <h1 className="truncate text-[17px] font-bold leading-tight text-slate-900">
+                {peerDisplay.name}
+              </h1>
+              <p
+                className={`mt-0.5 truncate text-xs ${otherTyping ? 'font-medium text-emerald-600' : 'text-slate-500'}`}
+              >
+                {otherTyping ? 'در حال تایپ…' : 'گفتگوی خصوصی'}
+              </p>
+            </div>
+
+            <button
+              type="button"
+              title="رفرش پیام‌ها"
+              onClick={() => {
+                forceScrollAfterLoadRef.current = true;
+                void loadMessages();
+              }}
+              disabled={loading}
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-slate-600 transition hover:bg-slate-100 disabled:opacity-40"
+            >
+              <span className={`text-lg ${loading ? 'animate-pulse' : ''}`} aria-hidden>
+                ↻
+              </span>
+            </button>
           </div>
-
-          <Link href="/direct" className="text-sm font-semibold text-slate-700 underline">
-            بازگشت
-          </Link>
-        </div>
-
-        <div className="mb-4">
-          <Button
-            type="button"
-            onClick={() => {
-              forceScrollAfterLoadRef.current = true;
-              void loadMessages();
-            }}
-            loading={loading}
-          >
-            {loading ? 'در حال بارگذاری...' : 'رفرش پیام‌ها'}
-          </Button>
-        </div>
+        </header>
 
         {error ? (
-          <Card>
-            <div className="text-sm font-semibold text-red-600">{error}</div>
-          </Card>
+          <div className="px-3 pt-3">
+            <Card>
+              <div className="text-sm font-semibold text-red-600">{error}</div>
+            </Card>
+          </div>
         ) : null}
 
-        <div className="space-y-3">
+        <div className="flex-1 space-y-3 px-3 py-3">
           {loading ? (
             <Card>
               <div className="text-sm text-slate-700">در حال دریافت پیام‌ها...</div>
@@ -707,6 +756,10 @@ socketRef.current?.emit('direct_typing', {
                 const mine = msg.senderId === myUserId;
                 const deleted = !!msg.isDeleted || msg.text == null;
                 const media = deleted ? null : msg.media;
+                const timeShort = new Date(msg.createdAt).toLocaleTimeString('fa-IR', {
+                  hour: '2-digit',
+                  minute: '2-digit',
+                });
 
                 return (
                   <div
@@ -714,19 +767,25 @@ socketRef.current?.emit('direct_typing', {
                     className={`flex ${mine ? 'justify-end' : 'justify-start'}`}
                   >
                     <div
-                      className={`max-w-[85%] rounded-2xl px-3 py-2 ${
+                      className={`max-w-[88%] rounded-[1.15rem] px-3.5 py-2.5 shadow-sm ${
                         deleted
                           ? mine
-                            ? 'bg-slate-900/60 text-white/90'
-                            : 'border border-slate-200 bg-slate-50 text-slate-700'
+                            ? 'bg-slate-800/75 text-white/85 ring-1 ring-white/10'
+                            : 'bg-slate-200/60 text-slate-600 ring-1 ring-slate-300/50'
                           : mine
-                            ? 'bg-slate-900 text-white'
-                            : 'border border-slate-200 bg-white text-slate-900'
+                            ? 'bg-slate-900 text-white ring-1 ring-slate-800/40'
+                            : 'bg-white text-slate-900 ring-1 ring-slate-200/80'
                       }`}
                     >
-                      <div className="mb-1 flex items-center justify-between gap-2 text-[11px] opacity-70">
-                        <span className="min-w-0 truncate">{msg.sender.name}</span>
-                        <div className="flex shrink-0 items-center gap-1">
+                      <div className="mb-1.5 flex items-center justify-between gap-2 text-[11px]">
+                        <span
+                          className={`min-w-0 truncate font-medium ${
+                            mine ? 'text-white/75' : 'text-slate-500'
+                          }`}
+                        >
+                          {msg.sender.name}
+                        </span>
+                        <div className="flex shrink-0 items-center gap-0.5">
                           <button
                             type="button"
                             onClick={() =>
@@ -736,9 +795,9 @@ socketRef.current?.emit('direct_typing', {
                                 preview: replySnippetForMessage(msg),
                               })
                             }
-                            className={`rounded-md px-1.5 py-0.5 text-[10px] font-semibold ${
+                            className={`rounded-lg px-2 py-1 text-[10px] font-semibold transition ${
                               mine
-                                ? 'text-white/85 hover:bg-white/15'
+                                ? 'text-white/90 hover:bg-white/15'
                                 : 'text-slate-600 hover:bg-slate-100'
                             }`}
                           >
@@ -756,9 +815,9 @@ socketRef.current?.emit('direct_typing', {
                                 setFile(null);
                                 setPreviewUrl(null);
                               }}
-                              className={`rounded-md px-1.5 py-0.5 text-[10px] font-semibold ${
+                              className={`rounded-lg px-2 py-1 text-[10px] font-semibold transition ${
                                 mine
-                                  ? 'text-white/85 hover:bg-white/15'
+                                  ? 'text-white/90 hover:bg-white/15'
                                   : 'text-slate-600 hover:bg-slate-100'
                               }`}
                             >
@@ -770,7 +829,7 @@ socketRef.current?.emit('direct_typing', {
                             <button
                               type="button"
                               onClick={() => onDeleteMessage(msg.id)}
-                              className={`rounded-md px-1.5 py-0.5 text-[10px] font-semibold ${
+                              className={`rounded-lg px-2 py-1 text-[10px] font-semibold transition ${
                                 mine
                                   ? 'text-red-200 hover:bg-white/15'
                                   : 'text-red-600 hover:bg-slate-100'
@@ -791,125 +850,157 @@ socketRef.current?.emit('direct_typing', {
                           <video
                             src={media.url}
                             controls
-                            className="mb-2 max-h-80 w-full rounded-xl bg-black"
+                            className="mb-2 max-h-72 w-full rounded-xl bg-black shadow-inner"
                           />
                         ) : (
                           <img
                             src={media.url}
                             alt={media.originalName || 'message media'}
-                            className="mb-2 max-h-80 w-full rounded-xl bg-white object-contain"
+                            className="mb-2 max-h-72 w-full rounded-xl bg-white object-contain shadow-inner"
                           />
                         )
                       ) : null}
 
                       {deleted ? (
-                        <div className="text-sm font-semibold opacity-80">
+                        <div className="text-sm font-medium italic opacity-80">
                           این پیام حذف شده است
                         </div>
                       ) : msg.text ? (
-                        <div className="whitespace-pre-wrap text-sm">{msg.text}</div>
+                        <div className="whitespace-pre-wrap text-[15px] leading-relaxed">{msg.text}</div>
                       ) : null}
 
-			<div className="mt-1 flex items-center gap-2 text-[10px] opacity-70">
-  			<span>{new Date(msg.createdAt).toLocaleString('fa-IR')}</span>
-  			{msg.editedAt ? <span>ویرایش‌شده</span> : null}
-  			{renderMessageStatus(msg, mine)}
-			</div>
+                      <div
+                        className={`mt-2 flex flex-wrap items-center justify-end gap-x-2 gap-y-0.5 text-[10px] leading-none ${
+                          deleted
+                            ? mine
+                              ? 'text-white/45'
+                              : 'text-slate-500'
+                            : mine
+                              ? 'text-white/50'
+                              : 'text-slate-400'
+                        }`}
+                        dir="rtl"
+                      >
+                        <span className="tabular-nums">{timeShort}</span>
+                        {msg.editedAt ? (
+                          <span className="opacity-80">ویرایش شده</span>
+                        ) : null}
+                        {renderMessageStatus(msg, mine)}
+                      </div>
                     </div>
                   </div>
                 );
               })}
 
-{otherTyping ? (
-  <div className="flex justify-start">
-    <div className="max-w-[85%] rounded-2xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-500">
-      طرف مقابل در حال تایپ است...
-    </div>
-  </div>
-) : null}
-
             </>
           )}
         </div>
-        <div className="mt-4">
-          <Card>
-            <form onSubmit={onSend} className="space-y-3">
-              <div className="text-sm font-semibold text-slate-800">ارسال پیام</div>
 
-              {editMode && editingMessageId ? (
-                <div
-                  className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 p-2.5"
-                  dir="rtl"
-                >
-                  <div className="min-w-0 flex-1 text-right">
-                    <div className="text-[10px] font-semibold text-amber-800">ویرایش پیام</div>
-                    <div className="truncate text-xs text-amber-900/90">متن را اصلاح کنید و ذخیره بزنید.</div>
+        <div className="sticky bottom-0 z-20 border-t border-slate-200/90 bg-white/95 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2 shadow-[0_-4px_24px_rgba(15,23,42,0.06)] backdrop-blur-md">
+          <form onSubmit={onSend} className="space-y-2.5" dir="rtl">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*,video/*"
+              disabled={sending || editMode}
+              className="sr-only"
+              onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+            />
+
+            {editMode && editingMessageId ? (
+              <div className="flex items-start gap-2 rounded-2xl border border-amber-200/90 bg-amber-50/95 px-3 py-2.5 shadow-sm ring-1 ring-amber-100">
+                <div className="min-w-0 flex-1 text-right">
+                  <div className="text-[11px] font-bold text-amber-900">ویرایش پیام</div>
+                  <div className="mt-0.5 truncate text-xs text-amber-800/90">
+                    متن را اصلاح کنید و ذخیره را بزنید.
                   </div>
-                  <button
-                    type="button"
-                    onClick={cancelEdit}
-                    className="shrink-0 rounded-lg px-2 py-1 text-xs font-semibold text-amber-900 hover:bg-amber-100/80"
-                  >
-                    لغو ویرایش
-                  </button>
                 </div>
-              ) : replyDraft ? (
-                <div
-                  className="flex items-start gap-2 rounded-xl border border-slate-200 bg-slate-50 p-2.5"
-                  dir="rtl"
+                <button
+                  type="button"
+                  onClick={cancelEdit}
+                  className="shrink-0 rounded-xl border border-amber-300/80 bg-white px-3 py-1.5 text-xs font-semibold text-amber-900 shadow-sm transition hover:bg-amber-50"
                 >
-                  <div className="min-w-0 flex-1 text-right">
-                    <div className="text-[10px] font-semibold text-slate-500">
-                      پاسخ به {replyDraft.senderName}
-                    </div>
-                    <div className="truncate text-xs text-slate-800">{replyDraft.preview}</div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setReplyDraft(null)}
-                    className="shrink-0 rounded-lg px-2 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-200/80"
-                  >
-                    لغو
-                  </button>
+                  لغو ویرایش
+                </button>
+              </div>
+            ) : replyDraft ? (
+              <div className="flex items-start gap-2 rounded-2xl border border-slate-200/90 bg-slate-50 px-3 py-2.5 shadow-sm ring-1 ring-slate-200/60">
+                <div className="min-w-0 flex-1 text-right">
+                  <div className="text-[10px] font-bold text-sky-600">پاسخ به {replyDraft.senderName}</div>
+                  <div className="mt-0.5 truncate text-sm text-slate-800">{replyDraft.preview}</div>
                 </div>
-              ) : null}
+                <button
+                  type="button"
+                  onClick={() => setReplyDraft(null)}
+                  className="shrink-0 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 shadow-sm transition hover:bg-slate-50"
+                >
+                  لغو
+                </button>
+              </div>
+            ) : null}
 
-<textarea
-  value={text}
-  onChange={(e) => {
-    const value = e.target.value;
-    setText(value);
+            <div className="flex items-end gap-2">
+              <button
+                type="button"
+                disabled={sending || editMode}
+                title="افزودن عکس یا ویدیو"
+                onClick={() => fileInputRef.current?.click()}
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-slate-200/90 bg-white text-slate-600 shadow-sm transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                <svg
+                  className="h-5 w-5"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  aria-hidden
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"
+                  />
+                </svg>
+              </button>
 
-    socketRef.current?.emit('direct_typing', {
-      conversationId,
-      isTyping: value.trim().length > 0,
-    });
-  }}
-  onBlur={() => {
-    socketRef.current?.emit('direct_typing', {
-      conversationId,
-      isTyping: false,
-    });
-  }}
+              <textarea
+                value={text}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  setText(value);
 
-                placeholder="پیام خود را بنویسید..."
-                rows={3}
+                  socketRef.current?.emit('direct_typing', {
+                    conversationId,
+                    isTyping: value.trim().length > 0,
+                  });
+                }}
+                onBlur={() => {
+                  socketRef.current?.emit('direct_typing', {
+                    conversationId,
+                    isTyping: false,
+                  });
+                }}
+                placeholder="پیام…"
+                rows={1}
                 disabled={sending}
-                className="w-full resize-none rounded-xl border border-slate-200 bg-white p-3 text-sm outline-none focus:border-slate-400"
+                className="min-h-[2.75rem] max-h-32 min-w-0 flex-1 resize-none rounded-2xl border border-slate-200/90 bg-white px-3.5 py-2.5 text-[15px] leading-normal text-slate-900 shadow-sm outline-none ring-0 transition placeholder:text-slate-400 focus:border-sky-400/60 focus:ring-2 focus:ring-sky-100"
               />
 
-              <label className="block">
-                <div className="mb-2 text-xs font-semibold text-slate-700">
-                  عکس / ویدیو (اختیاری)
-                </div>
-                <input
-                  type="file"
-                  accept="image/*,video/*"
-                  disabled={sending || editMode}
-                  onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-                  className="w-full rounded-xl border border-slate-200 bg-white p-2 text-sm"
-                />
-              </label>
+              <button
+                type="submit"
+                disabled={sending}
+                className="inline-flex h-11 min-w-[4.5rem] shrink-0 items-center justify-center rounded-2xl bg-slate-900 px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {sending ? (
+                  <span
+                    className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white"
+                    aria-label={editMode ? 'در حال ذخیره' : 'در حال ارسال'}
+                  />
+                ) : (
+                  <span>{editMode ? 'ذخیره' : 'ارسال'}</span>
+                )}
+              </button>
+            </div>
 
 {file ? (
   <div className="space-y-3">
@@ -957,16 +1048,7 @@ socketRef.current?.emit('direct_typing', {
   </div>
 ) : null}
 
-<Button type="submit" loading={sending}>
-  {sending
-    ? editMode
-      ? 'در حال ذخیره...'
-      : 'در حال ارسال...'
-    : editMode
-      ? 'ذخیره'
-      : 'ارسال'}
-</Button>            </form>
-          </Card>
+            </form>
         </div>
         <div ref={threadEndRef} className="h-px w-full shrink-0" aria-hidden />
       </main>
