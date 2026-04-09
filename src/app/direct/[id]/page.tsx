@@ -6,6 +6,7 @@ import { AuthGate } from '@/components/AuthGate';
 import { getAccessToken } from '@/lib/auth';
 import { apiFetch, getApiBaseUrl, getErrorMessageFromResponse } from '@/lib/api';
 import { markDirectConversationRead } from '@/lib/mark-direct-read';
+import { DIRECT_REACTION_EMOJIS, type DirectReactionSummary } from '@/lib/direct-reactions';
 import { Card } from '@/components/ui/Card';
 import { io } from 'socket.io-client';
 import { FormEvent, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
@@ -75,7 +76,12 @@ type Message = {
   media?: MessageMedia | null;
   replyToMessage?: ReplyToSummary | null;
   pending?: boolean;
+  reactions?: DirectReactionSummary[];
 };
+
+function withDirectReactions(m: Message): Message {
+  return { ...m, reactions: m.reactions ?? [] };
+}
 
 function isWindowNearBottom(thresholdPx: number): boolean {
   if (typeof window === 'undefined') return true;
@@ -408,7 +414,7 @@ async function loadMessages() {
         },
       );
 
-      setMessages(data);
+      setMessages(data.map(withDirectReactions));
       setHasMoreOlder(data.length >= 100);
 await apiFetch(`direct/conversations/${conversationId}/seen`, {
   method: 'POST',
@@ -451,7 +457,10 @@ await apiFetch(`direct/conversations/${conversationId}/seen`, {
 
       setMessages((prev) => {
         const seen = new Set(prev.map((m) => m.id));
-        const merged = [...older.filter((m) => !seen.has(m.id)), ...prev];
+        const merged = [
+          ...older.filter((m) => !seen.has(m.id)).map(withDirectReactions),
+          ...prev,
+        ];
         return merged;
       });
 
@@ -539,7 +548,7 @@ socket.on('direct_message', async (message: Message) => {
   setMessages((prev) => {
     const exists = prev.some((m) => m.id === message.id);
     if (exists) return prev;
-    return [...prev, message];
+    return [...prev, withDirectReactions(message)];
   });
 
   // 👇 اینو اضافه کن (کلید حل مشکل)
@@ -648,6 +657,7 @@ socket.on(
             text: null,
             mediaId: null,
             media: null,
+            reactions: [],
           };
         }
         if (m.replyToMessage?.id === payload.messageId) {
@@ -707,6 +717,19 @@ socket.on(
     );
   },
 );
+
+  const onDirectReactions = (payload: {
+    conversationId: string;
+    messageId: string;
+    reactions: DirectReactionSummary[];
+  }) => {
+    if (payload.conversationId !== conversationId) return;
+    setMessages((prev) =>
+      prev.map((m) => (m.id === payload.messageId ? { ...m, reactions: payload.reactions } : m)),
+    );
+  };
+  socket.on('direct_message_reactions', onDirectReactions);
+
   return () => {
     if (typingTimeoutRef.current) {
       clearTimeout(typingTimeoutRef.current);
@@ -714,6 +737,7 @@ socket.on(
     }
 
     socket.off('direct_presence', onDirectPresence);
+    socket.off('direct_message_reactions', onDirectReactions);
     socket.off('direct_message_edited');
     socket.off('direct_message_deleted');
 
@@ -787,6 +811,29 @@ async function uploadSelectedFile(token: string): Promise<string | null> {
     xhr.send(form);
   });
 }
+
+  async function onToggleReaction(messageId: string, emoji: string) {
+    const token = getAccessToken();
+    if (!token || !conversationId) return;
+    setOpenActionsMessageId(null);
+    setError(null);
+    try {
+      const data = await apiFetch<{ messageId: string; reactions: DirectReactionSummary[] }>(
+        `direct/conversations/${conversationId}/messages/${messageId}/reactions/toggle`,
+        {
+          method: 'POST',
+          token,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ emoji }),
+        },
+      );
+      setMessages((prev) =>
+        prev.map((m) => (m.id === data.messageId ? { ...m, reactions: data.reactions } : m)),
+      );
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'خطا در واکنش');
+    }
+  }
 
   async function onDeleteMessage(messageId: string) {
     const token = getAccessToken();
@@ -1054,6 +1101,24 @@ socketRef.current?.emit('direct_typing', {
                                 >
                                   پاسخ
                                 </button>
+                                <div className="border-t border-slate-100 px-1 py-2">
+                                  <div className="px-3 pb-1 text-[10px] font-semibold text-slate-500">
+                                    واکنش
+                                  </div>
+                                  <div className="flex flex-wrap justify-center gap-0.5 px-1" dir="ltr">
+                                    {DIRECT_REACTION_EMOJIS.map((e) => (
+                                      <button
+                                        key={e}
+                                        type="button"
+                                        role="menuitem"
+                                        className="flex h-10 min-h-[40px] min-w-[40px] items-center justify-center rounded-lg text-xl transition hover:bg-slate-100 active:scale-95 active:bg-slate-200"
+                                        onClick={() => void onToggleReaction(msg.id, e)}
+                                      >
+                                        {e}
+                                      </button>
+                                    ))}
+                                  </div>
+                                </div>
                                 {mine ? (
                                   <>
                                     <button
@@ -1139,6 +1204,38 @@ socketRef.current?.emit('direct_typing', {
                         ) : null}
                         {renderMessageStatus(msg, mine)}
                       </div>
+
+                      {!deleted && (msg.reactions?.length ?? 0) > 0 ? (
+                        <div className="mt-1.5 flex flex-wrap gap-1" dir="ltr">
+                          {(msg.reactions ?? []).map((r) => {
+                            const self = myUserId != null && r.userIds.includes(myUserId);
+                            return (
+                              <button
+                                key={r.emoji}
+                                type="button"
+                                title={self ? 'حذف واکنش' : 'واکنش'}
+                                onClick={() => void onToggleReaction(msg.id, r.emoji)}
+                                className={`inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 text-[13px] leading-none transition active:scale-95 ${
+                                  mine
+                                    ? self
+                                      ? 'bg-white/25 text-white ring-1 ring-white/40'
+                                      : 'bg-white/12 text-white/90'
+                                    : self
+                                      ? 'bg-emerald-100 text-emerald-900 ring-1 ring-emerald-200'
+                                      : 'bg-slate-100/90 text-slate-700 ring-1 ring-slate-200/80'
+                                }`}
+                              >
+                                <span>{r.emoji}</span>
+                                {r.userIds.length > 1 ? (
+                                  <span className="text-[10px] font-bold tabular-nums opacity-90">
+                                    {r.userIds.length}
+                                  </span>
+                                ) : null}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      ) : null}
                     </div>
                   </div>
                 );
