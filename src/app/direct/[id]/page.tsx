@@ -392,6 +392,8 @@ socket.on(
       typingTimeoutRef.current = null;
     }
 
+    socket.off('direct_message_edited');
+
     socket.emit('leave_direct', { conversationId });
 socket.emit('direct_typing', {
   conversationId,
@@ -653,6 +655,7 @@ socketRef.current?.emit('direct_typing', {
 
 			<div className="mt-1 flex items-center gap-2 text-[10px] opacity-70">
   			<span>{new Date(msg.createdAt).toLocaleString('fa-IR')}</span>
+  			{msg.editedAt ? <span>ویرایش‌شده</span> : null}
   			{renderMessageStatus(msg, mine)}
 			</div>
                     </div>
