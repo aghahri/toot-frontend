@@ -80,6 +80,9 @@ export default function LoginClient() {
     }
   }
 
+  const showDevOtpBadge =
+    process.env.NODE_ENV === 'development' && Boolean(devOtpCode && phoneMask);
+
   async function onVerifyOtp(e: FormEvent) {
     e.preventDefault();
     setLoading(true);
@@ -100,7 +103,25 @@ export default function LoginClient() {
   }
 
   return (
-    <main className="mx-auto w-full max-w-md p-4">
+    <>
+      {showDevOtpBadge ? (
+        <div
+          className="fixed right-3 top-3 z-[100] max-w-[12rem] rounded-lg border-2 border-amber-400 bg-slate-950 px-2.5 py-2 text-[11px] leading-snug shadow-lg ring-1 ring-amber-500/40"
+          dir="ltr"
+          role="status"
+          aria-label="Development OTP debug"
+        >
+          <div className="font-mono text-xs font-bold text-amber-100">
+            <span className="font-extrabold uppercase tracking-wide text-amber-400">DEV OTP:</span>{' '}
+            <span className="tabular-nums">{devOtpCode}</span>
+          </div>
+          <div className="mt-1 font-mono text-[10px] font-semibold tracking-wide text-slate-300">
+            {phoneMask}
+          </div>
+        </div>
+      ) : null}
+
+      <main className="mx-auto w-full max-w-md p-4">
       <div className="mb-5">
         <h1 className="text-2xl font-extrabold">ورود</h1>
         <p className="mt-1 text-sm text-slate-700">برای شروع وارد حساب خود شوید.</p>
@@ -210,21 +231,6 @@ export default function LoginClient() {
                   </div>
                 ) : null}
 
-                {devOtpCode ? (
-                  <div
-                    className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950"
-                    dir="ltr"
-                  >
-                    <p className="font-bold text-amber-900">حالت توسعه (DEV)</p>
-                    <p className="mt-1 text-xs text-amber-900/90">
-                      کد یکبار مصرف (فقط نمایش در توسعه؛ بعداً با پیامک جایگزین می‌شود):
-                    </p>
-                    <p className="mt-2 text-center font-mono text-lg font-extrabold tracking-[0.2em]">
-                      {devOtpCode}
-                    </p>
-                  </div>
-                ) : null}
-
                 <TextInput
                   label="کد تأیید"
                   type="text"
@@ -268,5 +274,6 @@ export default function LoginClient() {
         </div>
       </Card>
     </main>
+    </>
   );
 }
