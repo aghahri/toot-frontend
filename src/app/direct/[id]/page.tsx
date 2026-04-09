@@ -832,7 +832,9 @@ socketRef.current?.emit('direct_typing', {
                             {openActionsMessageId === msg.id ? (
                               <div
                                 role="menu"
-                                className="absolute end-0 top-full z-40 mt-1 min-w-[10.5rem] overflow-hidden rounded-xl border border-slate-200/90 bg-white py-1 shadow-lg ring-1 ring-slate-900/5"
+                                className={`absolute top-full z-40 mt-1 min-w-[10.5rem] max-w-[calc(100vw-1.5rem)] overflow-hidden rounded-xl border border-slate-200/90 bg-white py-1 shadow-lg ring-1 ring-slate-900/5 ${
+                                  mine ? 'right-0' : 'left-0'
+                                }`}
                                 dir="rtl"
                               >
                                 <button
