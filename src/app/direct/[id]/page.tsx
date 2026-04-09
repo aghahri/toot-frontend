@@ -37,6 +37,8 @@ type ReplyToSummary = {
   };
 };
 
+const DIRECT_OLDER_PAGE_SIZE = 30;
+
 type Message = {
   id: string;
   conversationId: string;
@@ -122,7 +124,13 @@ export default function DirectConversationPage() {
   const wasLoadingRef = useRef(false);
   const awaitingFirstLoadScrollRef = useRef(true);
   const forceScrollAfterLoadRef = useRef(false);
-  const prevMessageTailRef = useRef<{ len: number; lastId: string } | null>(null);
+  const prevMessageTailRef = useRef<{
+    len: number;
+    lastId: string;
+    firstId: string;
+  } | null>(null);
+  const [hasMoreOlder, setHasMoreOlder] = useState(true);
+  const [loadingOlder, setLoadingOlder] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
   const [otherTyping, setOtherTyping] = useState(false);
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -205,6 +213,7 @@ function scrollThreadEnd(behavior: ScrollBehavior = 'auto') {
     forceScrollAfterLoadRef.current = false;
     prevMessageTailRef.current = null;
     setOpenActionsMessageId(null);
+    setHasMoreOlder(true);
   }, [conversationId]);
 
   useEffect(() => {
@@ -242,23 +251,40 @@ function scrollThreadEnd(behavior: ScrollBehavior = 'auto') {
     if (forceScrollAfterLoadRef.current) {
       forceScrollAfterLoadRef.current = false;
       scrollThreadEnd('auto');
-      prevMessageTailRef.current = { len: messages.length, lastId: tailId };
+      prevMessageTailRef.current = {
+        len: messages.length,
+        lastId: tailId,
+        firstId: messages[0]?.id ?? '',
+      };
       return;
     }
 
     if (awaitingFirstLoadScrollRef.current) {
       awaitingFirstLoadScrollRef.current = false;
       scrollThreadEnd('auto');
-      prevMessageTailRef.current = { len: messages.length, lastId: tailId };
+      prevMessageTailRef.current = {
+        len: messages.length,
+        lastId: tailId,
+        firstId: messages[0]?.id ?? '',
+      };
       return;
     }
 
     const prev = prevMessageTailRef.current;
-    prevMessageTailRef.current = { len: messages.length, lastId: tailId };
+    const headId = messages[0]?.id ?? '';
+    prevMessageTailRef.current = {
+      len: messages.length,
+      lastId: tailId,
+      firstId: headId,
+    };
     if (!prev) return;
 
+    const prependedOlder =
+      messages.length > prev.len &&
+      tailId === prev.lastId &&
+      headId !== (prev.firstId ?? '');
     const newAtTail =
-      messages.length > prev.len || (messages.length > 0 && tailId !== prev.lastId);
+      tailId !== prev.lastId || (messages.length > prev.len && !prependedOlder);
     if (!newAtTail) return;
     if (!isWindowNearBottom(120)) return;
 
@@ -288,6 +314,7 @@ async function loadMessages() {
       );
 
       setMessages(data);
+      setHasMoreOlder(data.length >= 100);
 await apiFetch(`direct/conversations/${conversationId}/seen`, {
   method: 'POST',
   token,
@@ -300,6 +327,57 @@ await apiFetch(`direct/conversations/${conversationId}/seen`, {
       setError(e instanceof Error ? e.message : 'خطا در دریافت پیام‌ها');
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function loadOlderMessages() {
+    const token = getAccessToken();
+    if (!token || !conversationId || messages.length === 0 || loadingOlder) return;
+
+    const anchorId = messages[0].id;
+    setLoadingOlder(true);
+    setError(null);
+
+    try {
+      const older = await apiFetch<Message[]>(
+        `direct/conversations/${conversationId}/messages?before=${encodeURIComponent(anchorId)}&limit=${DIRECT_OLDER_PAGE_SIZE}`,
+        { method: 'GET', token },
+      );
+
+      if (older.length === 0) {
+        setHasMoreOlder(false);
+        return;
+      }
+
+      const yBefore =
+        typeof document !== 'undefined'
+          ? document.getElementById(`direct-msg-${anchorId}`)?.getBoundingClientRect().top
+          : undefined;
+
+      setMessages((prev) => {
+        const seen = new Set(prev.map((m) => m.id));
+        const merged = [...older.filter((m) => !seen.has(m.id)), ...prev];
+        return merged;
+      });
+
+      if (older.length < DIRECT_OLDER_PAGE_SIZE) {
+        setHasMoreOlder(false);
+      }
+
+      if (yBefore !== undefined) {
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            const el = document.getElementById(`direct-msg-${anchorId}`);
+            if (!el) return;
+            const yAfter = el.getBoundingClientRect().top;
+            window.scrollBy({ top: yAfter - yBefore, left: 0, behavior: 'auto' });
+          });
+        });
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'خطا در بارگذاری پیام‌های قدیمی');
+    } finally {
+      setLoadingOlder(false);
     }
   }
 
@@ -775,6 +853,18 @@ socketRef.current?.emit('direct_typing', {
             </Card>
           ) : (
             <>
+              {hasMoreOlder && messages.length > 0 ? (
+                <div className="flex justify-center pb-2" dir="rtl">
+                  <button
+                    type="button"
+                    disabled={loadingOlder}
+                    onClick={() => void loadOlderMessages()}
+                    className="rounded-full border border-slate-200/90 bg-white px-4 py-2.5 text-xs font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 active:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {loadingOlder ? 'در حال بارگذاری…' : 'پیام‌های قدیمی‌تر'}
+                  </button>
+                </div>
+              ) : null}
               {messages.map((msg) => {
                 const mine = msg.senderId === myUserId;
                 const deleted = !!msg.isDeleted || msg.text == null;
@@ -787,6 +877,7 @@ socketRef.current?.emit('direct_typing', {
                 return (
                   <div
                     key={msg.id}
+                    id={`direct-msg-${msg.id}`}
                     className={`flex ${mine ? 'justify-end' : 'justify-start'}`}
                   >
                     <div
