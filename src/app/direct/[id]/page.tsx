@@ -23,9 +23,11 @@ type MessageMedia = {
 
 type ReplyToSummary = {
   id: string;
-  text: string;
+  text: string | null;
   senderId: string;
   mediaId: string | null;
+  isDeleted?: boolean;
+  deletedAt?: string | null;
   createdAt: string;
   sender: {
     id: string;
@@ -38,8 +40,10 @@ type Message = {
   id: string;
   conversationId: string;
   senderId: string;
-  text: string;
+  text: string | null;
   mediaId: string | null;
+  isDeleted?: boolean;
+  deletedAt?: string | null;
   deliveredAt?: string | null;
   seenAt?: string | null;
   createdAt: string;
@@ -54,6 +58,7 @@ type Message = {
 };
 
 function replySnippetForMessage(msg: Message): string {
+  if (msg.isDeleted) return 'این پیام حذف شده است';
   const t = msg.text?.trim();
   if (t) return t.length > 100 ? `${t.slice(0, 100)}…` : t;
   if (msg.mediaId) return 'رسانه';
@@ -67,18 +72,24 @@ function ReplyQuoteBlock({
   reply: ReplyToSummary;
   mine: boolean;
 }) {
-  const body = reply.text?.trim()
-    ? reply.text.length > 140
-      ? `${reply.text.slice(0, 140)}…`
-      : reply.text
-    : reply.mediaId
-      ? 'رسانه'
-      : '—';
+  const isDeleted = !!reply.isDeleted || reply.text == null;
+  const safeText = reply.text ?? '';
+  const body = isDeleted
+    ? 'این پیام حذف شده است'
+    : safeText.trim()
+      ? safeText.length > 140
+        ? `${safeText.slice(0, 140)}…`
+        : safeText
+      : reply.mediaId
+        ? 'رسانه'
+        : '—';
 
   return (
     <div
-      className={`mb-2 rounded-lg border-s-4 border-s-sky-500 px-2 py-1.5 text-start text-[11px] leading-snug ${
-        mine ? 'bg-white/10 text-white/95' : 'bg-slate-100 text-slate-700'
+      className={`mb-2 rounded-lg border-s-4 px-2 py-1.5 text-start text-[11px] leading-snug ${
+        isDeleted ? 'border-s-slate-400' : 'border-s-sky-500'
+      } ${mine ? 'bg-white/10 text-white/95' : 'bg-slate-100 text-slate-700'} ${
+        isDeleted ? 'opacity-80' : ''
       }`}
       dir="auto"
     >
@@ -397,6 +408,28 @@ async function uploadSelectedFile(token: string): Promise<string | null> {
   });
 }
 
+  async function onDeleteMessage(messageId: string) {
+    const token = getAccessToken();
+    if (!token || !conversationId) return;
+
+    try {
+      const updated = await apiFetch<Message>(
+        `direct/conversations/${conversationId}/messages/${messageId}/delete`,
+        {
+          method: 'POST',
+          token,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({}),
+        },
+      );
+
+      setMessages((prev) => prev.map((m) => (m.id === messageId ? { ...m, ...updated } : m)));
+      if (replyDraft?.id === messageId) setReplyDraft(null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'خطا در حذف پیام');
+    }
+  }
+
   async function onSend(e: FormEvent) {
     e.preventDefault();
     const token = getAccessToken();
@@ -479,7 +512,8 @@ socketRef.current?.emit('direct_typing', {
             <>
               {messages.map((msg) => {
                 const mine = msg.senderId === myUserId;
-                const media = msg.media;
+                const deleted = !!msg.isDeleted || msg.text == null;
+                const media = deleted ? null : msg.media;
 
                 return (
                   <div
@@ -488,30 +522,50 @@ socketRef.current?.emit('direct_typing', {
                   >
                     <div
                       className={`max-w-[85%] rounded-2xl px-3 py-2 ${
-                        mine
-                          ? 'bg-slate-900 text-white'
-                          : 'border border-slate-200 bg-white text-slate-900'
+                        deleted
+                          ? mine
+                            ? 'bg-slate-900/60 text-white/90'
+                            : 'border border-slate-200 bg-slate-50 text-slate-700'
+                          : mine
+                            ? 'bg-slate-900 text-white'
+                            : 'border border-slate-200 bg-white text-slate-900'
                       }`}
                     >
                       <div className="mb-1 flex items-center justify-between gap-2 text-[11px] opacity-70">
                         <span className="min-w-0 truncate">{msg.sender.name}</span>
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setReplyDraft({
-                              id: msg.id,
-                              senderName: msg.sender.name,
-                              preview: replySnippetForMessage(msg),
-                            })
-                          }
-                          className={`shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-semibold ${
-                            mine
-                              ? 'text-white/85 hover:bg-white/15'
-                              : 'text-slate-600 hover:bg-slate-100'
-                          }`}
-                        >
-                          پاسخ
-                        </button>
+                        <div className="flex shrink-0 items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setReplyDraft({
+                                id: msg.id,
+                                senderName: msg.sender.name,
+                                preview: replySnippetForMessage(msg),
+                              })
+                            }
+                            className={`rounded-md px-1.5 py-0.5 text-[10px] font-semibold ${
+                              mine
+                                ? 'text-white/85 hover:bg-white/15'
+                                : 'text-slate-600 hover:bg-slate-100'
+                            }`}
+                          >
+                            پاسخ
+                          </button>
+
+                          {mine && !deleted ? (
+                            <button
+                              type="button"
+                              onClick={() => onDeleteMessage(msg.id)}
+                              className={`rounded-md px-1.5 py-0.5 text-[10px] font-semibold ${
+                                mine
+                                  ? 'text-red-200 hover:bg-white/15'
+                                  : 'text-red-600 hover:bg-slate-100'
+                              }`}
+                            >
+                              حذف
+                            </button>
+                          ) : null}
+                        </div>
                       </div>
 
                       {msg.replyToMessage ? (
@@ -534,7 +588,11 @@ socketRef.current?.emit('direct_typing', {
                         )
                       ) : null}
 
-                      {msg.text ? (
+                      {deleted ? (
+                        <div className="text-sm font-semibold opacity-80">
+                          این پیام حذف شده است
+                        </div>
+                      ) : msg.text ? (
                         <div className="whitespace-pre-wrap text-sm">{msg.text}</div>
                       ) : null}
 
