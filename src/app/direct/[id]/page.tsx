@@ -21,6 +21,19 @@ type MessageMedia = {
   createdAt: string;
 };
 
+type ReplyToSummary = {
+  id: string;
+  text: string;
+  senderId: string;
+  mediaId: string | null;
+  createdAt: string;
+  sender: {
+    id: string;
+    name: string;
+    avatar: string | null;
+  };
+};
+
 type Message = {
   id: string;
   conversationId: string;
@@ -36,8 +49,44 @@ type Message = {
     avatar: string | null;
   };
   media?: MessageMedia | null;
-pending?: boolean;
+  replyToMessage?: ReplyToSummary | null;
+  pending?: boolean;
 };
+
+function replySnippetForMessage(msg: Message): string {
+  const t = msg.text?.trim();
+  if (t) return t.length > 100 ? `${t.slice(0, 100)}…` : t;
+  if (msg.mediaId) return 'رسانه';
+  return 'پیام';
+}
+
+function ReplyQuoteBlock({
+  reply,
+  mine,
+}: {
+  reply: ReplyToSummary;
+  mine: boolean;
+}) {
+  const body = reply.text?.trim()
+    ? reply.text.length > 140
+      ? `${reply.text.slice(0, 140)}…`
+      : reply.text
+    : reply.mediaId
+      ? 'رسانه'
+      : '—';
+
+  return (
+    <div
+      className={`mb-2 rounded-lg border-s-4 border-s-sky-500 px-2 py-1.5 text-start text-[11px] leading-snug ${
+        mine ? 'bg-white/10 text-white/95' : 'bg-slate-100 text-slate-700'
+      }`}
+      dir="auto"
+    >
+      <div className="truncate font-semibold opacity-90">{reply.sender.name}</div>
+      <div className="line-clamp-2 opacity-90">{body}</div>
+    </div>
+  );
+}
 
 export default function DirectConversationPage() {
   const params = useParams();
@@ -54,7 +103,12 @@ export default function DirectConversationPage() {
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
   const [otherTyping, setOtherTyping] = useState(false);
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-const socketRef = useRef<ReturnType<typeof io> | null>(null);
+  const [replyDraft, setReplyDraft] = useState<{
+    id: string;
+    senderName: string;
+    preview: string;
+  } | null>(null);
+  const socketRef = useRef<ReturnType<typeof io> | null>(null);
 useEffect(() => {
   if (!file) {
     setPreviewUrl(null);
@@ -365,12 +419,14 @@ async function uploadSelectedFile(token: string): Promise<string | null> {
         body: JSON.stringify({
           text: trimmed || undefined,
           mediaId: mediaId || undefined,
+          ...(replyDraft ? { replyToMessageId: replyDraft.id } : {}),
         }),
       });
 
     setText('');
     setFile(null);
     setPreviewUrl(null);
+    setReplyDraft(null);
 socketRef.current?.emit('direct_typing', {
   conversationId,
   isTyping: false,
@@ -437,7 +493,30 @@ socketRef.current?.emit('direct_typing', {
                           : 'border border-slate-200 bg-white text-slate-900'
                       }`}
                     >
-                      <div className="mb-1 text-[11px] opacity-70">{msg.sender.name}</div>
+                      <div className="mb-1 flex items-center justify-between gap-2 text-[11px] opacity-70">
+                        <span className="min-w-0 truncate">{msg.sender.name}</span>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setReplyDraft({
+                              id: msg.id,
+                              senderName: msg.sender.name,
+                              preview: replySnippetForMessage(msg),
+                            })
+                          }
+                          className={`shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-semibold ${
+                            mine
+                              ? 'text-white/85 hover:bg-white/15'
+                              : 'text-slate-600 hover:bg-slate-100'
+                          }`}
+                        >
+                          پاسخ
+                        </button>
+                      </div>
+
+                      {msg.replyToMessage ? (
+                        <ReplyQuoteBlock reply={msg.replyToMessage} mine={mine} />
+                      ) : null}
 
                       {media ? (
                         media.type === 'VIDEO' || media.mimeType?.startsWith('video/') ? (
@@ -485,6 +564,26 @@ socketRef.current?.emit('direct_typing', {
             <form onSubmit={onSend} className="space-y-3">
               <div className="text-sm font-semibold text-slate-800">ارسال پیام</div>
 
+              {replyDraft ? (
+                <div
+                  className="flex items-start gap-2 rounded-xl border border-slate-200 bg-slate-50 p-2.5"
+                  dir="rtl"
+                >
+                  <div className="min-w-0 flex-1 text-right">
+                    <div className="text-[10px] font-semibold text-slate-500">
+                      پاسخ به {replyDraft.senderName}
+                    </div>
+                    <div className="truncate text-xs text-slate-800">{replyDraft.preview}</div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setReplyDraft(null)}
+                    className="shrink-0 rounded-lg px-2 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-200/80"
+                  >
+                    لغو
+                  </button>
+                </div>
+              ) : null}
 
 <textarea
   value={text}
