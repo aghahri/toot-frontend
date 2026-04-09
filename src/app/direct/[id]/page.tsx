@@ -28,6 +28,7 @@ type ReplyToSummary = {
   mediaId: string | null;
   isDeleted?: boolean;
   deletedAt?: string | null;
+  editedAt?: string | null;
   createdAt: string;
   sender: {
     id: string;
@@ -347,18 +348,33 @@ socket.on(
     if (payload.conversationId !== conversationId) return;
 
     setMessages((prev) =>
-      prev.map((m) =>
-        m.id === payload.messageId
-          ? {
-              ...m,
-              isDeleted: payload.isDeleted,
-              deletedAt: payload.deletedAt,
-              text: null,
-              mediaId: null,
-              media: null,
-            }
-          : m,
-      ),
+      prev.map((m) => {
+        if (m.id === payload.messageId) {
+          return {
+            ...m,
+            isDeleted: payload.isDeleted,
+            deletedAt: payload.deletedAt,
+            text: null,
+            mediaId: null,
+            media: null,
+          };
+        }
+        if (m.replyToMessage?.id === payload.messageId) {
+          return {
+            ...m,
+            replyToMessage: m.replyToMessage
+              ? {
+                  ...m.replyToMessage,
+                  isDeleted: payload.isDeleted,
+                  deletedAt: payload.deletedAt,
+                  text: null,
+                  mediaId: null,
+                }
+              : m.replyToMessage,
+          };
+        }
+        return m;
+      }),
     );
   },
 );
@@ -374,15 +390,28 @@ socket.on(
     if (payload.conversationId !== conversationId) return;
 
     setMessages((prev) =>
-      prev.map((m) =>
-        m.id === payload.messageId
-          ? {
-              ...m,
-              text: payload.text,
-              editedAt: payload.editedAt,
-            }
-          : m,
-      ),
+      prev.map((m) => {
+        if (m.id === payload.messageId) {
+          return {
+            ...m,
+            text: payload.text,
+            editedAt: payload.editedAt,
+          };
+        }
+        if (m.replyToMessage?.id === payload.messageId) {
+          return {
+            ...m,
+            replyToMessage: m.replyToMessage
+              ? {
+                  ...m.replyToMessage,
+                  text: payload.text,
+                  editedAt: payload.editedAt ?? m.replyToMessage.editedAt,
+                }
+              : m.replyToMessage,
+          };
+        }
+        return m;
+      }),
     );
   },
 );
@@ -393,6 +422,7 @@ socket.on(
     }
 
     socket.off('direct_message_edited');
+    socket.off('direct_message_deleted');
 
     socket.emit('leave_direct', { conversationId });
 socket.emit('direct_typing', {
