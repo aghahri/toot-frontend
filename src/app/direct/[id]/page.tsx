@@ -835,12 +835,12 @@ socketRef.current?.emit('direct_typing', {
 
   return (
     <AuthGate>
-      <main className="mx-auto flex min-h-[100dvh] w-full max-w-md flex-col bg-slate-100/80">
+      <main className="mx-auto flex min-h-[100dvh] w-full max-w-md flex-col bg-stone-100">
         <header
-          className="sticky top-0 z-30 border-b border-slate-200/90 bg-white/95 shadow-sm backdrop-blur-md"
+          className="sticky top-0 z-30 border-b border-stone-200/90 bg-[#f8f8f8] shadow-[0_1px_0_rgba(0,0,0,0.04)] backdrop-blur-md"
           dir="rtl"
         >
-          <div className="flex items-center gap-3 px-3 py-2.5">
+          <div className="flex items-center gap-2.5 px-3 py-2">
             <Link
               href="/direct"
               className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-slate-700 transition hover:bg-slate-100 active:bg-slate-200"
@@ -851,7 +851,7 @@ socketRef.current?.emit('direct_typing', {
               </span>
             </Link>
 
-            <div className="relative h-11 w-11 shrink-0 overflow-hidden rounded-full bg-gradient-to-br from-slate-200 to-slate-300 ring-2 ring-white shadow-sm">
+            <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-full bg-stone-200 ring-2 ring-white">
               {peerDisplay.avatar ? (
                 <img
                   src={peerDisplay.avatar}
@@ -866,11 +866,11 @@ socketRef.current?.emit('direct_typing', {
             </div>
 
             <div className="min-w-0 flex-1 text-right">
-              <h1 className="truncate text-[17px] font-bold leading-tight text-slate-900">
+              <h1 className="truncate text-[16px] font-bold leading-tight text-stone-900">
                 {peerDisplay.name}
               </h1>
               <p
-                className={`mt-0.5 truncate text-xs ${otherTyping ? 'font-medium text-emerald-600' : 'text-slate-500'}`}
+                className={`mt-0.5 truncate text-[11px] ${otherTyping ? 'font-semibold text-emerald-600' : 'text-stone-500'}`}
               >
                 {otherTyping ? 'در حال تایپ…' : 'گفتگوی خصوصی'}
               </p>
@@ -901,7 +901,7 @@ socketRef.current?.emit('direct_typing', {
           </div>
         ) : null}
 
-        <div className="flex-1 space-y-3 px-3 py-3">
+        <div className="flex-1 space-y-2 px-2.5 py-2 sm:px-3">
           {loading ? (
             <Card>
               <div className="text-sm text-slate-700">در حال دریافت پیام‌ها...</div>
@@ -1094,7 +1094,7 @@ socketRef.current?.emit('direct_typing', {
           )}
         </div>
 
-        <div className="sticky bottom-0 z-20 border-t border-slate-200/90 bg-white/95 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2 shadow-[0_-4px_24px_rgba(15,23,42,0.06)] backdrop-blur-md">
+        <div className="sticky bottom-0 z-20 border-t border-stone-200/90 bg-[#f6f6f6]/98 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2 shadow-[0_-2px_12px_rgba(0,0,0,0.05)] backdrop-blur-md">
           <form onSubmit={onSend} className="space-y-2.5" dir="rtl">
             <input
               ref={fileInputRef}

@@ -19,9 +19,9 @@ export function Navbar() {
   }
 
   return (
-    <header className="sticky top-0 z-10 w-full border-b border-slate-200 bg-white/80 backdrop-blur">
-      <div className="mx-auto flex max-w-md items-center justify-between gap-3 px-4 py-3">
-        <div className="text-sm font-extrabold text-slate-900">توت</div>
+    <header className="sticky top-0 z-10 w-full border-b border-stone-200/90 bg-white/90 backdrop-blur-md">
+      <div className="mx-auto flex max-w-md items-center justify-between gap-3 px-4 py-2.5">
+        <div className="text-sm font-bold tracking-tight text-stone-900">توت</div>
 
         <nav className="flex items-center gap-3">
           {tokenPresent ? (

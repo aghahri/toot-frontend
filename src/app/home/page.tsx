@@ -196,16 +196,18 @@ function removeSelectedFile(indexToRemove: number) {
   return (
     <AuthGate>
       <main className="mx-auto w-full max-w-md p-4">
-<div className="mb-4 flex items-center justify-between gap-3">
-  <div>
-    <h1 className="text-2xl font-extrabold">خانه</h1>
-    <p className="mt-1 text-sm text-slate-700">به پنل اصلی خوش آمدید.</p>
-  </div>
-
-  <Link href="/direct" className="text-sm font-semibold text-slate-700 underline">
-    پیام خصوصی
-  </Link>
-</div>
+        <div className="mb-5 flex items-end justify-between gap-3 border-b border-stone-200/80 pb-4">
+          <div>
+            <h1 className="text-xl font-bold tracking-tight text-stone-900">استوری</h1>
+            <p className="mt-0.5 text-xs text-stone-500">فید و پست‌های شما</p>
+          </div>
+          <Link
+            href="/direct"
+            className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-800 transition hover:bg-emerald-100"
+          >
+            چت‌ها
+          </Link>
+        </div>
         <div className="space-y-4">
           <Card>
             <form onSubmit={onCreatePost} className="space-y-3">

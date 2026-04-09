@@ -81,14 +81,14 @@ export function DirectConversationRow({
   return (
     <Link
       href={href}
-      className="block rounded-2xl border border-slate-200 bg-white p-3 shadow-sm transition-colors active:bg-slate-50 min-[480px]:p-3.5"
+      className="block bg-white px-4 py-3.5 transition-colors active:bg-stone-50 min-[480px]:py-4"
     >
-      <div className="flex items-start gap-3">
-        <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-full bg-slate-200">
+      <div className="flex items-start gap-3.5">
+        <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-full bg-stone-200 ring-1 ring-stone-100">
           {peerAvatarUrl ? (
             <img src={peerAvatarUrl} alt="" className="h-full w-full object-cover" />
           ) : (
-            <span className="flex h-full w-full items-center justify-center text-sm font-extrabold text-slate-600">
+            <span className="flex h-full w-full items-center justify-center text-sm font-extrabold text-stone-600">
               {initials(label)}
             </span>
           )}
@@ -96,11 +96,11 @@ export function DirectConversationRow({
 
         <div className="min-w-0 flex-1">
           <div className="flex items-baseline justify-between gap-2">
-            <div className="min-w-0 truncate text-base font-extrabold text-slate-900">{label}</div>
+            <div className="min-w-0 truncate text-[15px] font-bold text-stone-900">{label}</div>
             <div className="flex shrink-0 items-center gap-1.5">
               {unread > 0 ? (
                 <span
-                  className="inline-flex min-h-[1.25rem] min-w-[1.25rem] items-center justify-center rounded-full bg-sky-600 px-1.5 text-[10px] font-extrabold text-white tabular-nums"
+                  className="inline-flex min-h-[1.25rem] min-w-[1.25rem] items-center justify-center rounded-full bg-emerald-500 px-1.5 text-[10px] font-extrabold text-white tabular-nums"
                   aria-label={`${unread} پیام خوانده‌نشده`}
                 >
                   {unread > 99 ? '99+' : unread}
@@ -109,18 +109,18 @@ export function DirectConversationRow({
               {timeLabel ? (
                 <time
                   dateTime={previewTimeIso ?? undefined}
-                  className="text-[11px] font-medium text-slate-500 tabular-nums"
+                  className="text-[11px] font-medium text-stone-400 tabular-nums"
                 >
                   {timeLabel}
                 </time>
               ) : null}
             </div>
           </div>
-          <div className="mt-0.5 truncate text-[11px] text-slate-400" title={peerId}>
+          <div className="mt-0.5 truncate text-[10px] text-stone-400" title={peerId}>
             {peerId}
           </div>
           <div className="mt-2 flex items-end justify-between gap-2">
-            <p className="line-clamp-2 min-h-[2.5rem] flex-1 text-sm leading-snug text-slate-700">
+            <p className="line-clamp-2 min-h-[2.35rem] flex-1 text-[13px] leading-snug text-stone-600">
               {preview}
             </p>
             <span className="shrink-0 pb-0.5 text-xs">
