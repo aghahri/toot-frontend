@@ -8,7 +8,7 @@ import { apiFetch, getApiBaseUrl, getErrorMessageFromResponse } from '@/lib/api'
 import { markDirectConversationRead } from '@/lib/mark-direct-read';
 import { Card } from '@/components/ui/Card';
 import { io } from 'socket.io-client';
-import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
+import { FormEvent, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 
 type MessageMedia = {
   id: string;
@@ -201,7 +201,9 @@ function cancelEdit() {
 function scrollThreadEnd(behavior: ScrollBehavior = 'auto') {
   requestAnimationFrame(() => {
     requestAnimationFrame(() => {
-      threadEndRef.current?.scrollIntoView({ block: 'end', behavior });
+      const root = document.documentElement;
+      const y = root.scrollHeight - window.innerHeight;
+      window.scrollTo({ top: Math.max(0, y), left: 0, behavior });
     });
   });
 }
@@ -241,12 +243,13 @@ function scrollThreadEnd(behavior: ScrollBehavior = 'auto') {
     if (loading) wasLoadingRef.current = true;
   }, [loading]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!conversationId) return;
     if (loading) return;
     if (!wasLoadingRef.current && messages.length === 0) return;
 
     const tailId = messages[messages.length - 1]?.id ?? '';
+    const headId = messages[0]?.id ?? '';
 
     if (forceScrollAfterLoadRef.current) {
       forceScrollAfterLoadRef.current = false;
@@ -254,7 +257,7 @@ function scrollThreadEnd(behavior: ScrollBehavior = 'auto') {
       prevMessageTailRef.current = {
         len: messages.length,
         lastId: tailId,
-        firstId: messages[0]?.id ?? '',
+        firstId: headId,
       };
       return;
     }
@@ -265,13 +268,12 @@ function scrollThreadEnd(behavior: ScrollBehavior = 'auto') {
       prevMessageTailRef.current = {
         len: messages.length,
         lastId: tailId,
-        firstId: messages[0]?.id ?? '',
+        firstId: headId,
       };
       return;
     }
 
     const prev = prevMessageTailRef.current;
-    const headId = messages[0]?.id ?? '';
     prevMessageTailRef.current = {
       len: messages.length,
       lastId: tailId,
@@ -279,13 +281,13 @@ function scrollThreadEnd(behavior: ScrollBehavior = 'auto') {
     };
     if (!prev) return;
 
-    const prependedOlder =
+    /** Only true when new row(s) were appended at the end (not prepend, delete, edit, or status-only). */
+    const appendedAtTail =
       messages.length > prev.len &&
-      tailId === prev.lastId &&
-      headId !== (prev.firstId ?? '');
-    const newAtTail =
-      tailId !== prev.lastId || (messages.length > prev.len && !prependedOlder);
-    if (!newAtTail) return;
+      tailId !== prev.lastId &&
+      (headId === (prev.firstId ?? '') || prev.len === 0);
+
+    if (!appendedAtTail) return;
     if (!isWindowNearBottom(120)) return;
 
     scrollThreadEnd('auto');
@@ -761,6 +763,7 @@ async function uploadSelectedFile(token: string): Promise<string | null> {
     setFile(null);
     setPreviewUrl(null);
     setReplyDraft(null);
+    scrollThreadEnd('auto');
 socketRef.current?.emit('direct_typing', {
   conversationId,
   isTyping: false,
