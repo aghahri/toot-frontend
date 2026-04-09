@@ -44,6 +44,7 @@ type Message = {
   mediaId: string | null;
   isDeleted?: boolean;
   deletedAt?: string | null;
+  editedAt?: string | null;
   deliveredAt?: string | null;
   seenAt?: string | null;
   createdAt: string;
@@ -355,6 +356,30 @@ socket.on(
               text: null,
               mediaId: null,
               media: null,
+            }
+          : m,
+      ),
+    );
+  },
+);
+
+socket.on(
+  'direct_message_edited',
+  (payload: {
+    conversationId: string;
+    messageId: string;
+    text: string | null;
+    editedAt: string | null;
+  }) => {
+    if (payload.conversationId !== conversationId) return;
+
+    setMessages((prev) =>
+      prev.map((m) =>
+        m.id === payload.messageId
+          ? {
+              ...m,
+              text: payload.text,
+              editedAt: payload.editedAt,
             }
           : m,
       ),
