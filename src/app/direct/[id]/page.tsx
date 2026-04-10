@@ -527,6 +527,7 @@ export default function DirectConversationPage() {
   const [starredSheetOpen, setStarredSheetOpen] = useState(false);
   const [starredList, setStarredList] = useState<Message[]>([]);
   const [starredLoading, setStarredLoading] = useState(false);
+  const [starPinSubmitting, setStarPinSubmitting] = useState(false);
   const [flashMessageId, setFlashMessageId] = useState<string | null>(null);
   const [infoMessage, setInfoMessage] = useState<Message | null>(null);
   const isSelectionMode = selectedMessageIds.size > 0;
@@ -1030,7 +1031,7 @@ function scrollThreadEnd(behavior: ScrollBehavior = 'auto') {
         ]);
         if (cancelled) return;
         setLastReadMessageId(self?.lastReadMessageId ?? null);
-        setPinnedPreview(pin?.message ?? null);
+        setPinnedPreview(pin?.message ? withDirectReactions(pin.message) : null);
       } catch {
         if (!cancelled) setPinnedPreview(null);
       }
@@ -1472,6 +1473,8 @@ socket.on(
   }) => {
     if (payload.conversationId !== conversationId) return;
 
+    setPinnedPreview((p) => (p?.id === payload.messageId ? null : p));
+
     setMessages((prev) =>
       prev.map((m) => {
         if (m.id === payload.messageId) {
@@ -1697,6 +1700,7 @@ async function uploadSelectedFile(token: string): Promise<string | null> {
       );
 
       setMessages((prev) => prev.map((m) => (m.id === messageId ? { ...m, ...updated } : m)));
+      setPinnedPreview((p) => (p?.id === messageId ? null : p));
       if (replyDraft?.id === messageId) setReplyDraft(null);
       return true;
     } catch (e) {
@@ -1889,8 +1893,9 @@ async function uploadSelectedFile(token: string): Promise<string | null> {
 
   async function toggleStarOnServer(messageId: string) {
     const token = getAccessToken();
-    if (!token || !conversationId) return;
+    if (!token || !conversationId || starPinSubmitting) return;
     setOpenActionsMessageId(null);
+    setStarPinSubmitting(true);
     try {
       const res = await apiFetch<{ starred: boolean }>(
         `direct/conversations/${conversationId}/messages/${messageId}/star/toggle`,
@@ -1899,15 +1904,19 @@ async function uploadSelectedFile(token: string): Promise<string | null> {
       setMessages((prev) =>
         prev.map((m) => (m.id === messageId ? { ...m, starredByMe: res.starred } : m)),
       );
+      if (starredSheetOpen) void loadStarredSheet();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'خطا در ستاره');
+    } finally {
+      setStarPinSubmitting(false);
     }
   }
 
   async function pinMessageOnServer(messageId: string | null) {
     const token = getAccessToken();
-    if (!token || !conversationId) return;
+    if (!token || !conversationId || starPinSubmitting) return;
     setOpenActionsMessageId(null);
+    setStarPinSubmitting(true);
     try {
       const res = await apiFetch<{ message: Message | null }>(
         `direct/conversations/${conversationId}/pin`,
@@ -1918,9 +1927,11 @@ async function uploadSelectedFile(token: string): Promise<string | null> {
           body: JSON.stringify({ messageId: messageId ?? undefined }),
         },
       );
-      setPinnedPreview(res.message ?? null);
+      setPinnedPreview(res.message ? withDirectReactions(res.message) : null);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'خطا در سنجاق');
+    } finally {
+      setStarPinSubmitting(false);
     }
   }
 
@@ -2242,8 +2253,9 @@ socketRef.current?.emit('direct_typing', {
             <button
               type="button"
               title="برداشتن سنجاق"
+              disabled={starPinSubmitting}
               onClick={() => void pinMessageOnServer(null)}
-              className="shrink-0 rounded-full px-2 py-1 text-[11px] font-bold text-amber-800 hover:bg-amber-100"
+              className="shrink-0 rounded-full px-2 py-1 text-[11px] font-bold text-amber-800 hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-50"
             >
               ✕
             </button>
@@ -2425,7 +2437,7 @@ socketRef.current?.emit('direct_typing', {
                             {openActionsMessageId === msg.id ? (
                               <div
                                 role="menu"
-                                className="absolute right-0 top-full z-40 mt-1 min-w-[10.5rem] max-w-[calc(100vw-1.5rem)] overflow-hidden rounded-xl border border-slate-200/90 bg-white py-1 shadow-lg ring-1 ring-slate-900/5"
+                                className="absolute end-0 top-full z-[45] mt-1 min-w-[11.5rem] max-w-[calc(100vw-1.5rem)] overflow-visible rounded-xl border border-slate-200/90 bg-white py-1 shadow-lg ring-1 ring-slate-900/5"
                                 dir="rtl"
                               >
                                 <button
@@ -2467,29 +2479,56 @@ socketRef.current?.emit('direct_typing', {
                                     کپی
                                   </button>
                                 ) : null}
-                                <button
-                                  type="button"
-                                  role="menuitem"
-                                  className="flex w-full px-4 py-3 text-right text-sm font-medium text-slate-800 transition hover:bg-slate-100 active:bg-slate-200"
-                                  onClick={() => void toggleStarOnServer(msg.id)}
-                                >
-                                  {msg.starredByMe ? 'برداشتن ستاره' : 'ستاره‌دار کردن'}
-                                </button>
-                                {!deleted ? (
-                                  <button
-                                    type="button"
-                                    role="menuitem"
-                                    className="flex w-full px-4 py-3 text-right text-sm font-medium text-slate-800 transition hover:bg-slate-100 active:bg-slate-200"
-                                    onClick={() =>
-                                      void pinMessageOnServer(
-                                        pinnedPreview?.id === msg.id ? null : msg.id,
-                                      )
-                                    }
-                                  >
-                                    {pinnedPreview?.id === msg.id
-                                      ? 'برداشتن سنجاق'
-                                      : 'سنجاق در گفتگو'}
-                                  </button>
+                                {!msg.pending ? (
+                                  <>
+                                    <div
+                                      className="my-1 border-t border-slate-100"
+                                      role="separator"
+                                      aria-hidden
+                                    />
+                                    <button
+                                      type="button"
+                                      role="menuitem"
+                                      disabled={starPinSubmitting}
+                                      title={msg.starredByMe ? 'حذف ستاره از پیام' : 'ستاره‌دار کردن پیام'}
+                                      className="flex w-full items-center gap-2 px-4 py-3 text-right text-sm font-medium text-slate-800 transition hover:bg-slate-100 active:bg-slate-200 disabled:cursor-not-allowed disabled:opacity-50"
+                                      onClick={() => void toggleStarOnServer(msg.id)}
+                                    >
+                                      <span className="shrink-0 text-base" aria-hidden>
+                                        {msg.starredByMe ? '★' : '☆'}
+                                      </span>
+                                      <span className="min-w-0 flex-1">
+                                        {msg.starredByMe ? 'برداشتن ستاره' : 'ستاره‌دار کردن'}
+                                      </span>
+                                    </button>
+                                    <button
+                                      type="button"
+                                      role="menuitem"
+                                      disabled={starPinSubmitting}
+                                      title={
+                                        pinnedPreview?.id === msg.id
+                                          ? 'برداشتن سنجاق از بالای گفتگو'
+                                          : pinnedPreview && pinnedPreview.id !== msg.id
+                                            ? 'جایگزینی سنجاق فعلی'
+                                            : 'سنجاق در بالای گفتگو'
+                                      }
+                                      className="flex w-full items-center gap-2 px-4 py-3 text-right text-sm font-medium text-slate-800 transition hover:bg-slate-100 active:bg-slate-200 disabled:cursor-not-allowed disabled:opacity-50"
+                                      onClick={() =>
+                                        void pinMessageOnServer(
+                                          pinnedPreview?.id === msg.id ? null : msg.id,
+                                        )
+                                      }
+                                    >
+                                      <span className="shrink-0 text-base" aria-hidden>
+                                        📌
+                                      </span>
+                                      <span className="min-w-0 flex-1">
+                                        {pinnedPreview?.id === msg.id
+                                          ? 'برداشتن سنجاق'
+                                          : 'سنجاق در گفتگو'}
+                                      </span>
+                                    </button>
+                                  </>
                                 ) : null}
                                 <button
                                   type="button"
@@ -2554,6 +2593,17 @@ socketRef.current?.emit('direct_typing', {
                                     ) : null}
                                   </>
                                 ) : null}
+                                <button
+                                  type="button"
+                                  role="menuitem"
+                                  className="flex w-full px-4 py-3 text-right text-sm font-medium text-slate-800 transition hover:bg-slate-100 active:bg-slate-200"
+                                  onClick={() => {
+                                    setOpenActionsMessageId(null);
+                                    setSelectedMessageIds(new Set([msg.id]));
+                                  }}
+                                >
+                                  انتخاب
+                                </button>
                               </div>
                             ) : null}
                           </div>
