@@ -420,7 +420,7 @@ export default function DirectConversationPage() {
   const [bulkDeleting, setBulkDeleting] = useState(false);
   const [forwardBusy, setForwardBusy] = useState(false);
   const isSelectionMode = selectedMessageIds.size > 0;
-  const holdTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const holdTimerRef = useRef<ReturnType<typeof window.setTimeout> | null>(null);
   const holdGestureRef = useRef<{ x: number; y: number } | null>(null);
   const skipNextRowClickRef = useRef(false);
   const socketRef = useRef<ReturnType<typeof io> | null>(null);
