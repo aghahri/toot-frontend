@@ -1566,6 +1566,26 @@ socket.on(
   };
   socket.on('direct_message_reactions', onDirectReactions);
 
+  const onDirectPinnedMessageUpdated = (payload: {
+    conversationId: string;
+    pinnedMessage: Message | null;
+    changedByUserId: string;
+    action: 'pin' | 'unpin';
+  }) => {
+    if (payload.conversationId !== conversationId) return;
+    if (payload.pinnedMessage == null) {
+      setPinnedPreview(null);
+      return;
+    }
+    const pin = withDirectReactions(payload.pinnedMessage);
+    const row = messagesRef.current.find((m) => m.id === pin.id);
+    setPinnedPreview({
+      ...pin,
+      starredByMe: row?.starredByMe ?? pin.starredByMe ?? false,
+    });
+  };
+  socket.on('direct_pinned_message_updated', onDirectPinnedMessageUpdated);
+
   return () => {
     if (typingTimeoutRef.current) {
       clearTimeout(typingTimeoutRef.current);
@@ -1577,6 +1597,7 @@ socket.on(
     socket.off('direct_message_edited');
     socket.off('direct_message_deleted');
     socket.off('direct_message_updated');
+    socket.off('direct_pinned_message_updated', onDirectPinnedMessageUpdated);
 
     socket.emit('leave_direct', { conversationId });
 socket.emit('direct_typing', {
@@ -1903,6 +1924,9 @@ async function uploadSelectedFile(token: string): Promise<string | null> {
       );
       setMessages((prev) =>
         prev.map((m) => (m.id === messageId ? { ...m, starredByMe: res.starred } : m)),
+      );
+      setPinnedPreview((p) =>
+        p?.id === messageId ? { ...p, starredByMe: res.starred } : p,
       );
       if (starredSheetOpen) void loadStarredSheet();
     } catch (e) {
