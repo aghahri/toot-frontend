@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { io } from 'socket.io-client';
 import { AuthGate } from '@/components/AuthGate';
+import { IconPlus } from '@/components/MessagingTabIcons';
 import { getAccessToken } from '@/lib/auth';
 import { apiFetch, getApiBaseUrl } from '@/lib/api';
 import {
@@ -253,17 +254,26 @@ export default function GroupsInboxPage() {
           dir="rtl"
         >
           <p className="text-sm font-semibold text-stone-600">گروه‌ها</p>
-          <button
-            type="button"
-            onClick={() => void loadList()}
-            disabled={loading}
-            className="flex h-10 w-10 items-center justify-center rounded-full text-stone-600 transition hover:bg-stone-200/80 disabled:opacity-40"
-            title="رفرش"
-          >
-            <span className={`text-lg ${loading ? 'animate-pulse' : ''}`} aria-hidden>
-              ↻
-            </span>
-          </button>
+          <div className="flex shrink-0 items-center gap-1">
+            <button
+              type="button"
+              onClick={() => void loadList()}
+              disabled={loading}
+              className="flex h-10 w-10 items-center justify-center rounded-full text-stone-600 transition hover:bg-stone-200/80 disabled:opacity-40"
+              title="رفرش"
+            >
+              <span className={`text-lg ${loading ? 'animate-pulse' : ''}`} aria-hidden>
+                ↻
+              </span>
+            </button>
+            <Link
+              href="/groups/new"
+              title="گروه جدید"
+              className="flex h-11 w-11 items-center justify-center rounded-full bg-sky-500 text-white shadow-md shadow-sky-600/25 transition hover:bg-sky-600 active:scale-95"
+            >
+              <IconPlus className="h-6 w-6 stroke-[2.5]" />
+            </Link>
+          </div>
         </div>
 
         {!loading && items.length > 0 ? (
