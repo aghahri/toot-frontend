@@ -71,6 +71,33 @@ function isListVoiceMedia(m: { type?: string; mimeType?: string } | null | undef
   return (m.mimeType ?? '').toLowerCase().startsWith('audio/');
 }
 
+function listPreviewForLastMessage(
+  lastMessage: DirectConversationRowMessage & {
+    messageType?: string;
+    metadata?: Record<string, unknown> | null;
+  },
+): string {
+  const t = lastMessage.text?.trim();
+  if (t) return t.length > 120 ? `${t.slice(0, 120)}…` : t;
+  const mt = lastMessage.messageType;
+  if (mt === 'LOCATION') return '📍 موقعیت';
+  if (mt === 'CONTACT') {
+    const n = lastMessage.metadata && typeof lastMessage.metadata.name === 'string' ? lastMessage.metadata.name : 'مخاطب';
+    return `👤 ${n}`;
+  }
+  if (mt === 'POLL') return '🗳️ نظرسنجی';
+  if (mt === 'EVENT') return '📅 رویداد';
+  if (lastMessage.media && isListVoiceMedia(lastMessage.media)) return 'پیام صوتی';
+  if (lastMessage.mediaId && lastMessage.media) {
+    const m = lastMessage.media;
+    if (m.mimeType?.startsWith('image/') || m.type === 'IMAGE') return '🖼 عکس';
+    if (m.mimeType?.startsWith('video/') || m.type === 'VIDEO') return '🎬 ویدیو';
+    return '📄 سند';
+  }
+  if (lastMessage.mediaId) return 'رسانه';
+  return 'هنوز پیامی ارسال نشده';
+}
+
 export default function DirectPage() {
   const [items, setItems] = useState<Conversation[]>([]);
   const [loading, setLoading] = useState(true);
@@ -237,13 +264,12 @@ export default function DirectPage() {
                   item.participants[0]?.user;
 
                 const lastMessage = item.lastMessage ?? item.messages[0];
-                const preview = lastMessage?.text?.trim()
-                  ? lastMessage.text
-                  : lastMessage?.media && isListVoiceMedia(lastMessage.media)
-                    ? 'پیام صوتی'
-                    : lastMessage?.mediaId
-                      ? 'رسانه'
-                      : 'هنوز پیامی ارسال نشده';
+                const preview = lastMessage
+                  ? listPreviewForLastMessage(lastMessage as DirectConversationRowMessage & {
+                      messageType?: string;
+                      metadata?: Record<string, unknown> | null;
+                    })
+                  : 'هنوز پیامی ارسال نشده';
                 const previewTimeIso =
                   lastMessage?.createdAt ?? item.lastActivityAt ?? item.updatedAt;
                 const unreadCount =

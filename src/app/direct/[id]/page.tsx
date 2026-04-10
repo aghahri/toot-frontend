@@ -9,7 +9,15 @@ import { markDirectConversationRead } from '@/lib/mark-direct-read';
 import { DIRECT_REACTION_EMOJIS, type DirectReactionSummary } from '@/lib/direct-reactions';
 import { Card } from '@/components/ui/Card';
 import { io } from 'socket.io-client';
-import { FormEvent, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import {
+  FormEvent,
+  Fragment,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 type MessageMedia = {
   id: string;
@@ -27,7 +35,9 @@ type ReplyToSummary = {
   text: string | null;
   senderId: string;
   mediaId: string | null;
-  media?: { type?: string; mimeType?: string } | null;
+  messageType?: string;
+  metadata?: Record<string, unknown> | null;
+  media?: MessageMedia | { type?: string; mimeType?: string } | null;
   isDeleted?: boolean;
   deletedAt?: string | null;
   editedAt?: string | null;
@@ -94,6 +104,7 @@ type Message = {
   replyToMessage?: ReplyToSummary | null;
   pending?: boolean;
   reactions?: DirectReactionSummary[];
+  starredByMe?: boolean;
 };
 
 function withDirectReactions(m: Message): Message {
@@ -150,40 +161,108 @@ function isPureTextMessage(m: Message): boolean {
   return !!(m.text?.trim());
 }
 
+function replyPreviewLabelFromReply(reply: ReplyToSummary): { body: string; thumbUrl: string | null } {
+  if (reply.isDeleted) return { body: 'این پیام حذف شده است', thumbUrl: null };
+  const mt = reply.messageType;
+  if (mt === 'LOCATION') return { body: '📍 موقعیت مکانی', thumbUrl: null };
+  if (mt === 'CONTACT') {
+    const name = reply.metadata && typeof reply.metadata.name === 'string' ? reply.metadata.name : 'مخاطب';
+    return { body: `👤 ${name}`, thumbUrl: null };
+  }
+  if (mt === 'POLL') {
+    const q = reply.metadata && typeof reply.metadata.question === 'string' ? reply.metadata.question : 'نظرسنجی';
+    return { body: `🗳️ ${q.length > 80 ? `${q.slice(0, 80)}…` : q}`, thumbUrl: null };
+  }
+  if (mt === 'EVENT') {
+    const t = reply.metadata && typeof reply.metadata.title === 'string' ? reply.metadata.title : 'رویداد';
+    return { body: `📅 ${t.length > 80 ? `${t.slice(0, 80)}…` : t}`, thumbUrl: null };
+  }
+  const safeText = reply.text ?? '';
+  if (safeText.trim()) {
+    const t = safeText.trim();
+    return {
+      body: t.length > 140 ? `${t.slice(0, 140)}…` : t,
+      thumbUrl: null,
+    };
+  }
+  if (reply.mediaId && reply.media) {
+    const m = reply.media as MessageMedia & { type?: string; mimeType?: string };
+    if (isVoiceMedia(m)) return { body: '🔊 پیام صوتی', thumbUrl: null };
+    if (m.type === 'FILE' || (m.mimeType && !m.mimeType.startsWith('image/') && !m.mimeType.startsWith('video/'))) {
+      const fn = m.originalName?.trim() || 'سند';
+      return { body: `📄 ${fn}`, thumbUrl: null };
+    }
+    if (m.mimeType?.startsWith('video/') || m.type === 'VIDEO') {
+      return { body: '🎬 ویدیو', thumbUrl: m.url ?? null };
+    }
+    if (m.mimeType?.startsWith('image/') || m.type === 'IMAGE') {
+      return { body: '🖼 عکس', thumbUrl: m.url ?? null };
+    }
+    return { body: 'رسانه', thumbUrl: m.url && m.mimeType?.startsWith('image/') ? m.url : null };
+  }
+  return { body: '—', thumbUrl: null };
+}
+
 function ReplyQuoteBlock({
   reply,
   mine,
+  onNavigate,
 }: {
   reply: ReplyToSummary;
   mine: boolean;
+  onNavigate?: (messageId: string) => void;
 }) {
   const isDeleted = !!reply.isDeleted;
-  const safeText = reply.text ?? '';
-  const body = isDeleted
-    ? 'این پیام حذف شده است'
-    : safeText.trim()
-      ? safeText.length > 140
-        ? `${safeText.slice(0, 140)}…`
-        : safeText
-      : reply.mediaId
-        ? isVoiceMedia(reply.media)
-          ? 'پیام صوتی'
-          : 'رسانه'
-        : '—';
+  const { body, thumbUrl } = replyPreviewLabelFromReply(reply);
 
   return (
-    <div
-      className={`mb-2 rounded-xl border-s-[3px] px-2.5 py-2 text-start text-[11px] leading-snug shadow-sm ${
+    <button
+      type="button"
+      disabled={isDeleted || !onNavigate}
+      onClick={(e) => {
+        e.stopPropagation();
+        if (!isDeleted && onNavigate) onNavigate(reply.id);
+      }}
+      className={`mb-2 w-full rounded-xl border-s-[3px] px-2.5 py-2 text-start text-[11px] leading-snug shadow-sm transition ${
         isDeleted ? 'border-s-slate-400/80' : 'border-s-sky-500'
       } ${mine ? 'bg-black/15 text-white/95' : 'bg-slate-100/90 text-slate-700 ring-1 ring-slate-200/60'} ${
-        isDeleted ? 'opacity-75' : ''
+        isDeleted ? 'cursor-default opacity-75' : onNavigate ? 'cursor-pointer hover:opacity-95 active:scale-[0.99]' : ''
       }`}
       dir="auto"
     >
       <div className="truncate text-[10px] font-semibold opacity-80">{reply.sender.name}</div>
-      <div className="line-clamp-2 mt-0.5 opacity-90">{body}</div>
-    </div>
+      <div className="mt-0.5 flex items-start gap-2">
+        {thumbUrl ? (
+          <img
+            src={thumbUrl}
+            alt=""
+            className="h-10 w-10 shrink-0 rounded-lg object-cover ring-1 ring-black/10"
+          />
+        ) : null}
+        <div className="line-clamp-2 min-w-0 flex-1 opacity-90">{body}</div>
+      </div>
+    </button>
   );
+}
+
+function calendarDayKey(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
+}
+
+function dayDividerLabelFa(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  const now = new Date();
+  const todayK = `${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()}`;
+  const y = new Date(now);
+  y.setDate(y.getDate() - 1);
+  const yK = `${y.getFullYear()}-${y.getMonth() + 1}-${y.getDate()}`;
+  const k = calendarDayKey(iso);
+  if (k === todayK) return 'امروز';
+  if (k === yK) return 'دیروز';
+  return d.toLocaleDateString('fa-IR', { dateStyle: 'medium' });
 }
 
 const MAX_VOICE_RECORD_SEC = 120;
@@ -438,10 +517,23 @@ export default function DirectConversationPage() {
   const [forwardPickError, setForwardPickError] = useState<string | null>(null);
   const [forwardPickItems, setForwardPickItems] = useState<ForwardPickConversation[]>([]);
   const [forwardPickSubmitting, setForwardPickSubmitting] = useState(false);
+  const [lastReadMessageId, setLastReadMessageId] = useState<string | null>(null);
+  const [pinnedPreview, setPinnedPreview] = useState<Message | null>(null);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchHits, setSearchHits] = useState<Message[]>([]);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [searchHighlightIndex, setSearchHighlightIndex] = useState(0);
+  const [starredSheetOpen, setStarredSheetOpen] = useState(false);
+  const [starredList, setStarredList] = useState<Message[]>([]);
+  const [starredLoading, setStarredLoading] = useState(false);
+  const [flashMessageId, setFlashMessageId] = useState<string | null>(null);
+  const [infoMessage, setInfoMessage] = useState<Message | null>(null);
   const isSelectionMode = selectedMessageIds.size > 0;
   const holdTimerRef = useRef<number | null>(null);
   const holdGestureRef = useRef<{ x: number; y: number } | null>(null);
   const skipNextRowClickRef = useRef(false);
+  const forwardIdsOverrideRef = useRef<string[] | null>(null);
   const socketRef = useRef<ReturnType<typeof io> | null>(null);
   const isComposingRef = useRef(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -479,6 +571,11 @@ export default function DirectConversationPage() {
     if (!t) return '?';
     return t.slice(0, 1);
   }, [peerDisplay.name]);
+
+  const readAnchorIndex = useMemo(() => {
+    if (!lastReadMessageId) return -1;
+    return messages.findIndex((m) => m.id === lastReadMessageId);
+  }, [messages, lastReadMessageId]);
 
   const headerStatusLine = useMemo(() => {
     if (otherTyping) {
@@ -518,7 +615,15 @@ useEffect(() => {
 }, [file]);
 
 function renderMessageStatus(msg: Message, mine: boolean) {
-  if (!mine || msg.pending) return null;
+  if (!mine) return null;
+
+  if (msg.pending) {
+    return (
+      <span className="text-slate-400 tabular-nums" title="در حال ارسال" aria-label="در حال ارسال">
+        🕐
+      </span>
+    );
+  }
 
   if (msg.seenAt) {
     return <span className="text-sky-400">✓✓</span>;
@@ -897,6 +1002,42 @@ function scrollThreadEnd(behavior: ScrollBehavior = 'auto') {
     setHasMoreOlder(true);
     setPlayingMessageId(null);
     clearVoiceDraft();
+    setLastReadMessageId(null);
+    setPinnedPreview(null);
+    setSearchOpen(false);
+    setSearchQuery('');
+    setSearchHits([]);
+    setFlashMessageId(null);
+    setInfoMessage(null);
+  }, [conversationId]);
+
+  useEffect(() => {
+    if (!conversationId) return;
+    const token = getAccessToken();
+    if (!token) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const [self, pin] = await Promise.all([
+          apiFetch<{ lastReadMessageId: string | null }>(
+            `direct/conversations/${conversationId}/participant-self`,
+            { method: 'GET', token },
+          ),
+          apiFetch<{ message: Message | null }>(
+            `direct/conversations/${conversationId}/pinned-message`,
+            { method: 'GET', token },
+          ),
+        ]);
+        if (cancelled) return;
+        setLastReadMessageId(self?.lastReadMessageId ?? null);
+        setPinnedPreview(pin?.message ?? null);
+      } catch {
+        if (!cancelled) setPinnedPreview(null);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [conversationId]);
 
   useEffect(() => {
@@ -917,16 +1058,33 @@ function scrollThreadEnd(behavior: ScrollBehavior = 'auto') {
   }, []);
 
   useEffect(() => {
-    if (!forwardPickerOpen && !openActionsMessageId && selectedMessageIds.size === 0) return;
+    if (
+      !forwardPickerOpen &&
+      !searchOpen &&
+      !starredSheetOpen &&
+      !openActionsMessageId &&
+      selectedMessageIds.size === 0
+    ) {
+      return;
+    }
 
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key !== 'Escape') return;
       if (forwardPickerOpen) {
         if (!forwardPickSubmitting) {
+          forwardIdsOverrideRef.current = null;
           setForwardPickerOpen(false);
           setForwardPickError(null);
           setForwardPickItems([]);
         }
+        return;
+      }
+      if (searchOpen) {
+        setSearchOpen(false);
+        return;
+      }
+      if (starredSheetOpen) {
+        setStarredSheetOpen(false);
         return;
       }
       setOpenActionsMessageId(null);
@@ -938,6 +1096,8 @@ function scrollThreadEnd(behavior: ScrollBehavior = 'auto') {
   }, [
     forwardPickerOpen,
     forwardPickSubmitting,
+    searchOpen,
+    starredSheetOpen,
     openActionsMessageId,
     selectedMessageIds.size,
   ]);
@@ -1567,8 +1727,14 @@ async function uploadSelectedFile(token: string): Promise<string | null> {
     holdGestureRef.current = null;
   }
 
-  async function openForwardPicker() {
-    if (selectedMessageIds.size === 0 || forwardPickerOpen) return;
+  async function openForwardPicker(overrideSelection?: Set<string>) {
+    if (forwardPickerOpen) return;
+    if (overrideSelection && overrideSelection.size > 0) {
+      forwardIdsOverrideRef.current = [...overrideSelection];
+    } else {
+      forwardIdsOverrideRef.current = null;
+      if (selectedMessageIds.size === 0) return;
+    }
     setForwardPickerOpen(true);
     setForwardPickError(null);
     setForwardPickLoading(true);
@@ -1594,6 +1760,7 @@ async function uploadSelectedFile(token: string): Promise<string | null> {
 
   function dismissForwardPicker() {
     if (forwardPickSubmitting) return;
+    forwardIdsOverrideRef.current = null;
     setForwardPickerOpen(false);
     setForwardPickError(null);
     setForwardPickItems([]);
@@ -1603,9 +1770,17 @@ async function uploadSelectedFile(token: string): Promise<string | null> {
     if (forwardPickSubmitting) return;
     const token = getAccessToken();
     if (!token || !conversationId) return;
-    const orderedIds = messagesRef.current
-      .filter((m) => selectedMessageIds.has(m.id) && !m.pending && !m.isDeleted)
-      .map((m) => m.id);
+    const fromOverride = forwardIdsOverrideRef.current;
+    const orderedIds =
+      fromOverride && fromOverride.length > 0
+        ? fromOverride.filter((id) => {
+            const m = messagesRef.current.find((x) => x.id === id);
+            return m && !m.pending && !m.isDeleted;
+          })
+        : messagesRef.current
+            .filter((m) => selectedMessageIds.has(m.id) && !m.pending && !m.isDeleted)
+            .map((m) => m.id);
+    forwardIdsOverrideRef.current = null;
     if (orderedIds.length === 0) {
       setForwardPickError('پیامی برای ارسال نیست');
       return;
@@ -1663,6 +1838,106 @@ async function uploadSelectedFile(token: string): Promise<string | null> {
       exitSelectionMode();
     } finally {
       setBulkDeleting(false);
+    }
+  }
+
+  function scrollToMessageAndFlash(messageId: string) {
+    const el = document.getElementById(`direct-msg-${messageId}`);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+    setFlashMessageId(messageId);
+  }
+
+  useEffect(() => {
+    if (!flashMessageId) return;
+    const t = window.setTimeout(() => setFlashMessageId(null), 2200);
+    return () => window.clearTimeout(t);
+  }, [flashMessageId]);
+
+  async function runInChatSearch() {
+    const token = getAccessToken();
+    if (!token || !conversationId) return;
+    const q = searchQuery.trim();
+    if (q.length < 1) {
+      setSearchHits([]);
+      return;
+    }
+    setSearchLoading(true);
+    setError(null);
+    try {
+      const rows = await apiFetch<Message[]>(
+        `direct/conversations/${conversationId}/messages/search?q=${encodeURIComponent(q)}&limit=40`,
+        { method: 'GET', token },
+      );
+      setSearchHits(Array.isArray(rows) ? rows : []);
+      setSearchHighlightIndex(0);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'خطا در جستجو');
+      setSearchHits([]);
+    } finally {
+      setSearchLoading(false);
+    }
+  }
+
+  function jumpToSearchHit(delta: number) {
+    if (searchHits.length === 0) return;
+    const next = (searchHighlightIndex + delta + searchHits.length) % searchHits.length;
+    setSearchHighlightIndex(next);
+    scrollToMessageAndFlash(searchHits[next]!.id);
+  }
+
+  async function toggleStarOnServer(messageId: string) {
+    const token = getAccessToken();
+    if (!token || !conversationId) return;
+    setOpenActionsMessageId(null);
+    try {
+      const res = await apiFetch<{ starred: boolean }>(
+        `direct/conversations/${conversationId}/messages/${messageId}/star/toggle`,
+        { method: 'POST', token, headers: { 'Content-Type': 'application/json' }, body: '{}' },
+      );
+      setMessages((prev) =>
+        prev.map((m) => (m.id === messageId ? { ...m, starredByMe: res.starred } : m)),
+      );
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'خطا در ستاره');
+    }
+  }
+
+  async function pinMessageOnServer(messageId: string | null) {
+    const token = getAccessToken();
+    if (!token || !conversationId) return;
+    setOpenActionsMessageId(null);
+    try {
+      const res = await apiFetch<{ message: Message | null }>(
+        `direct/conversations/${conversationId}/pin`,
+        {
+          method: 'POST',
+          token,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ messageId: messageId ?? undefined }),
+        },
+      );
+      setPinnedPreview(res.message ?? null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'خطا در سنجاق');
+    }
+  }
+
+  async function loadStarredSheet() {
+    const token = getAccessToken();
+    if (!token || !conversationId) return;
+    setStarredLoading(true);
+    try {
+      const rows = await apiFetch<Message[]>(
+        `direct/conversations/${conversationId}/messages/starred`,
+        { method: 'GET', token },
+      );
+      setStarredList(Array.isArray(rows) ? rows : []);
+    } catch {
+      setStarredList([]);
+    } finally {
+      setStarredLoading(false);
     }
   }
 
@@ -1810,7 +2085,7 @@ socketRef.current?.emit('direct_typing', {
 
   return (
     <AuthGate>
-      <main className="mx-auto flex min-h-[100dvh] w-full max-w-md flex-col bg-stone-100">
+      <main className="mx-auto flex min-h-[100dvh] w-full max-w-md flex-col bg-[#e5ddd5] bg-[linear-gradient(180deg,rgba(255,255,255,0.5)_0%,rgba(255,255,255,0)_28%)]">
         <header
           className="sticky top-0 z-30 border-b border-stone-200/90 bg-[#f8f8f8] shadow-[0_1px_0_rgba(0,0,0,0.04)] backdrop-blur-md"
           dir="rtl"
@@ -1906,6 +2181,33 @@ socketRef.current?.emit('direct_typing', {
 
               <button
                 type="button"
+                title="جستجو در گفتگو"
+                onClick={() => {
+                  setSearchOpen(true);
+                  setSearchQuery('');
+                  setSearchHits([]);
+                }}
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-slate-600 transition hover:bg-slate-100"
+              >
+                <span className="text-base" aria-hidden>
+                  🔍
+                </span>
+              </button>
+              <button
+                type="button"
+                title="پیام‌های ستاره‌دار"
+                onClick={() => {
+                  setStarredSheetOpen(true);
+                  void loadStarredSheet();
+                }}
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-slate-600 transition hover:bg-slate-100"
+              >
+                <span className="text-base" aria-hidden>
+                  ★
+                </span>
+              </button>
+              <button
+                type="button"
                 title="رفرش پیام‌ها"
                 onClick={() => {
                   forceScrollAfterLoadRef.current = true;
@@ -1921,6 +2223,32 @@ socketRef.current?.emit('direct_typing', {
             </div>
           )}
         </header>
+
+        {pinnedPreview && !pinnedPreview.isDeleted ? (
+          <div
+            dir="rtl"
+            className="sticky top-[3.25rem] z-20 flex w-full items-center gap-1 border-b border-amber-200/80 bg-amber-50/95 px-2 py-2 text-start text-xs font-semibold text-amber-950 shadow-sm backdrop-blur-sm"
+          >
+            <button
+              type="button"
+              onClick={() => scrollToMessageAndFlash(pinnedPreview.id)}
+              className="flex min-w-0 flex-1 items-center gap-2 text-start"
+            >
+              <span className="shrink-0 text-amber-600" aria-hidden>
+                📌
+              </span>
+              <span className="min-w-0 truncate">{replySnippetForMessage(pinnedPreview)}</span>
+            </button>
+            <button
+              type="button"
+              title="برداشتن سنجاق"
+              onClick={() => void pinMessageOnServer(null)}
+              className="shrink-0 rounded-full px-2 py-1 text-[11px] font-bold text-amber-800 hover:bg-amber-100"
+            >
+              ✕
+            </button>
+          </div>
+        ) : null}
 
         {error ? (
           <div className="px-3 pt-3">
@@ -1953,7 +2281,7 @@ socketRef.current?.emit('direct_typing', {
                   </button>
                 </div>
               ) : null}
-              {messages.map((msg) => {
+              {messages.map((msg, i) => {
                 const mine = msg.senderId === myUserId;
                 const deleted = !!msg.isDeleted;
                 const media = deleted ? null : msg.media;
@@ -1963,10 +2291,29 @@ socketRef.current?.emit('direct_typing', {
                 });
 
                 const rowSelected = selectedMessageIds.has(msg.id);
+                const prevMsg = i > 0 ? messages[i - 1] : null;
+                const showDayDivider =
+                  !prevMsg || calendarDayKey(prevMsg.createdAt) !== calendarDayKey(msg.createdAt);
+                const showUnreadDivider =
+                  readAnchorIndex >= 0 && i === readAnchorIndex + 1 && !!lastReadMessageId;
 
                 return (
+                  <Fragment key={msg.id}>
+                    {showDayDivider ? (
+                      <div className="flex justify-center py-2">
+                        <span className="rounded-full bg-white/85 px-3 py-1 text-[11px] font-semibold text-slate-600 shadow-sm ring-1 ring-slate-200/70">
+                          {dayDividerLabelFa(msg.createdAt)}
+                        </span>
+                      </div>
+                    ) : null}
+                    {showUnreadDivider ? (
+                      <div className="flex justify-center py-2">
+                        <span className="rounded-full bg-sky-600 px-3 py-1 text-[10px] font-bold text-white shadow-md">
+                          پیام‌های خوانده‌نشده
+                        </span>
+                      </div>
+                    ) : null}
                   <div
-                    key={msg.id}
                     id={`direct-msg-${msg.id}`}
                     className={`flex ${mine ? 'justify-end' : 'justify-start'}`}
                     onContextMenu={(e) => {
@@ -2040,6 +2387,10 @@ socketRef.current?.emit('direct_typing', {
                             : rowSelected
                               ? 'bg-white text-slate-900 ring-2 ring-sky-500 ring-offset-2 ring-offset-stone-100'
                               : 'bg-white text-slate-900 ring-1 ring-slate-200/80'
+                      } ${
+                        flashMessageId === msg.id
+                          ? 'ring-2 ring-amber-400 ring-offset-2 ring-offset-[#e5ddd5]'
+                          : ''
                       }`}
                     >
                       <div className="mb-1.5 flex items-center justify-between gap-2 text-[11px]">
@@ -2091,6 +2442,65 @@ socketRef.current?.emit('direct_typing', {
                                   }}
                                 >
                                   پاسخ
+                                </button>
+                                <button
+                                  type="button"
+                                  role="menuitem"
+                                  className="flex w-full px-4 py-3 text-right text-sm font-medium text-slate-800 transition hover:bg-slate-100 active:bg-slate-200"
+                                  onClick={() => {
+                                    setOpenActionsMessageId(null);
+                                    void openForwardPicker(new Set([msg.id]));
+                                  }}
+                                >
+                                  فوروارد
+                                </button>
+                                {isPureTextMessage(msg) ? (
+                                  <button
+                                    type="button"
+                                    role="menuitem"
+                                    className="flex w-full px-4 py-3 text-right text-sm font-medium text-slate-800 transition hover:bg-slate-100 active:bg-slate-200"
+                                    onClick={() => {
+                                      setOpenActionsMessageId(null);
+                                      void navigator.clipboard.writeText((msg.text ?? '').trim());
+                                    }}
+                                  >
+                                    کپی
+                                  </button>
+                                ) : null}
+                                <button
+                                  type="button"
+                                  role="menuitem"
+                                  className="flex w-full px-4 py-3 text-right text-sm font-medium text-slate-800 transition hover:bg-slate-100 active:bg-slate-200"
+                                  onClick={() => void toggleStarOnServer(msg.id)}
+                                >
+                                  {msg.starredByMe ? 'برداشتن ستاره' : 'ستاره‌دار کردن'}
+                                </button>
+                                {!deleted ? (
+                                  <button
+                                    type="button"
+                                    role="menuitem"
+                                    className="flex w-full px-4 py-3 text-right text-sm font-medium text-slate-800 transition hover:bg-slate-100 active:bg-slate-200"
+                                    onClick={() =>
+                                      void pinMessageOnServer(
+                                        pinnedPreview?.id === msg.id ? null : msg.id,
+                                      )
+                                    }
+                                  >
+                                    {pinnedPreview?.id === msg.id
+                                      ? 'برداشتن سنجاق'
+                                      : 'سنجاق در گفتگو'}
+                                  </button>
+                                ) : null}
+                                <button
+                                  type="button"
+                                  role="menuitem"
+                                  className="flex w-full px-4 py-3 text-right text-sm font-medium text-slate-800 transition hover:bg-slate-100 active:bg-slate-200"
+                                  onClick={() => {
+                                    setOpenActionsMessageId(null);
+                                    setInfoMessage(msg);
+                                  }}
+                                >
+                                  اطلاعات پیام
                                 </button>
                                 <div className="border-t border-slate-100 px-1 py-2">
                                   <div className="px-3 pb-1 text-[10px] font-semibold text-slate-500">
@@ -2151,7 +2561,11 @@ socketRef.current?.emit('direct_typing', {
                       </div>
 
                       {msg.replyToMessage ? (
-                        <ReplyQuoteBlock reply={msg.replyToMessage} mine={mine} />
+                        <ReplyQuoteBlock
+                          reply={msg.replyToMessage}
+                          mine={mine}
+                          onNavigate={scrollToMessageAndFlash}
+                        />
                       ) : null}
 
                       {media ? (
@@ -2255,11 +2669,29 @@ socketRef.current?.emit('direct_typing', {
                         }`}
                         dir="rtl"
                       >
+                        {msg.starredByMe ? (
+                          <span className="text-amber-300" title="ستاره‌دار" aria-hidden>
+                            ★
+                          </span>
+                        ) : null}
                         <span className="tabular-nums">{timeShort}</span>
                         {msg.editedAt ? (
                           <span className="opacity-80">ویرایش شده</span>
                         ) : null}
-                        {renderMessageStatus(msg, mine)}
+                        {mine && !msg.pending && !deleted ? (
+                          <button
+                            type="button"
+                            className="inline-flex p-0 align-middle text-[10px] leading-none"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setInfoMessage(msg);
+                            }}
+                          >
+                            {renderMessageStatus(msg, mine)}
+                          </button>
+                        ) : (
+                          renderMessageStatus(msg, mine)
+                        )}
                       </div>
 
                       {!deleted && (msg.reactions?.length ?? 0) > 0 ? (
@@ -2295,6 +2727,7 @@ socketRef.current?.emit('direct_typing', {
                       ) : null}
                     </div>
                   </div>
+                  </Fragment>
                 );
               })}
 
@@ -2777,6 +3210,187 @@ socketRef.current?.emit('direct_typing', {
                     });
                   })()}
               </div>
+            </div>
+          </div>
+        ) : null}
+
+        {searchOpen ? (
+          <div
+            className="fixed inset-0 z-[60] flex items-start justify-center bg-black/45 p-3 pt-16 backdrop-blur-[1px] sm:items-center sm:pt-3"
+            role="presentation"
+            onClick={() => setSearchOpen(false)}
+          >
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="direct-search-title"
+              className="w-full max-w-md overflow-hidden rounded-2xl border border-stone-200/90 bg-white shadow-2xl"
+              dir="rtl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="border-b border-stone-200/80 px-3 py-2">
+                <h2 id="direct-search-title" className="text-sm font-bold text-stone-900">
+                  جستجو در گفتگو
+                </h2>
+                <div className="mt-2 flex gap-2">
+                  <input
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="متن…"
+                    className="min-w-0 flex-1 rounded-xl border border-stone-200 px-3 py-2 text-sm outline-none focus:border-sky-400"
+                    dir="rtl"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => void runInChatSearch()}
+                    disabled={searchLoading}
+                    className="shrink-0 rounded-xl bg-slate-900 px-3 py-2 text-xs font-bold text-white disabled:opacity-40"
+                  >
+                    جستجو
+                  </button>
+                </div>
+                <div className="mt-2 flex items-center justify-between gap-2">
+                  <span className="text-[11px] text-slate-500">
+                    {searchHits.length > 0
+                      ? `${searchHighlightIndex + 1} / ${searchHits.length}`
+                      : '—'}
+                  </span>
+                  <div className="flex gap-1">
+                    <button
+                      type="button"
+                      disabled={searchHits.length === 0}
+                      onClick={() => jumpToSearchHit(-1)}
+                      className="rounded-lg border border-stone-200 px-2 py-1 text-[11px] font-semibold disabled:opacity-40"
+                    >
+                      قبلی
+                    </button>
+                    <button
+                      type="button"
+                      disabled={searchHits.length === 0}
+                      onClick={() => jumpToSearchHit(1)}
+                      className="rounded-lg border border-stone-200 px-2 py-1 text-[11px] font-semibold disabled:opacity-40"
+                    >
+                      بعدی
+                    </button>
+                  </div>
+                </div>
+              </div>
+              <div className="max-h-64 overflow-y-auto px-2 py-2 text-sm">
+                {searchLoading ? (
+                  <div className="py-8 text-center text-slate-500">در حال جستجو…</div>
+                ) : searchHits.length === 0 ? (
+                  <div className="py-6 text-center text-xs text-slate-500">نتیجه‌ای نیست</div>
+                ) : (
+                  searchHits.map((m, idx) => (
+                    <button
+                      key={m.id}
+                      type="button"
+                      onClick={() => {
+                        setSearchHighlightIndex(idx);
+                        scrollToMessageAndFlash(m.id);
+                      }}
+                      className={`mb-1 w-full rounded-lg border px-2 py-2 text-right text-xs ${
+                        idx === searchHighlightIndex
+                          ? 'border-sky-400 bg-sky-50'
+                          : 'border-transparent hover:bg-stone-50'
+                      }`}
+                    >
+                      <span className="line-clamp-2 font-medium text-stone-800">{m.text || '—'}</span>
+                    </button>
+                  ))
+                )}
+              </div>
+            </div>
+          </div>
+        ) : null}
+
+        {starredSheetOpen ? (
+          <div
+            className="fixed inset-0 z-[60] flex items-end justify-center bg-black/45 backdrop-blur-[1px] sm:items-center"
+            role="presentation"
+            onClick={() => setStarredSheetOpen(false)}
+          >
+            <div
+              role="dialog"
+              aria-modal="true"
+              className="max-h-[min(26rem,80dvh)] w-full max-w-md overflow-hidden rounded-t-2xl border border-stone-200/90 bg-white shadow-2xl sm:rounded-2xl"
+              dir="rtl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between border-b border-stone-200/80 px-4 py-3">
+                <h2 className="text-base font-bold text-stone-900">پیام‌های ستاره‌دار</h2>
+                <button
+                  type="button"
+                  onClick={() => setStarredSheetOpen(false)}
+                  className="rounded-full px-3 py-1 text-sm font-semibold text-slate-600 hover:bg-slate-100"
+                >
+                  بستن
+                </button>
+              </div>
+              <div className="max-h-[min(20rem,65dvh)] overflow-y-auto px-2 py-2">
+                {starredLoading ? (
+                  <div className="py-10 text-center text-sm text-slate-500">در حال بارگذاری…</div>
+                ) : starredList.length === 0 ? (
+                  <div className="py-8 text-center text-sm text-slate-500">ستاره‌داری وجود ندارد</div>
+                ) : (
+                  starredList.map((m) => (
+                    <button
+                      key={m.id}
+                      type="button"
+                      onClick={() => {
+                        setStarredSheetOpen(false);
+                        scrollToMessageAndFlash(m.id);
+                      }}
+                      className="mb-1 w-full rounded-xl border border-stone-100 bg-stone-50/80 px-3 py-2 text-right text-xs hover:bg-white"
+                    >
+                      <div className="line-clamp-3 text-stone-800">{replySnippetForMessage(m)}</div>
+                    </button>
+                  ))
+                )}
+              </div>
+            </div>
+          </div>
+        ) : null}
+
+        {infoMessage ? (
+          <div
+            className="fixed inset-0 z-[60] flex items-center justify-center bg-black/45 p-4 backdrop-blur-[1px]"
+            role="presentation"
+            onClick={() => setInfoMessage(null)}
+          >
+            <div
+              role="dialog"
+              aria-modal="true"
+              className="w-full max-w-sm rounded-2xl border border-stone-200 bg-white p-4 shadow-2xl"
+              dir="rtl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h2 className="text-base font-bold text-stone-900">اطلاعات پیام</h2>
+              <ul className="mt-3 space-y-2 text-xs text-slate-700">
+                <li>
+                  <span className="font-semibold text-slate-500">ارسال: </span>
+                  {new Date(infoMessage.createdAt).toLocaleString('fa-IR')}
+                </li>
+                {infoMessage.deliveredAt ? (
+                  <li>
+                    <span className="font-semibold text-slate-500">تحویل: </span>
+                    {new Date(infoMessage.deliveredAt).toLocaleString('fa-IR')}
+                  </li>
+                ) : null}
+                {infoMessage.seenAt ? (
+                  <li>
+                    <span className="font-semibold text-slate-500">مشاهده: </span>
+                    {new Date(infoMessage.seenAt).toLocaleString('fa-IR')}
+                  </li>
+                ) : null}
+              </ul>
+              <button
+                type="button"
+                onClick={() => setInfoMessage(null)}
+                className="mt-4 w-full rounded-xl bg-slate-900 py-2.5 text-sm font-bold text-white"
+              >
+                بستن
+              </button>
             </div>
           </div>
         ) : null}
