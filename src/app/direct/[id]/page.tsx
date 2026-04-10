@@ -61,6 +61,8 @@ type Message = {
   id: string;
   conversationId: string;
   senderId: string;
+  messageType?: string;
+  metadata?: Record<string, unknown> | null;
   text: string | null;
   mediaId: string | null;
   isDeleted?: boolean;
@@ -115,6 +117,10 @@ function formatVoiceClock(ms: number): string {
 
 function replySnippetForMessage(msg: Message): string {
   if (msg.isDeleted) return 'این پیام حذف شده است';
+  if (msg.messageType === 'LOCATION') return 'لوکیشن';
+  if (msg.messageType === 'CONTACT') return 'مخاطب';
+  if (msg.messageType === 'POLL') return 'نظرسنجی';
+  if (msg.messageType === 'EVENT') return 'رویداد';
   const t = msg.text?.trim();
   if (t) return t.length > 100 ? `${t.slice(0, 100)}…` : t;
   if (msg.mediaId && msg.media && isVoiceMedia(msg.media)) return 'پیام صوتی';
@@ -401,7 +407,11 @@ export default function DirectConversationPage() {
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
   const [openActionsMessageId, setOpenActionsMessageId] = useState<string | null>(null);
   const socketRef = useRef<ReturnType<typeof io> | null>(null);
+  const isComposingRef = useRef(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const cameraInputRef = useRef<HTMLInputElement | null>(null);
+  const documentInputRef = useRef<HTMLInputElement | null>(null);
+  const [attachmentSheetOpen, setAttachmentSheetOpen] = useState(false);
 
   type VoicePhase = 'idle' | 'recording' | 'sending' | 'failed';
   const [voicePhase, setVoicePhase] = useState<VoicePhase>('idle');
@@ -482,6 +492,25 @@ function clearSelectedFile() {
   setPreviewUrl(null);
 }
 
+async function createLocationMetadata() {
+  if (!navigator.geolocation) {
+    throw new Error('Geolocation در این مرورگر پشتیبانی نمی‌شود');
+  }
+  const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
+    navigator.geolocation.getCurrentPosition(resolve, reject, {
+      enableHighAccuracy: true,
+      timeout: 12000,
+      maximumAge: 10000,
+    });
+  });
+  const label = window.prompt('برچسب اختیاری مکان (مثلا خانه یا محل کار):')?.trim() ?? '';
+  return {
+    lat: Number(pos.coords.latitude.toFixed(6)),
+    lng: Number(pos.coords.longitude.toFixed(6)),
+    ...(label ? { label: label.slice(0, 120) } : {}),
+  };
+}
+
 function handleFileSelection(next: File | null) {
   if (!next) {
     clearSelectedFile();
@@ -491,8 +520,14 @@ function handleFileSelection(next: File | null) {
   const mime = next.type || '';
   const isImage = mime.startsWith('image/');
   const isVideo = mime.startsWith('video/');
-  if (!isImage && !isVideo) {
-    setError('فقط عکس و ویدیو مجاز است');
+  const isDoc =
+    mime === 'application/pdf' ||
+    mime === 'application/zip' ||
+    mime === 'application/x-zip-compressed' ||
+    mime === 'application/msword' ||
+    mime === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+  if (!isImage && !isVideo && !isDoc) {
+    setError('نوع فایل پشتیبانی نمی‌شود');
     clearSelectedFile();
     return;
   }
@@ -504,6 +539,11 @@ function handleFileSelection(next: File | null) {
   }
   if (isVideo && next.size > MAX_VIDEO_BYTES) {
     setError('حجم ویدیو از 100MB بیشتر است. در نسخه فعلی فشرده‌سازی ویدیو انجام نمی‌شود.');
+    clearSelectedFile();
+    return;
+  }
+  if (isDoc && next.size > MAX_IMAGE_BYTES) {
+    setError('حجم فایل از 20MB بیشتر است');
     clearSelectedFile();
     return;
   }
@@ -1260,6 +1300,14 @@ socket.on(
   },
 );
 
+socket.on(
+  'direct_message_updated',
+  (payload: { conversationId: string; message: Message }) => {
+    if (payload.conversationId !== conversationId) return;
+    setMessages((prev) => prev.map((m) => (m.id === payload.message.id ? withDirectReactions(payload.message) : m)));
+  },
+);
+
   const onDirectReactions = (payload: {
     conversationId: string;
     messageId: string;
@@ -1282,6 +1330,7 @@ socket.on(
     socket.off('direct_message_reactions', onDirectReactions);
     socket.off('direct_message_edited');
     socket.off('direct_message_deleted');
+    socket.off('direct_message_updated');
 
     socket.emit('leave_direct', { conversationId });
 socket.emit('direct_typing', {
@@ -1299,9 +1348,15 @@ async function uploadSelectedFile(token: string): Promise<string | null> {
   const mime = file.type || '';
   const isVideo = mime.startsWith('video/');
   const isImage = mime.startsWith('image/');
+  const isDoc =
+    mime === 'application/pdf' ||
+    mime === 'application/zip' ||
+    mime === 'application/x-zip-compressed' ||
+    mime === 'application/msword' ||
+    mime === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
 
-  if (!isImage && !isVideo) {
-    throw new Error('فقط عکس و ویدیو مجاز است');
+  if (!isImage && !isVideo && !isDoc) {
+    throw new Error('نوع فایل پشتیبانی نمی‌شود');
   }
 
   const maxBytes = isVideo ? MAX_VIDEO_BYTES : MAX_IMAGE_BYTES;
@@ -1405,6 +1460,56 @@ async function uploadSelectedFile(token: string): Promise<string | null> {
     }
   }
 
+  async function onVotePoll(messageId: string, optionIndex: number) {
+    const token = getAccessToken();
+    if (!token || !conversationId) return;
+    try {
+      const updated = await apiFetch<Message>(
+        `direct/conversations/${conversationId}/messages/${messageId}/poll/vote`,
+        {
+          method: 'POST',
+          token,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ optionIndex }),
+        },
+      );
+      setMessages((prev) => prev.map((m) => (m.id === updated.id ? withDirectReactions(updated) : m)));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'خطا در رای‌گیری');
+    }
+  }
+
+  async function sendStructuredMessage(
+    messageType: 'LOCATION' | 'CONTACT' | 'POLL' | 'EVENT',
+    metadata: Record<string, unknown>,
+    textOverride?: string,
+  ) {
+    const token = getAccessToken();
+    if (!token || !conversationId) return;
+    if (sending) return;
+    setSending(true);
+    setError(null);
+    try {
+      await apiFetch<Message>(`direct/conversations/${conversationId}/messages`, {
+        method: 'POST',
+        token,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messageType,
+          metadata,
+          text: textOverride?.trim() || undefined,
+          ...(replyDraft ? { replyToMessageId: replyDraft.id } : {}),
+        }),
+      });
+      setReplyDraft(null);
+      scrollThreadEnd('auto');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'خطا در ارسال');
+    } finally {
+      setSending(false);
+    }
+  }
+
   async function onSend(e: FormEvent) {
     e.preventDefault();
     const token = getAccessToken();
@@ -1460,9 +1565,19 @@ async function uploadSelectedFile(token: string): Promise<string | null> {
         method: 'POST',
         token,
         headers: { 'Content-Type': 'application/json' },
+        // Keep direct payload shape backward compatible and only add messageType when needed.
         body: JSON.stringify({
           text: trimmed || undefined,
           mediaId: mediaId || undefined,
+          ...(mediaId
+            ? {
+                messageType: file?.type?.startsWith('video/')
+                  ? 'MEDIA'
+                  : file?.type?.startsWith('image/')
+                    ? 'MEDIA'
+                    : 'DOCUMENT',
+              }
+            : {}),
           ...(replyDraft ? { replyToMessageId: replyDraft.id } : {}),
         }),
       });
@@ -1728,18 +1843,75 @@ socketRef.current?.emit('direct_typing', {
                             controls
                             className="mb-2 max-h-72 w-full rounded-xl bg-black shadow-inner"
                           />
-                        ) : (
+                        ) : media.mimeType?.startsWith('image/') ? (
                           <img
                             src={media.url}
                             alt={media.originalName || 'message media'}
                             className="mb-2 max-h-72 w-full rounded-xl bg-white object-contain shadow-inner"
                           />
+                        ) : (
+                          <a
+                            href={media.url}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="mb-2 block rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700"
+                          >
+                            📄 {media.originalName || 'Document'}
+                          </a>
                         )
                       ) : null}
 
                       {deleted ? (
                         <div className="text-sm font-medium italic opacity-80">
                           این پیام حذف شده است
+                        </div>
+                      ) : msg.messageType === 'LOCATION' && msg.metadata ? (
+                        <div className="mt-1 rounded-xl border border-sky-200/80 bg-sky-50 p-2 text-xs text-sky-900">
+                          <div>📍 لوکیشن</div>
+                          <div className="mt-1 opacity-80">
+                            {typeof msg.metadata.label === 'string' ? msg.metadata.label : ''}
+                          </div>
+                          {typeof msg.metadata.lat === 'number' && typeof msg.metadata.lng === 'number' ? (
+                            <a
+                              href={`https://maps.google.com/?q=${msg.metadata.lat},${msg.metadata.lng}`}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="mt-1 inline-block text-[11px] font-semibold text-sky-700 underline"
+                            >
+                              باز کردن در نقشه
+                            </a>
+                          ) : null}
+                        </div>
+                      ) : msg.messageType === 'CONTACT' && msg.metadata ? (
+                        <div className="mt-1 rounded-xl border border-violet-200/80 bg-violet-50 p-2 text-xs text-violet-900">
+                          <div>👤 {String(msg.metadata.name ?? 'Contact')}</div>
+                          {msg.metadata.phone ? <div className="mt-1 opacity-80">{String(msg.metadata.phone)}</div> : null}
+                        </div>
+                      ) : msg.messageType === 'EVENT' && msg.metadata ? (
+                        <div className="mt-1 rounded-xl border border-amber-200/80 bg-amber-50 p-2 text-xs text-amber-900">
+                          <div>📅 {String(msg.metadata.title ?? 'Event')}</div>
+                          <div className="mt-1">{String(msg.metadata.dateTime ?? '')}</div>
+                          {msg.metadata.location ? <div className="mt-1 opacity-80">{String(msg.metadata.location)}</div> : null}
+                        </div>
+                      ) : msg.messageType === 'POLL' && msg.metadata ? (
+                        <div className="mt-1 rounded-xl border border-emerald-200/80 bg-emerald-50 p-2 text-xs text-emerald-900">
+                          <div className="font-semibold">🗳️ {String(msg.metadata.question ?? 'Poll')}</div>
+                          <div className="mt-2 space-y-1">
+                            {(Array.isArray(msg.metadata.options) ? msg.metadata.options : []).map((o, idx) => {
+                              const row = (o ?? {}) as Record<string, unknown>;
+                              return (
+                                <button
+                                  key={`${msg.id}-poll-${idx}`}
+                                  type="button"
+                                  onClick={() => void onVotePoll(msg.id, idx)}
+                                  className="flex w-full items-center justify-between rounded-lg border border-emerald-200 bg-white px-2 py-1 text-start transition hover:bg-emerald-100"
+                                >
+                                  <span>{String(row.label ?? `گزینه ${idx + 1}`)}</span>
+                                  <span className="text-[10px] opacity-70">{Number(row.votes ?? 0)}</span>
+                                </button>
+                              );
+                            })}
+                          </div>
                         </div>
                       ) : msg.text ? (
                         <div className="whitespace-pre-wrap text-[15px] leading-relaxed">{msg.text}</div>
@@ -1817,6 +1989,29 @@ socketRef.current?.emit('direct_typing', {
                 handleFileSelection(e.target.files?.[0] ?? null);
               }}
             />
+            <input
+              ref={cameraInputRef}
+              type="file"
+              accept="image/*,video/*"
+              capture="environment"
+              disabled={sending || editMode || voicePhase !== 'idle'}
+              className="sr-only"
+              onChange={(e) => {
+                clearVoiceDraft();
+                handleFileSelection(e.target.files?.[0] ?? null);
+              }}
+            />
+            <input
+              ref={documentInputRef}
+              type="file"
+              accept=".pdf,.zip,.doc,.docx,application/pdf,application/zip,application/x-zip-compressed,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+              disabled={sending || editMode || voicePhase !== 'idle'}
+              className="sr-only"
+              onChange={(e) => {
+                clearVoiceDraft();
+                handleFileSelection(e.target.files?.[0] ?? null);
+              }}
+            />
 
             {editMode && editingMessageId ? (
               <div className="flex items-start gap-2 rounded-2xl border border-amber-200/90 bg-amber-50/95 px-3 py-2.5 shadow-sm ring-1 ring-amber-100">
@@ -1850,28 +2045,98 @@ socketRef.current?.emit('direct_typing', {
               </div>
             ) : null}
 
+            {attachmentSheetOpen ? (
+              <div className="grid grid-cols-4 gap-2 rounded-2xl border border-slate-200/90 bg-white p-2 shadow-sm">
+                {[
+                  { key: 'photos', label: 'Photos' },
+                  { key: 'camera', label: 'Camera' },
+                  { key: 'location', label: 'Location' },
+                  { key: 'contact', label: 'Contact' },
+                  { key: 'document', label: 'Document' },
+                  { key: 'poll', label: 'Poll' },
+                  { key: 'event', label: 'Event' },
+                ].map((item) => (
+                  <button
+                    key={item.key}
+                    type="button"
+                    disabled={sending || editMode}
+                    className="rounded-xl border border-slate-200 px-2 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-40"
+                    onClick={async () => {
+                      setAttachmentSheetOpen(false);
+                      if (item.key === 'photos') {
+                        fileInputRef.current?.click();
+                        return;
+                      }
+                      if (item.key === 'camera') {
+                        cameraInputRef.current?.click();
+                        return;
+                      }
+                      if (item.key === 'document') {
+                        documentInputRef.current?.click();
+                        return;
+                      }
+                      if (item.key === 'location') {
+                        try {
+                          const md = await createLocationMetadata();
+                          await sendStructuredMessage('LOCATION', md);
+                        } catch (e) {
+                          setError(e instanceof Error ? e.message : 'خطا در دریافت مکان');
+                        }
+                        return;
+                      }
+                      if (item.key === 'contact') {
+                        const name = window.prompt('نام مخاطب:')?.trim() ?? '';
+                        if (!name) return;
+                        const phone = window.prompt('شماره تماس (اختیاری):')?.trim() ?? '';
+                        await sendStructuredMessage('CONTACT', { name, ...(phone ? { phone } : {}) });
+                        return;
+                      }
+                      if (item.key === 'poll') {
+                        const question = window.prompt('سوال نظرسنجی:')?.trim() ?? '';
+                        if (!question) return;
+                        const raw = window
+                          .prompt('گزینه‌ها را با | جدا کنید (حداقل 2 گزینه):')
+                          ?.split('|')
+                          .map((x) => x.trim())
+                          .filter(Boolean);
+                        if (!raw || raw.length < 2) {
+                          setError('حداقل دو گزینه لازم است');
+                          return;
+                        }
+                        await sendStructuredMessage('POLL', { question, options: raw.slice(0, 8) });
+                        return;
+                      }
+                      if (item.key === 'event') {
+                        const title = window.prompt('عنوان رویداد:')?.trim() ?? '';
+                        if (!title) return;
+                        const dateTime = window.prompt('تاریخ/زمان (مثلا 2026-05-15 18:00):')?.trim() ?? '';
+                        if (!dateTime) return;
+                        const location = window.prompt('مکان (اختیاری):')?.trim() ?? '';
+                        const description = window.prompt('توضیح (اختیاری):')?.trim() ?? '';
+                        await sendStructuredMessage('EVENT', {
+                          title,
+                          dateTime,
+                          ...(location ? { location } : {}),
+                          ...(description ? { description } : {}),
+                        });
+                      }
+                    }}
+                  >
+                    {item.label}
+                  </button>
+                ))}
+              </div>
+            ) : null}
+
             <div className="flex items-end gap-2">
               <button
                 type="button"
-                disabled={sending || editMode || voicePhase !== 'idle'}
-                title="افزودن عکس یا ویدیو"
-                onClick={() => fileInputRef.current?.click()}
+                disabled={sending || editMode}
+                title="Attachment"
+                onClick={() => setAttachmentSheetOpen((v) => !v)}
                 className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-slate-200/90 bg-white text-slate-600 shadow-sm transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
               >
-                <svg
-                  className="h-5 w-5"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  aria-hidden
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"
-                  />
-                </svg>
+                <span className="text-xl font-bold leading-none">+</span>
               </button>
 
               {editMode ? null : voicePhase === 'recording' ? (
@@ -1933,8 +2198,42 @@ socketRef.current?.emit('direct_typing', {
                 </button>
               )}
 
+              <button
+                type="button"
+                disabled={sending || editMode || voicePhase !== 'idle'}
+                title="Camera"
+                onClick={() => cameraInputRef.current?.click()}
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-slate-200/90 bg-white text-slate-600 shadow-sm transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                <span className="text-lg" aria-hidden>
+                  📷
+                </span>
+              </button>
+
               <textarea
                 value={text}
+                onCompositionStart={() => {
+                  isComposingRef.current = true;
+                }}
+                onCompositionEnd={() => {
+                  isComposingRef.current = false;
+                }}
+                onKeyDown={(e) => {
+                  if (e.key !== 'Enter') return;
+                  if (e.shiftKey) return;
+                  const native = e.nativeEvent as KeyboardEvent;
+                  if (isComposingRef.current || native.isComposing || native.keyCode === 229) return;
+                  const trimmed = text.trim();
+                  if (!trimmed || sending || editMode || voicePhase === 'recording' || voicePhase === 'sending') {
+                    e.preventDefault();
+                    return;
+                  }
+                  e.preventDefault();
+                  const form = e.currentTarget.closest('form');
+                  if (form) {
+                    form.requestSubmit();
+                  }
+                }}
                 onChange={(e) => {
                   const value = e.target.value;
                   setText(value);
