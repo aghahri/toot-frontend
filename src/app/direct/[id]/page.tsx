@@ -159,6 +159,98 @@ function ReplyQuoteBlock({
 }
 
 const MAX_VOICE_RECORD_SEC = 120;
+const MIN_VOICE_RECORD_MS = 600;
+const MAX_IMAGE_BYTES = 20 * 1024 * 1024;
+const MAX_VIDEO_BYTES = 100 * 1024 * 1024;
+const IMAGE_MAX_DIMENSION = 1600;
+const IMAGE_JPEG_QUALITY = 0.82;
+const IMAGE_WEBP_QUALITY = 0.8;
+
+async function preprocessImageForUpload(input: File): Promise<File> {
+  const mime = input.type.toLowerCase();
+  if (!mime.startsWith('image/')) return input;
+  if (mime === 'image/gif' || mime === 'image/svg+xml') return input;
+
+  const url = URL.createObjectURL(input);
+  try {
+    let width = 0;
+    let height = 0;
+    let bitmap: ImageBitmap | null = null;
+
+    if (typeof createImageBitmap !== 'undefined') {
+      bitmap = await createImageBitmap(input);
+      width = bitmap.width;
+      height = bitmap.height;
+    } else {
+      const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+        const i = new Image();
+        i.onload = () => resolve(i);
+        i.onerror = () => reject(new Error('Image decode failed'));
+        i.src = url;
+      });
+      width = img.naturalWidth;
+      height = img.naturalHeight;
+    }
+
+    if (width <= 0 || height <= 0) return input;
+
+    const ratio = Math.min(1, IMAGE_MAX_DIMENSION / Math.max(width, height));
+    const targetW = Math.max(1, Math.round(width * ratio));
+    const targetH = Math.max(1, Math.round(height * ratio));
+    const shouldResize = targetW !== width || targetH !== height;
+
+    if (!shouldResize && input.size <= 1_200_000) {
+      bitmap?.close();
+      return input;
+    }
+
+    const canvas = document.createElement('canvas');
+    canvas.width = targetW;
+    canvas.height = targetH;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) {
+      bitmap?.close();
+      return input;
+    }
+
+    if (bitmap) {
+      ctx.drawImage(bitmap, 0, 0, targetW, targetH);
+      bitmap.close();
+    } else {
+      const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+        const i = new Image();
+        i.onload = () => resolve(i);
+        i.onerror = () => reject(new Error('Image decode failed'));
+        i.src = url;
+      });
+      ctx.drawImage(img, 0, 0, targetW, targetH);
+    }
+
+    const webpBlob = await new Promise<Blob | null>((resolve) =>
+      canvas.toBlob(resolve, 'image/webp', IMAGE_WEBP_QUALITY),
+    );
+    const outBlob =
+      webpBlob ??
+      (await new Promise<Blob | null>((resolve) =>
+        canvas.toBlob(resolve, 'image/jpeg', IMAGE_JPEG_QUALITY),
+      ));
+
+    if (!outBlob || outBlob.size >= input.size) {
+      return input;
+    }
+
+    const ext = outBlob.type === 'image/webp' ? 'webp' : 'jpg';
+    const base = input.name.replace(/\.[^.]+$/, '') || 'image';
+    return new File([outBlob], `${base}.${ext}`, {
+      type: outBlob.type,
+      lastModified: Date.now(),
+    });
+  } catch {
+    return input;
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
 
 function DirectVoiceBubble({
   media,
@@ -311,7 +403,7 @@ export default function DirectConversationPage() {
   const socketRef = useRef<ReturnType<typeof io> | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  type VoicePhase = 'idle' | 'recording' | 'preview';
+  type VoicePhase = 'idle' | 'recording' | 'sending' | 'failed';
   const [voicePhase, setVoicePhase] = useState<VoicePhase>('idle');
   const [voiceBlob, setVoiceBlob] = useState<Blob | null>(null);
   const [voiceMime, setVoiceMime] = useState('');
@@ -390,6 +482,36 @@ function clearSelectedFile() {
   setPreviewUrl(null);
 }
 
+function handleFileSelection(next: File | null) {
+  if (!next) {
+    clearSelectedFile();
+    return;
+  }
+
+  const mime = next.type || '';
+  const isImage = mime.startsWith('image/');
+  const isVideo = mime.startsWith('video/');
+  if (!isImage && !isVideo) {
+    setError('فقط عکس و ویدیو مجاز است');
+    clearSelectedFile();
+    return;
+  }
+
+  if (isImage && next.size > MAX_IMAGE_BYTES) {
+    setError('حجم تصویر از 20MB بیشتر است');
+    clearSelectedFile();
+    return;
+  }
+  if (isVideo && next.size > MAX_VIDEO_BYTES) {
+    setError('حجم ویدیو از 100MB بیشتر است. در نسخه فعلی فشرده‌سازی ویدیو انجام نمی‌شود.');
+    clearSelectedFile();
+    return;
+  }
+
+  setError(null);
+  setFile(next);
+}
+
   function clearVoiceDraft() {
     voiceCancelledRef.current = true;
     mediaRecorderRef.current?.stop();
@@ -422,7 +544,7 @@ function clearSelectedFile() {
   }
 
   async function startVoiceRecording() {
-    if (editMode || sending) return;
+    if (editMode || sending || voicePhase !== 'idle') return;
     if (typeof MediaRecorder === 'undefined') {
       setError('ضبط صدا در این مرورگر پشتیبانی نمی‌شود');
       return;
@@ -483,14 +605,19 @@ function clearSelectedFile() {
           MAX_VOICE_RECORD_SEC * 1000,
           Date.now() - recordStartedAtRef.current,
         );
+        if (dur < MIN_VOICE_RECORD_MS) {
+          setVoicePhase('idle');
+          setRecordElapsedMs(0);
+          return;
+        }
+
+        const finalMime = blob.type || mime;
         setVoiceBlob(blob);
-        setVoiceMime(blob.type || mime);
+        setVoiceMime(finalMime);
         setVoiceDurationMs(dur);
-        setVoicePreviewUrl((prev) => {
-          if (prev) URL.revokeObjectURL(prev);
-          return URL.createObjectURL(blob);
+        void autoSendVoiceMessage(blob, finalMime, dur).catch((e) => {
+          setError(e instanceof Error ? e.message : 'خطا در ارسال پیام صوتی');
         });
-        setVoicePhase('preview');
         setRecordElapsedMs(0);
       };
 
@@ -532,13 +659,21 @@ function clearSelectedFile() {
     stopVoiceRecording();
   }
 
-  function uploadVoiceBlob(token: string): Promise<string | null> {
-    if (!voiceBlob) return Promise.resolve(null);
+  function uploadVoiceBlob(
+    token: string,
+    blobArg?: Blob,
+    mimeArg?: string,
+    durationArg?: number,
+  ): Promise<string | null> {
+    const activeBlob = blobArg ?? voiceBlob;
+    if (!activeBlob) return Promise.resolve(null);
 
-    const ext = voiceMime.includes('webm') ? 'webm' : voiceMime.includes('mp4') ? 'm4a' : 'webm';
+    const activeMime = mimeArg ?? voiceMime;
+    const activeDuration = durationArg ?? voiceDurationMs;
+    const ext = activeMime.includes('webm') ? 'webm' : activeMime.includes('mp4') ? 'm4a' : 'webm';
     const form = new FormData();
-    form.append('file', voiceBlob, `voice.${ext}`);
-    form.append('durationMs', String(Math.round(voiceDurationMs)));
+    form.append('file', activeBlob, `voice.${ext}`);
+    form.append('durationMs', String(Math.round(activeDuration)));
 
     const uploadUrl = `${getApiBaseUrl().replace(/\/+$/, '')}/media/upload`;
 
@@ -584,6 +719,53 @@ function clearSelectedFile() {
       xhr.onabort = () => reject(new Error('آپلود لغو شد'));
       xhr.send(form);
     });
+  }
+
+  async function autoSendVoiceMessage(blob: Blob, mime: string, durationMs: number) {
+    const token = getAccessToken();
+    if (!token) throw new Error('نشست شما منقضی شده است');
+    if (!conversationId) throw new Error('گفتگو معتبر نیست');
+
+    setSending(true);
+    setError(null);
+    setUploadProgress(0);
+    setVoicePhase('sending');
+
+    try {
+      const mediaId = await uploadVoiceBlob(token, blob, mime, durationMs);
+      if (!mediaId) throw new Error('آپلود صدا انجام نشد');
+
+      await apiFetch<Message>(`direct/conversations/${conversationId}/messages`, {
+        method: 'POST',
+        token,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          mediaId,
+          ...(replyDraft ? { replyToMessageId: replyDraft.id } : {}),
+        }),
+      });
+
+      clearVoiceDraft();
+      setReplyDraft(null);
+      scrollThreadEnd('auto');
+      socketRef.current?.emit('direct_typing', {
+        conversationId,
+        isTyping: false,
+      });
+    } catch (err) {
+      setVoiceBlob(blob);
+      setVoiceMime(mime);
+      setVoiceDurationMs(durationMs);
+      setVoicePreviewUrl((prev) => {
+        if (prev) URL.revokeObjectURL(prev);
+        return URL.createObjectURL(blob);
+      });
+      setVoicePhase('failed');
+      throw err;
+    } finally {
+      setSending(false);
+      setUploadProgress(null);
+    }
   }
 function cancelEdit() {
   setEditMode(false);
@@ -1122,13 +1304,19 @@ async function uploadSelectedFile(token: string): Promise<string | null> {
     throw new Error('فقط عکس و ویدیو مجاز است');
   }
 
-  const maxBytes = isVideo ? 100 * 1024 * 1024 : 20 * 1024 * 1024;
+  const maxBytes = isVideo ? MAX_VIDEO_BYTES : MAX_IMAGE_BYTES;
   if (file.size > maxBytes) {
-    throw new Error(isVideo ? 'حجم ویدیو از 100MB بیشتر است' : 'حجم تصویر از 20MB بیشتر است');
+    throw new Error(
+      isVideo
+        ? 'حجم ویدیو از 100MB بیشتر است. در نسخه فعلی فشرده‌سازی ویدیو انجام نمی‌شود.'
+        : 'حجم تصویر از 20MB بیشتر است',
+    );
   }
 
+  const uploadFile = isImage ? await preprocessImageForUpload(file) : file;
+
   const form = new FormData();
-  form.append('file', file);
+  form.append('file', uploadFile);
 
   const uploadUrl = `${getApiBaseUrl().replace(/\/+$/, '')}/media/upload`;
 
@@ -1258,22 +1446,15 @@ async function uploadSelectedFile(token: string): Promise<string | null> {
       return;
     }
 
-    const hasVoicePreview = voicePhase === 'preview' && voiceBlob;
-
-    if (!trimmed && !file && !hasVoicePreview) return;
+    if (!trimmed && !file) return;
 
     setSending(true);
     setError(null);
-    setUploadProgress(file || hasVoicePreview ? 0 : null);
+    setUploadProgress(file ? 0 : null);
 
     try {
       let mediaId: string | null = null;
-      if (hasVoicePreview) {
-        mediaId = await uploadVoiceBlob(token);
-        if (!mediaId) throw new Error('آپلود صدا انجام نشد');
-      } else {
-        mediaId = await uploadSelectedFile(token);
-      }
+      mediaId = await uploadSelectedFile(token);
 
       await apiFetch<Message>(`direct/conversations/${conversationId}/messages`, {
         method: 'POST',
@@ -1633,7 +1814,7 @@ socketRef.current?.emit('direct_typing', {
               className="sr-only"
               onChange={(e) => {
                 clearVoiceDraft();
-                setFile(e.target.files?.[0] ?? null);
+                handleFileSelection(e.target.files?.[0] ?? null);
               }}
             />
 
@@ -1725,10 +1906,18 @@ socketRef.current?.emit('direct_typing', {
                     </button>
                   </div>
                 </div>
+              ) : voicePhase === 'sending' ? (
+                <div
+                  className="flex min-w-0 flex-1 items-center justify-between gap-2 rounded-2xl border border-emerald-200/90 bg-emerald-50 px-3 py-2 shadow-sm"
+                  dir="rtl"
+                >
+                  <div className="text-xs font-semibold text-emerald-800">در حال ارسال پیام صوتی…</div>
+                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-emerald-300 border-t-emerald-700" />
+                </div>
               ) : (
                 <button
                   type="button"
-                  disabled={sending || !!file || voicePhase === 'preview'}
+                  disabled={sending || !!file || voicePhase !== 'idle'}
                   title="پیام صوتی"
                   onClick={() => void startVoiceRecording()}
                   className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-slate-200/90 bg-white text-slate-600 shadow-sm transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
@@ -1769,7 +1958,7 @@ socketRef.current?.emit('direct_typing', {
 
               <button
                 type="submit"
-                disabled={sending || voicePhase === 'recording'}
+                disabled={sending || voicePhase === 'recording' || voicePhase === 'sending'}
                 className="inline-flex h-11 min-w-[4.5rem] shrink-0 items-center justify-center rounded-2xl bg-slate-900 px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {sending ? (
@@ -1783,25 +1972,35 @@ socketRef.current?.emit('direct_typing', {
               </button>
             </div>
 
-            {voicePhase === 'preview' && voicePreviewUrl ? (
-              <div className="space-y-2 rounded-2xl border border-emerald-200/90 bg-emerald-50/80 px-3 py-2.5 shadow-sm ring-1 ring-emerald-100/80">
-                <div className="text-[11px] font-bold text-emerald-900">پیش‌نمایش پیام صوتی</div>
-                <audio
-                  src={voicePreviewUrl}
-                  controls
-                  preload="metadata"
-                  className="w-full rounded-xl bg-white"
-                />
-                <div className="text-[11px] text-emerald-800/90">
-                  مدت: {formatVoiceClock(voiceDurationMs)}
+            {voicePhase === 'failed' && voiceBlob ? (
+              <div className="space-y-2 rounded-2xl border border-red-200/90 bg-red-50/80 px-3 py-2.5 shadow-sm ring-1 ring-red-100/80">
+                <div className="text-[11px] font-bold text-red-800">ارسال پیام صوتی ناموفق بود</div>
+                {voicePreviewUrl ? (
+                  <audio
+                    src={voicePreviewUrl}
+                    controls
+                    preload="metadata"
+                    className="w-full rounded-xl bg-white"
+                  />
+                ) : null}
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => void autoSendVoiceMessage(voiceBlob, voiceMime, voiceDurationMs).catch((e) => {
+                      setError(e instanceof Error ? e.message : 'خطا در ارسال پیام صوتی');
+                    })}
+                    className="rounded-xl bg-red-600 px-3 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-red-700"
+                  >
+                    تلاش دوباره
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => clearVoiceDraft()}
+                    className="rounded-xl border border-red-200 bg-white px-3 py-2 text-xs font-semibold text-red-600 shadow-sm transition hover:bg-red-50"
+                  >
+                    حذف ضبط
+                  </button>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => clearVoiceDraft()}
-                  className="rounded-xl border border-red-200 bg-white px-3 py-2 text-xs font-semibold text-red-600 shadow-sm transition hover:bg-red-50"
-                >
-                  حذف ضبط
-                </button>
               </div>
             ) : null}
 
