@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 const AUTO_DISMISS_MS = 15_000;
 const COPY_FEEDBACK_MS = 2_000;
 
+/** Optional extra gate for local builds; popup still shows whenever the API returns a code. */
 export function isDevOtpPopupEnabled(): boolean {
   return process.env.NEXT_PUBLIC_DEV_OTP === 'true';
 }
@@ -19,8 +20,8 @@ export function DevOtpToast({ code, requestEpoch = 0 }: DevOtpToastProps) {
   const [hidden, setHidden] = useState(true);
   const [copied, setCopied] = useState(false);
   const copyResetRef = useRef<number | null>(null);
-
-  const enabled = isDevOtpPopupEnabled();
+  const display = code?.trim() ?? '';
+  const hasCode = display.length > 0;
 
   useEffect(() => {
     return () => {
@@ -32,12 +33,7 @@ export function DevOtpToast({ code, requestEpoch = 0 }: DevOtpToastProps) {
   }, []);
 
   useEffect(() => {
-    if (!enabled) {
-      setHidden(true);
-      return;
-    }
-    const next = code?.trim() || null;
-    if (!next) {
+    if (!hasCode) {
       setHidden(true);
       return;
     }
@@ -45,17 +41,16 @@ export function DevOtpToast({ code, requestEpoch = 0 }: DevOtpToastProps) {
     setCopied(false);
     const t = window.setTimeout(() => setHidden(true), AUTO_DISMISS_MS);
     return () => window.clearTimeout(t);
-  }, [code, enabled, requestEpoch]);
+  }, [code, requestEpoch, hasCode]);
 
   const dismiss = useCallback(() => {
     setHidden(true);
   }, []);
 
   const onCopyCode = useCallback(async () => {
-    const next = code?.trim();
-    if (!next) return;
+    if (!display) return;
     try {
-      await navigator.clipboard.writeText(next);
+      await navigator.clipboard.writeText(display);
       setCopied(true);
       if (copyResetRef.current != null) {
         window.clearTimeout(copyResetRef.current);
@@ -67,12 +62,11 @@ export function DevOtpToast({ code, requestEpoch = 0 }: DevOtpToastProps) {
     } catch {
       /* ignore */
     }
-  }, [code]);
+  }, [display]);
 
-  if (!enabled || hidden) return null;
+  if (!hasCode || hidden) return null;
 
-  const display = code?.trim();
-  if (!display) return null;
+  const showEnvHint = isDevOtpPopupEnabled();
 
   return (
     <div
@@ -82,7 +76,7 @@ export function DevOtpToast({ code, requestEpoch = 0 }: DevOtpToastProps) {
     >
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
-          <div className="text-xs font-bold text-slate-300">کد تایید (DEV)</div>
+          <div className="text-xs font-bold text-slate-300">کد تایید (توسعه)</div>
           <button
             type="button"
             onClick={() => void onCopyCode()}
@@ -96,9 +90,15 @@ export function DevOtpToast({ code, requestEpoch = 0 }: DevOtpToastProps) {
               {display}
             </span>
           </button>
-          <p className="mt-1.5 text-[10px] leading-snug text-slate-400">
-            فقط با <code className="rounded bg-black/30 px-1">NEXT_PUBLIC_DEV_OTP=true</code> فعال است.
-          </p>
+          {showEnvHint ? (
+            <p className="mt-1.5 text-[10px] leading-snug text-slate-400">
+              همچنین با <code className="rounded bg-black/30 px-1">NEXT_PUBLIC_DEV_OTP=true</code> در فرانت قابل تأیید است.
+            </p>
+          ) : (
+            <p className="mt-1.5 text-[10px] leading-snug text-slate-400">
+              این کد از پاسخ سرور آمده است (حالت توسعه/آزمایش).
+            </p>
+          )}
           {copied ? (
             <p className="mt-1 text-[11px] font-semibold text-emerald-400">کپی شد</p>
           ) : null}
