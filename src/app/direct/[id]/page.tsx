@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import { AuthGate } from '@/components/AuthGate';
 import { getAccessToken } from '@/lib/auth';
 import { apiFetch, getApiBaseUrl, getErrorMessageFromResponse } from '@/lib/api';
@@ -391,6 +391,7 @@ function DirectVoiceBubble({
 
 export default function DirectConversationPage() {
   const params = useParams();
+  const router = useRouter();
   const conversationId = Array.isArray(params?.id) ? params.id[0] : params?.id ?? '';
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -1626,6 +1627,7 @@ async function uploadSelectedFile(token: string): Promise<string | null> {
       setForwardPickError(null);
       setForwardPickItems([]);
       exitSelectionMode();
+      router.push(`/direct/${targetConversationId}`);
     } catch (e) {
       setForwardPickError(e instanceof Error ? e.message : 'خطا در فوروارد');
     } finally {
