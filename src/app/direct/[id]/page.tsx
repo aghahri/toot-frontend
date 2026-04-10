@@ -128,6 +128,14 @@ function replySnippetForMessage(msg: Message): string {
   return 'پیام';
 }
 
+function isPureTextMessage(m: Message): boolean {
+  if (m.isDeleted) return false;
+  if (m.mediaId) return false;
+  const mt = m.messageType;
+  if (mt && mt !== 'TEXT') return false;
+  return !!(m.text?.trim());
+}
+
 function ReplyQuoteBlock({
   reply,
   mine,
@@ -372,6 +380,8 @@ export default function DirectConversationPage() {
   const conversationId = Array.isArray(params?.id) ? params.id[0] : params?.id ?? '';
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
+  const messagesRef = useRef<Message[]>([]);
+  messagesRef.current = messages;
   const [text, setText] = useState('');
   const [file, setFile] = useState<File | null>(null);
   const [myUserId, setMyUserId] = useState<string | null>(null);
@@ -406,6 +416,13 @@ export default function DirectConversationPage() {
   const [editMode, setEditMode] = useState(false);
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
   const [openActionsMessageId, setOpenActionsMessageId] = useState<string | null>(null);
+  const [selectedMessageIds, setSelectedMessageIds] = useState<Set<string>>(() => new Set());
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+  const [forwardBusy, setForwardBusy] = useState(false);
+  const isSelectionMode = selectedMessageIds.size > 0;
+  const holdTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const holdGestureRef = useRef<{ x: number; y: number } | null>(null);
+  const skipNextRowClickRef = useRef(false);
   const socketRef = useRef<ReturnType<typeof io> | null>(null);
   const isComposingRef = useRef(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -459,6 +476,13 @@ export default function DirectConversationPage() {
     }
     return { text: 'گفتگوی خصوصی', className: 'text-stone-500' };
   }, [otherTyping, peerPresence]);
+
+  const canCopySelection = useMemo(() => {
+    if (selectedMessageIds.size === 0) return false;
+    const ordered = messages.filter((m) => selectedMessageIds.has(m.id));
+    if (ordered.length !== selectedMessageIds.size) return false;
+    return ordered.every(isPureTextMessage);
+  }, [messages, selectedMessageIds]);
 
 useEffect(() => {
   if (!file) {
@@ -850,6 +874,7 @@ function scrollThreadEnd(behavior: ScrollBehavior = 'auto') {
     prevMessageTailRef.current = null;
     layoutScrollSnapshotRef.current = { scrollY: 0, scrollHeight: 0 };
     setOpenActionsMessageId(null);
+    setSelectedMessageIds(new Set());
     setHasMoreOlder(true);
     setPlayingMessageId(null);
     clearVoiceDraft();
@@ -873,11 +898,20 @@ function scrollThreadEnd(behavior: ScrollBehavior = 'auto') {
   }, []);
 
   useEffect(() => {
-    if (!openActionsMessageId) return;
+    if (!openActionsMessageId && selectedMessageIds.size === 0) return;
 
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setOpenActionsMessageId(null);
+      if (e.key !== 'Escape') return;
+      setOpenActionsMessageId(null);
+      setSelectedMessageIds(new Set());
     };
+
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [openActionsMessageId, selectedMessageIds.size]);
+
+  useEffect(() => {
+    if (!openActionsMessageId) return;
 
     const onPointerDown = (e: PointerEvent) => {
       const t = e.target;
@@ -885,13 +919,22 @@ function scrollThreadEnd(behavior: ScrollBehavior = 'auto') {
       if (!t.closest('[data-direct-msg-actions]')) setOpenActionsMessageId(null);
     };
 
-    document.addEventListener('keydown', onKeyDown);
     document.addEventListener('pointerdown', onPointerDown, true);
-    return () => {
-      document.removeEventListener('keydown', onKeyDown);
-      document.removeEventListener('pointerdown', onPointerDown, true);
-    };
+    return () => document.removeEventListener('pointerdown', onPointerDown, true);
   }, [openActionsMessageId]);
+
+  useEffect(() => {
+    if (isSelectionMode) setAttachmentSheetOpen(false);
+  }, [isSelectionMode]);
+
+  useEffect(() => {
+    return () => {
+      if (holdTimerRef.current != null) {
+        window.clearTimeout(holdTimerRef.current);
+        holdTimerRef.current = null;
+      }
+    };
+  }, []);
 
   useEffect(() => {
     if (loading) wasLoadingRef.current = true;
@@ -1438,9 +1481,9 @@ async function uploadSelectedFile(token: string): Promise<string | null> {
     }
   }
 
-  async function onDeleteMessage(messageId: string) {
+  async function onDeleteMessage(messageId: string): Promise<boolean> {
     const token = getAccessToken();
-    if (!token || !conversationId) return;
+    if (!token || !conversationId) return false;
 
     try {
       const updated = await apiFetch<Message>(
@@ -1455,8 +1498,96 @@ async function uploadSelectedFile(token: string): Promise<string | null> {
 
       setMessages((prev) => prev.map((m) => (m.id === messageId ? { ...m, ...updated } : m)));
       if (replyDraft?.id === messageId) setReplyDraft(null);
+      return true;
     } catch (e) {
       setError(e instanceof Error ? e.message : 'خطا در حذف پیام');
+      return false;
+    }
+  }
+
+  function exitSelectionMode() {
+    setSelectedMessageIds(new Set());
+    setOpenActionsMessageId(null);
+  }
+
+  function toggleMessageInSelection(messageId: string) {
+    setSelectedMessageIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(messageId)) next.delete(messageId);
+      else next.add(messageId);
+      return next;
+    });
+  }
+
+  function clearHoldTimer() {
+    if (holdTimerRef.current != null) {
+      window.clearTimeout(holdTimerRef.current);
+      holdTimerRef.current = null;
+    }
+    holdGestureRef.current = null;
+  }
+
+  async function forwardSelectedMessages() {
+    const ids = new Set(selectedMessageIds);
+    if (ids.size === 0) return;
+    const ordered = messagesRef.current.filter((m) => ids.has(m.id));
+    const lines = ordered.map((m) =>
+      m.isDeleted ? '[حذف شده]' : replySnippetForMessage(m),
+    );
+    const text = lines.join('\n');
+    if (!text.trim()) return;
+
+    setForwardBusy(true);
+    setError(null);
+    try {
+      if (typeof navigator !== 'undefined' && navigator.share) {
+        try {
+          await navigator.share({ text });
+          return;
+        } catch (e) {
+          if ((e as Error).name === 'AbortError') return;
+        }
+      }
+      if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text);
+      } else {
+        setError('اشتراک‌گذاری در این مرورگر در دسترس نیست');
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'خطا در فوروارد');
+    } finally {
+      setForwardBusy(false);
+    }
+  }
+
+  async function copySelectedMessages() {
+    if (!canCopySelection) return;
+    const ids = new Set(selectedMessageIds);
+    const ordered = messagesRef.current.filter((m) => ids.has(m.id));
+    if (!ordered.every(isPureTextMessage)) return;
+    const text = ordered.map((m) => (m.text ?? '').trim()).join('\n\n');
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'خطا در کپی');
+    }
+  }
+
+  async function bulkDeleteSelectedMessages() {
+    const ids = [...selectedMessageIds];
+    if (ids.length === 0) return;
+    setBulkDeleting(true);
+    setError(null);
+    try {
+      for (const id of ids) {
+        const msg = messagesRef.current.find((m) => m.id === id);
+        if (!msg || msg.isDeleted || msg.pending) continue;
+        const ok = await onDeleteMessage(id);
+        if (!ok) return;
+      }
+      exitSelectionMode();
+    } finally {
+      setBulkDeleting(false);
     }
   }
 
@@ -1512,6 +1643,7 @@ async function uploadSelectedFile(token: string): Promise<string | null> {
 
   async function onSend(e: FormEvent) {
     e.preventDefault();
+    if (isSelectionMode) return;
     const token = getAccessToken();
     if (!token) return;
 
@@ -1608,55 +1740,111 @@ socketRef.current?.emit('direct_typing', {
           className="sticky top-0 z-30 border-b border-stone-200/90 bg-[#f8f8f8] shadow-[0_1px_0_rgba(0,0,0,0.04)] backdrop-blur-md"
           dir="rtl"
         >
-          <div className="flex items-center gap-2.5 px-3 py-2">
-            <Link
-              href="/direct"
-              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-slate-700 transition hover:bg-slate-100 active:bg-slate-200"
-              aria-label="بازگشت"
-            >
-              <span className="text-xl font-semibold leading-none text-slate-800" aria-hidden>
-                ›
-              </span>
-            </Link>
-
-            <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-full bg-stone-200 ring-2 ring-white">
-              {peerDisplay.avatar ? (
-                <img
-                  src={peerDisplay.avatar}
-                  alt=""
-                  className="h-full w-full object-cover"
-                />
-              ) : (
-                <span className="flex h-full w-full items-center justify-center text-sm font-bold text-slate-600">
-                  {peerInitial}
+          {isSelectionMode ? (
+            <div className="space-y-2 px-3 py-2">
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={exitSelectionMode}
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-slate-700 transition hover:bg-slate-100 active:bg-slate-200"
+                  aria-label="لغو انتخاب"
+                >
+                  <span className="text-xl font-semibold leading-none text-slate-800" aria-hidden>
+                    ›
+                  </span>
+                </button>
+                <div className="min-w-0 flex-1 text-center">
+                  <div className="text-[15px] font-bold text-stone-900">
+                    {selectedMessageIds.size} انتخاب‌شده
+                  </div>
+                </div>
+                <div className="h-10 w-10 shrink-0" aria-hidden />
+              </div>
+              <div className="flex flex-wrap items-center justify-center gap-1.5 pb-0.5">
+                <button
+                  type="button"
+                  disabled={forwardBusy || selectedMessageIds.size === 0}
+                  onClick={() => void forwardSelectedMessages()}
+                  className="rounded-full bg-slate-900 px-3 py-2 text-[11px] font-semibold text-white shadow-sm transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  فوروارد
+                </button>
+                <button
+                  type="button"
+                  disabled={bulkDeleting || selectedMessageIds.size === 0}
+                  onClick={() => void bulkDeleteSelectedMessages()}
+                  className="rounded-full border border-red-200 bg-red-50 px-3 py-2 text-[11px] font-semibold text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  حذف برای من
+                </button>
+                <button
+                  type="button"
+                  disabled={!canCopySelection}
+                  onClick={() => void copySelectedMessages()}
+                  className="rounded-full border border-slate-200 bg-white px-3 py-2 text-[11px] font-semibold text-slate-800 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  کپی
+                </button>
+                <button
+                  type="button"
+                  onClick={exitSelectionMode}
+                  className="rounded-full border border-slate-200 bg-white px-3 py-2 text-[11px] font-semibold text-slate-600 transition hover:bg-slate-50"
+                >
+                  لغو
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2.5 px-3 py-2">
+              <Link
+                href="/direct"
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-slate-700 transition hover:bg-slate-100 active:bg-slate-200"
+                aria-label="بازگشت"
+              >
+                <span className="text-xl font-semibold leading-none text-slate-800" aria-hidden>
+                  ›
                 </span>
-              )}
-            </div>
+              </Link>
 
-            <div className="min-w-0 flex-1 text-right">
-              <h1 className="truncate text-[16px] font-bold leading-tight text-stone-900">
-                {peerDisplay.name}
-              </h1>
-              <p className={`mt-0.5 truncate text-[11px] ${headerStatusLine.className}`}>
-                {headerStatusLine.text}
-              </p>
-            </div>
+              <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-full bg-stone-200 ring-2 ring-white">
+                {peerDisplay.avatar ? (
+                  <img
+                    src={peerDisplay.avatar}
+                    alt=""
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <span className="flex h-full w-full items-center justify-center text-sm font-bold text-slate-600">
+                    {peerInitial}
+                  </span>
+                )}
+              </div>
 
-            <button
-              type="button"
-              title="رفرش پیام‌ها"
-              onClick={() => {
-                forceScrollAfterLoadRef.current = true;
-                void loadMessages();
-              }}
-              disabled={loading}
-              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-slate-600 transition hover:bg-slate-100 disabled:opacity-40"
-            >
-              <span className={`text-lg ${loading ? 'animate-pulse' : ''}`} aria-hidden>
-                ↻
-              </span>
-            </button>
-          </div>
+              <div className="min-w-0 flex-1 text-right">
+                <h1 className="truncate text-[16px] font-bold leading-tight text-stone-900">
+                  {peerDisplay.name}
+                </h1>
+                <p className={`mt-0.5 truncate text-[11px] ${headerStatusLine.className}`}>
+                  {headerStatusLine.text}
+                </p>
+              </div>
+
+              <button
+                type="button"
+                title="رفرش پیام‌ها"
+                onClick={() => {
+                  forceScrollAfterLoadRef.current = true;
+                  void loadMessages();
+                }}
+                disabled={loading}
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-slate-600 transition hover:bg-slate-100 disabled:opacity-40"
+              >
+                <span className={`text-lg ${loading ? 'animate-pulse' : ''}`} aria-hidden>
+                  ↻
+                </span>
+              </button>
+            </div>
+          )}
         </header>
 
         {error ? (
@@ -1699,21 +1887,84 @@ socketRef.current?.emit('direct_typing', {
                   minute: '2-digit',
                 });
 
+                const rowSelected = selectedMessageIds.has(msg.id);
+
                 return (
                   <div
                     key={msg.id}
                     id={`direct-msg-${msg.id}`}
                     className={`flex ${mine ? 'justify-end' : 'justify-start'}`}
+                    onContextMenu={(e) => {
+                      const t = e.target;
+                      if (t instanceof Element && t.closest('a[href], [data-direct-msg-actions]')) return;
+                      e.preventDefault();
+                    }}
+                    onPointerDown={(e) => {
+                      if (e.button !== 0) return;
+                      if (editMode || isSelectionMode) return;
+                      const t = e.target as HTMLElement;
+                      if (
+                        t.closest(
+                          'button, a, [role="menu"], video, audio, textarea, input, [data-direct-msg-actions]',
+                        )
+                      ) {
+                        return;
+                      }
+                      clearHoldTimer();
+                      holdGestureRef.current = { x: e.clientX, y: e.clientY };
+                      holdTimerRef.current = window.setTimeout(() => {
+                        holdTimerRef.current = null;
+                        holdGestureRef.current = null;
+                        skipNextRowClickRef.current = true;
+                        setSelectedMessageIds(new Set([msg.id]));
+                        setOpenActionsMessageId(null);
+                      }, 480);
+                    }}
+                    onPointerMove={(e) => {
+                      if (holdTimerRef.current == null || !holdGestureRef.current) return;
+                      const dx = e.clientX - holdGestureRef.current.x;
+                      const dy = e.clientY - holdGestureRef.current.y;
+                      if (dx * dx + dy * dy > 144) clearHoldTimer();
+                    }}
+                    onPointerUp={clearHoldTimer}
+                    onPointerCancel={clearHoldTimer}
+                    onPointerLeave={(e) => {
+                      if (e.pointerType === 'mouse') clearHoldTimer();
+                    }}
+                    onClick={(e) => {
+                      if (skipNextRowClickRef.current) {
+                        skipNextRowClickRef.current = false;
+                        return;
+                      }
+                      if (!isSelectionMode) return;
+                      const el = e.target as HTMLElement;
+                      if (
+                        el.closest(
+                          'button, a, [role="menu"], video, audio, textarea, input, [data-direct-msg-actions]',
+                        )
+                      ) {
+                        return;
+                      }
+                      toggleMessageInSelection(msg.id);
+                    }}
                   >
                     <div
                       className={`relative max-w-[88%] rounded-[1.15rem] px-3.5 py-2.5 shadow-sm ${
                         deleted
                           ? mine
-                            ? 'bg-slate-800/75 text-white/85 ring-1 ring-white/10'
-                            : 'bg-slate-200/60 text-slate-600 ring-1 ring-slate-300/50'
+                            ? rowSelected
+                              ? 'bg-slate-800/75 text-white/85 ring-2 ring-sky-400 ring-offset-2 ring-offset-stone-100'
+                              : 'bg-slate-800/75 text-white/85 ring-1 ring-white/10'
+                            : rowSelected
+                              ? 'bg-slate-200/60 text-slate-600 ring-2 ring-sky-500 ring-offset-2 ring-offset-stone-100'
+                              : 'bg-slate-200/60 text-slate-600 ring-1 ring-slate-300/50'
                           : mine
-                            ? 'bg-slate-900 text-white ring-1 ring-slate-800/40'
-                            : 'bg-white text-slate-900 ring-1 ring-slate-200/80'
+                            ? rowSelected
+                              ? 'bg-slate-900 text-white ring-2 ring-sky-400 ring-offset-2 ring-offset-stone-100'
+                              : 'bg-slate-900 text-white ring-1 ring-slate-800/40'
+                            : rowSelected
+                              ? 'bg-white text-slate-900 ring-2 ring-sky-500 ring-offset-2 ring-offset-stone-100'
+                              : 'bg-white text-slate-900 ring-1 ring-slate-200/80'
                       }`}
                     >
                       <div className="mb-1.5 flex items-center justify-between gap-2 text-[11px]">
@@ -1724,7 +1975,7 @@ socketRef.current?.emit('direct_typing', {
                         >
                           {msg.sender.name}
                         </span>
-                        {!msg.isDeleted ? (
+                        {!msg.isDeleted && !isSelectionMode ? (
                           <div className="relative shrink-0" data-direct-msg-actions>
                             <button
                               type="button"
@@ -1982,7 +2233,7 @@ socketRef.current?.emit('direct_typing', {
               ref={fileInputRef}
               type="file"
               accept="image/*,video/*"
-              disabled={sending || editMode || voicePhase !== 'idle'}
+              disabled={sending || editMode || voicePhase !== 'idle' || isSelectionMode}
               className="sr-only"
               onChange={(e) => {
                 clearVoiceDraft();
@@ -1994,7 +2245,7 @@ socketRef.current?.emit('direct_typing', {
               type="file"
               accept="image/*,video/*"
               capture="environment"
-              disabled={sending || editMode || voicePhase !== 'idle'}
+              disabled={sending || editMode || voicePhase !== 'idle' || isSelectionMode}
               className="sr-only"
               onChange={(e) => {
                 clearVoiceDraft();
@@ -2005,7 +2256,7 @@ socketRef.current?.emit('direct_typing', {
               ref={documentInputRef}
               type="file"
               accept=".pdf,.zip,.doc,.docx,application/pdf,application/zip,application/x-zip-compressed,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-              disabled={sending || editMode || voicePhase !== 'idle'}
+              disabled={sending || editMode || voicePhase !== 'idle' || isSelectionMode}
               className="sr-only"
               onChange={(e) => {
                 clearVoiceDraft();
@@ -2059,7 +2310,7 @@ socketRef.current?.emit('direct_typing', {
                   <button
                     key={item.key}
                     type="button"
-                    disabled={sending || editMode}
+                    disabled={sending || editMode || isSelectionMode}
                     className="rounded-xl border border-slate-200 px-2 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-40"
                     onClick={async () => {
                       setAttachmentSheetOpen(false);
@@ -2131,7 +2382,7 @@ socketRef.current?.emit('direct_typing', {
             <div className="flex items-end gap-2">
               <button
                 type="button"
-                disabled={sending || editMode}
+                disabled={sending || editMode || isSelectionMode}
                 title="Attachment"
                 onClick={() => setAttachmentSheetOpen((v) => !v)}
                 className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-slate-200/90 bg-white text-slate-600 shadow-sm transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
@@ -2182,7 +2433,7 @@ socketRef.current?.emit('direct_typing', {
               ) : (
                 <button
                   type="button"
-                  disabled={sending || !!file || voicePhase !== 'idle'}
+                  disabled={sending || !!file || voicePhase !== 'idle' || isSelectionMode}
                   title="پیام صوتی"
                   onClick={() => void startVoiceRecording()}
                   className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-slate-200/90 bg-white text-slate-600 shadow-sm transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
@@ -2200,7 +2451,7 @@ socketRef.current?.emit('direct_typing', {
 
               <button
                 type="button"
-                disabled={sending || editMode || voicePhase !== 'idle'}
+                disabled={sending || editMode || voicePhase !== 'idle' || isSelectionMode}
                 title="Camera"
                 onClick={() => cameraInputRef.current?.click()}
                 className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-slate-200/90 bg-white text-slate-600 shadow-sm transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
@@ -2224,7 +2475,14 @@ socketRef.current?.emit('direct_typing', {
                   const native = e.nativeEvent as KeyboardEvent;
                   if (isComposingRef.current || native.isComposing || native.keyCode === 229) return;
                   const trimmed = text.trim();
-                  if (!trimmed || sending || editMode || voicePhase === 'recording' || voicePhase === 'sending') {
+                  if (
+                    !trimmed ||
+                    sending ||
+                    editMode ||
+                    isSelectionMode ||
+                    voicePhase === 'recording' ||
+                    voicePhase === 'sending'
+                  ) {
                     e.preventDefault();
                     return;
                   }
@@ -2251,13 +2509,15 @@ socketRef.current?.emit('direct_typing', {
                 }}
                 placeholder="پیام…"
                 rows={1}
-                disabled={sending || voicePhase === 'recording'}
+                disabled={sending || voicePhase === 'recording' || isSelectionMode}
                 className="min-h-[2.75rem] max-h-32 min-w-0 flex-1 resize-none rounded-2xl border border-slate-200/90 bg-white px-3.5 py-2.5 text-[15px] leading-normal text-slate-900 shadow-sm outline-none ring-0 transition placeholder:text-slate-400 focus:border-sky-400/60 focus:ring-2 focus:ring-sky-100"
               />
 
               <button
                 type="submit"
-                disabled={sending || voicePhase === 'recording' || voicePhase === 'sending'}
+                disabled={
+                  sending || voicePhase === 'recording' || voicePhase === 'sending' || isSelectionMode
+                }
                 className="inline-flex h-11 min-w-[4.5rem] shrink-0 items-center justify-center rounded-2xl bg-slate-900 px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {sending ? (
