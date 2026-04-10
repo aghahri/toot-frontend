@@ -77,8 +77,8 @@ export default function SpacesPage() {
       <main className="mx-auto w-full max-w-md px-4 pb-3 pt-2" dir="rtl">
         <div className="mb-3 flex items-center justify-between">
           <h1 className="text-lg font-extrabold text-slate-900">فضاها و گروه‌ها</h1>
-          <Link href="/groups" className="text-xs font-bold text-sky-700 underline">
-            گروه‌های من
+          <Link href="/direct" className="text-xs font-bold text-sky-700 underline">
+            چت‌ها و گروه‌ها
           </Link>
         </div>
         <Card>

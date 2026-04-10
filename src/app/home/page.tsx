@@ -201,20 +201,12 @@ function removeSelectedFile(indexToRemove: number) {
             <h1 className="text-xl font-bold tracking-tight text-stone-900">استوری</h1>
             <p className="mt-0.5 text-xs text-stone-500">فید و پست‌های شما</p>
           </div>
-          <div className="flex gap-2">
-            <Link
-              href="/direct"
-              className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-800 transition hover:bg-emerald-100"
-            >
-              چت‌ها
-            </Link>
-            <Link
-              href="/groups"
-              className="rounded-full border border-sky-200 bg-sky-50 px-3 py-1.5 text-xs font-bold text-sky-800 transition hover:bg-sky-100"
-            >
-              گروه‌ها
-            </Link>
-          </div>
+          <Link
+            href="/direct"
+            className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-800 transition hover:bg-emerald-100"
+          >
+            چت‌ها
+          </Link>
         </div>
         <div className="space-y-4">
           <Card>

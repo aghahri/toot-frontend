@@ -15,14 +15,8 @@ const tabs = [
     label: 'چت‌ها',
     Icon: IconTabChats,
     primary: true,
-    match: (p: string) => p === '/direct' || p.startsWith('/direct/'),
-  },
-  {
-    href: '/groups',
-    label: 'گروه‌ها',
-    Icon: IconTabSpaces,
-    primary: false,
-    match: (p: string) => p === '/groups' || p.startsWith('/groups/'),
+    match: (p: string) =>
+      p === '/direct' || p.startsWith('/direct/') || p.startsWith('/groups'),
   },
   {
     href: '/home',
