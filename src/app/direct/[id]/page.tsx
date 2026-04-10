@@ -57,6 +57,20 @@ function formatLastSeenFa(iso: string | null): string {
   return d.toLocaleDateString('fa-IR', { dateStyle: 'medium' });
 }
 
+type ForwardPickConversation = {
+  id: string;
+  participants: Array<{
+    userId: string;
+    user: {
+      id: string;
+      name: string;
+      avatar: string | null;
+      username?: string;
+      phoneMasked?: string;
+    };
+  }>;
+};
+
 type Message = {
   id: string;
   conversationId: string;
@@ -418,7 +432,11 @@ export default function DirectConversationPage() {
   const [openActionsMessageId, setOpenActionsMessageId] = useState<string | null>(null);
   const [selectedMessageIds, setSelectedMessageIds] = useState<Set<string>>(() => new Set());
   const [bulkDeleting, setBulkDeleting] = useState(false);
-  const [forwardBusy, setForwardBusy] = useState(false);
+  const [forwardPickerOpen, setForwardPickerOpen] = useState(false);
+  const [forwardPickLoading, setForwardPickLoading] = useState(false);
+  const [forwardPickError, setForwardPickError] = useState<string | null>(null);
+  const [forwardPickItems, setForwardPickItems] = useState<ForwardPickConversation[]>([]);
+  const [forwardPickSubmitting, setForwardPickSubmitting] = useState(false);
   const isSelectionMode = selectedMessageIds.size > 0;
   const holdTimerRef = useRef<number | null>(null);
   const holdGestureRef = useRef<{ x: number; y: number } | null>(null);
@@ -898,17 +916,30 @@ function scrollThreadEnd(behavior: ScrollBehavior = 'auto') {
   }, []);
 
   useEffect(() => {
-    if (!openActionsMessageId && selectedMessageIds.size === 0) return;
+    if (!forwardPickerOpen && !openActionsMessageId && selectedMessageIds.size === 0) return;
 
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key !== 'Escape') return;
+      if (forwardPickerOpen) {
+        if (!forwardPickSubmitting) {
+          setForwardPickerOpen(false);
+          setForwardPickError(null);
+          setForwardPickItems([]);
+        }
+        return;
+      }
       setOpenActionsMessageId(null);
       setSelectedMessageIds(new Set());
     };
 
     document.addEventListener('keydown', onKeyDown);
     return () => document.removeEventListener('keydown', onKeyDown);
-  }, [openActionsMessageId, selectedMessageIds.size]);
+  }, [
+    forwardPickerOpen,
+    forwardPickSubmitting,
+    openActionsMessageId,
+    selectedMessageIds.size,
+  ]);
 
   useEffect(() => {
     if (!openActionsMessageId) return;
@@ -926,6 +957,14 @@ function scrollThreadEnd(behavior: ScrollBehavior = 'auto') {
   useEffect(() => {
     if (isSelectionMode) setAttachmentSheetOpen(false);
   }, [isSelectionMode]);
+
+  useEffect(() => {
+    if (isSelectionMode || forwardPickSubmitting) return;
+    if (!forwardPickerOpen) return;
+    setForwardPickerOpen(false);
+    setForwardPickError(null);
+    setForwardPickItems([]);
+  }, [isSelectionMode, forwardPickerOpen, forwardPickSubmitting]);
 
   useEffect(() => {
     return () => {
@@ -1527,36 +1566,70 @@ async function uploadSelectedFile(token: string): Promise<string | null> {
     holdGestureRef.current = null;
   }
 
-  async function forwardSelectedMessages() {
-    const ids = new Set(selectedMessageIds);
-    if (ids.size === 0) return;
-    const ordered = messagesRef.current.filter((m) => ids.has(m.id));
-    const lines = ordered.map((m) =>
-      m.isDeleted ? '[حذف شده]' : replySnippetForMessage(m),
-    );
-    const text = lines.join('\n');
-    if (!text.trim()) return;
+  async function openForwardPicker() {
+    if (selectedMessageIds.size === 0 || forwardPickerOpen) return;
+    setForwardPickerOpen(true);
+    setForwardPickError(null);
+    setForwardPickLoading(true);
+    setForwardPickItems([]);
+    const token = getAccessToken();
+    if (!token) {
+      setForwardPickLoading(false);
+      setForwardPickError('ابتدا وارد شوید');
+      return;
+    }
+    try {
+      const rows = await apiFetch<ForwardPickConversation[]>('direct/conversations', {
+        method: 'GET',
+        token,
+      });
+      setForwardPickItems(Array.isArray(rows) ? rows : []);
+    } catch (e) {
+      setForwardPickError(e instanceof Error ? e.message : 'خطا در دریافت گفتگوها');
+    } finally {
+      setForwardPickLoading(false);
+    }
+  }
 
-    setForwardBusy(true);
+  function dismissForwardPicker() {
+    if (forwardPickSubmitting) return;
+    setForwardPickerOpen(false);
+    setForwardPickError(null);
+    setForwardPickItems([]);
+  }
+
+  async function confirmForwardTo(targetConversationId: string) {
+    if (forwardPickSubmitting) return;
+    const token = getAccessToken();
+    if (!token || !conversationId) return;
+    const orderedIds = messagesRef.current
+      .filter((m) => selectedMessageIds.has(m.id) && !m.pending && !m.isDeleted)
+      .map((m) => m.id);
+    if (orderedIds.length === 0) {
+      setForwardPickError('پیامی برای ارسال نیست');
+      return;
+    }
+    setForwardPickSubmitting(true);
+    setForwardPickError(null);
     setError(null);
     try {
-      if (typeof navigator !== 'undefined' && navigator.share) {
-        try {
-          await navigator.share({ text });
-          return;
-        } catch (e) {
-          if ((e as Error).name === 'AbortError') return;
-        }
-      }
-      if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
-        await navigator.clipboard.writeText(text);
-      } else {
-        setError('اشتراک‌گذاری در این مرورگر در دسترس نیست');
-      }
+      await apiFetch<{ forwarded: number }>(
+        `direct/conversations/${conversationId}/messages/forward`,
+        {
+          method: 'POST',
+          token,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ targetConversationId, messageIds: orderedIds }),
+        },
+      );
+      setForwardPickerOpen(false);
+      setForwardPickError(null);
+      setForwardPickItems([]);
+      exitSelectionMode();
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'خطا در فوروارد');
+      setForwardPickError(e instanceof Error ? e.message : 'خطا در فوروارد');
     } finally {
-      setForwardBusy(false);
+      setForwardPickSubmitting(false);
     }
   }
 
@@ -1763,8 +1836,8 @@ socketRef.current?.emit('direct_typing', {
               <div className="flex flex-wrap items-center justify-center gap-1.5 pb-0.5">
                 <button
                   type="button"
-                  disabled={forwardBusy || selectedMessageIds.size === 0}
-                  onClick={() => void forwardSelectedMessages()}
+                  disabled={selectedMessageIds.size === 0}
+                  onClick={() => void openForwardPicker()}
                   className="rounded-full bg-slate-900 px-3 py-2 text-[11px] font-semibold text-white shadow-sm transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   فوروارد
@@ -2612,6 +2685,99 @@ socketRef.current?.emit('direct_typing', {
             </form>
         </div>
         <div ref={threadEndRef} className="h-px w-full shrink-0" aria-hidden />
+
+        {forwardPickerOpen ? (
+          <div
+            className="fixed inset-0 z-[60] flex items-end justify-center bg-black/45 backdrop-blur-[1px] sm:items-center"
+            role="presentation"
+            onClick={() => dismissForwardPicker()}
+          >
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="forward-picker-title"
+              className="max-h-[min(28rem,85dvh)] w-full max-w-md overflow-hidden rounded-t-2xl border border-stone-200/90 bg-[#fafafa] shadow-2xl sm:rounded-2xl"
+              dir="rtl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between border-b border-stone-200/80 px-4 py-3">
+                <h2 id="forward-picker-title" className="text-base font-bold text-stone-900">
+                  ارسال به
+                </h2>
+                <button
+                  type="button"
+                  onClick={() => dismissForwardPicker()}
+                  disabled={forwardPickSubmitting}
+                  className="rounded-full px-3 py-1.5 text-sm font-semibold text-slate-600 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  بستن
+                </button>
+              </div>
+              <div className="max-h-[min(22rem,70dvh)] overflow-y-auto px-2 py-2">
+                {forwardPickSubmitting ? (
+                  <div className="flex flex-col items-center justify-center gap-3 py-14 text-sm font-semibold text-slate-700">
+                    <span
+                      className="h-6 w-6 animate-spin rounded-full border-2 border-slate-300 border-t-slate-800"
+                      aria-hidden
+                    />
+                    در حال ارسال…
+                  </div>
+                ) : forwardPickLoading ? (
+                  <div className="px-3 py-10 text-center text-sm text-slate-600">در حال بارگذاری…</div>
+                ) : forwardPickError ? (
+                  <div className="px-3 py-6 text-center text-sm font-semibold text-red-600">
+                    {forwardPickError}
+                  </div>
+                ) : (() => {
+                    const targets = forwardPickItems.filter((c) => c.id !== conversationId);
+                    if (targets.length === 0) {
+                      return (
+                        <div className="px-3 py-8 text-center text-sm leading-relaxed text-slate-600">
+                          گفتگوی دیگری برای ارسال وجود ندارد. از فهرست گفتگوها گفتگوی جدید بسازید.
+                        </div>
+                      );
+                    }
+                    return targets.map((c) => {
+                      const peer = c.participants.find((p) => p.userId !== myUserId)?.user;
+                      const label = peer?.name?.trim() || 'مخاطب';
+                      const sub =
+                        peer?.username != null && peer.username.trim()
+                          ? `@${peer.username.trim()}`
+                          : peer?.phoneMasked || '';
+                      const initial = label.slice(0, 1) || '?';
+                      return (
+                        <button
+                          key={c.id}
+                          type="button"
+                          onClick={() => void confirmForwardTo(c.id)}
+                          className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-right transition hover:bg-white active:bg-stone-100"
+                        >
+                          <div className="relative h-11 w-11 shrink-0 overflow-hidden rounded-full bg-stone-200 ring-2 ring-white">
+                            {peer?.avatar ? (
+                              <img src={peer.avatar} alt="" className="h-full w-full object-cover" />
+                            ) : (
+                              <span className="flex h-full w-full items-center justify-center text-sm font-bold text-slate-600">
+                                {initial}
+                              </span>
+                            )}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="truncate font-semibold text-stone-900">{label}</div>
+                            {sub ? (
+                              <div className="mt-0.5 truncate text-[11px] text-slate-500">{sub}</div>
+                            ) : null}
+                          </div>
+                          <span className="shrink-0 text-slate-400" aria-hidden>
+                            ‹
+                          </span>
+                        </button>
+                      );
+                    });
+                  })()}
+              </div>
+            </div>
+          </div>
+        ) : null}
       </main>
     </AuthGate>
   );
