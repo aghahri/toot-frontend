@@ -82,6 +82,23 @@ type ForwardPickConversation = {
   }>;
 };
 
+type ForwardPickTarget =
+  | {
+      kind: 'direct';
+      id: string;
+      peer: {
+        name: string;
+        avatar: string | null;
+        username?: string;
+        phoneMasked?: string;
+      };
+    }
+  | { kind: 'group'; id: string; name: string; memberCount: number };
+
+function forwardPickLabel(t: ForwardPickTarget): string {
+  return t.kind === 'direct' ? t.peer.name : t.name;
+}
+
 type Message = {
   id: string;
   conversationId: string;
@@ -516,7 +533,7 @@ export default function DirectConversationPage() {
   const [forwardPickerOpen, setForwardPickerOpen] = useState(false);
   const [forwardPickLoading, setForwardPickLoading] = useState(false);
   const [forwardPickError, setForwardPickError] = useState<string | null>(null);
-  const [forwardPickItems, setForwardPickItems] = useState<ForwardPickConversation[]>([]);
+  const [forwardPickItems, setForwardPickItems] = useState<ForwardPickTarget[]>([]);
   const [forwardPickSubmitting, setForwardPickSubmitting] = useState(false);
   const [lastReadMessageId, setLastReadMessageId] = useState<string | null>(null);
   const [pinnedPreview, setPinnedPreview] = useState<Message | null>(null);
@@ -536,6 +553,8 @@ export default function DirectConversationPage() {
   const holdGestureRef = useRef<{ x: number; y: number } | null>(null);
   const skipNextRowClickRef = useRef(false);
   const forwardIdsOverrideRef = useRef<string[] | null>(null);
+  /** Tracks previous `isSelectionMode` so we only auto-close the forward sheet when leaving bulk selection, not when opening it from the ⋮ menu. */
+  const wasSelectionModeRef = useRef(false);
   const socketRef = useRef<ReturnType<typeof io> | null>(null);
   const isComposingRef = useRef(false);
   const draftPersistTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -1124,12 +1143,15 @@ function scrollThreadEnd(behavior: ScrollBehavior = 'auto') {
   }, [isSelectionMode]);
 
   useEffect(() => {
-    if (isSelectionMode || forwardPickSubmitting) return;
-    if (!forwardPickerOpen) return;
-    setForwardPickerOpen(false);
-    setForwardPickError(null);
-    setForwardPickItems([]);
-  }, [isSelectionMode, forwardPickerOpen, forwardPickSubmitting]);
+    const was = wasSelectionModeRef.current;
+    wasSelectionModeRef.current = isSelectionMode;
+    if (was && !isSelectionMode && !forwardPickSubmitting) {
+      forwardIdsOverrideRef.current = null;
+      setForwardPickerOpen(false);
+      setForwardPickError(null);
+      setForwardPickItems([]);
+    }
+  }, [isSelectionMode, forwardPickSubmitting]);
 
   useEffect(() => {
     return () => {
@@ -1774,11 +1796,43 @@ async function uploadSelectedFile(token: string): Promise<string | null> {
       return;
     }
     try {
-      const rows = await apiFetch<ForwardPickConversation[]>('direct/conversations', {
-        method: 'GET',
-        token,
-      });
-      setForwardPickItems(Array.isArray(rows) ? rows : []);
+      const [convRows, groupRows] = await Promise.all([
+        apiFetch<ForwardPickConversation[]>('direct/conversations', {
+          method: 'GET',
+          token,
+        }).catch(() => []),
+        apiFetch<
+          Array<{ id: string; name: string; memberCount?: number }>
+        >('groups/conversations', { method: 'GET', token }).catch(() => []),
+      ]);
+      const targets: ForwardPickTarget[] = [];
+      for (const c of Array.isArray(convRows) ? convRows : []) {
+        if (c.id === conversationId) continue;
+        const peerUser =
+          c.participants.find((p) => p.userId !== myUserId)?.user ?? c.participants[0]?.user;
+        targets.push({
+          kind: 'direct',
+          id: c.id,
+          peer: {
+            name: peerUser?.name?.trim() || 'مخاطب',
+            avatar: peerUser?.avatar ?? null,
+            username: peerUser?.username,
+            phoneMasked: peerUser?.phoneMasked,
+          },
+        });
+      }
+      for (const g of Array.isArray(groupRows) ? groupRows : []) {
+        targets.push({
+          kind: 'group',
+          id: g.id,
+          name: g.name?.trim() || 'گروه',
+          memberCount: typeof g.memberCount === 'number' ? g.memberCount : 0,
+        });
+      }
+      targets.sort((a, b) =>
+        forwardPickLabel(a).localeCompare(forwardPickLabel(b), 'fa', { sensitivity: 'base' }),
+      );
+      setForwardPickItems(targets);
     } catch (e) {
       setForwardPickError(e instanceof Error ? e.message : 'خطا در دریافت گفتگوها');
     } finally {
@@ -1794,7 +1848,7 @@ async function uploadSelectedFile(token: string): Promise<string | null> {
     setForwardPickItems([]);
   }
 
-  async function confirmForwardTo(targetConversationId: string) {
+  async function confirmForwardTo(target: ForwardPickTarget) {
     if (forwardPickSubmitting) return;
     const token = getAccessToken();
     if (!token || !conversationId) return;
@@ -1817,20 +1871,28 @@ async function uploadSelectedFile(token: string): Promise<string | null> {
     setForwardPickError(null);
     setError(null);
     try {
+      const body =
+        target.kind === 'direct'
+          ? { targetConversationId: target.id, messageIds: orderedIds }
+          : { targetGroupId: target.id, messageIds: orderedIds };
       await apiFetch<{ forwarded: number }>(
         `direct/conversations/${conversationId}/messages/forward`,
         {
           method: 'POST',
           token,
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ targetConversationId, messageIds: orderedIds }),
+          body: JSON.stringify(body),
         },
       );
       setForwardPickerOpen(false);
       setForwardPickError(null);
       setForwardPickItems([]);
       exitSelectionMode();
-      router.push(`/direct/${targetConversationId}`);
+      if (target.kind === 'direct') {
+        router.push(`/direct/${target.id}`);
+      } else {
+        router.push(`/groups/${target.id}`);
+      }
     } catch (e) {
       setForwardPickError(e instanceof Error ? e.message : 'خطا در فوروارد');
     } finally {
@@ -3257,33 +3319,29 @@ async function uploadSelectedFile(token: string): Promise<string | null> {
                   <div className="px-3 py-6 text-center text-sm font-semibold text-red-600">
                     {forwardPickError}
                   </div>
-                ) : (() => {
-                    const targets = forwardPickItems.filter((c) => c.id !== conversationId);
-                    if (targets.length === 0) {
-                      return (
-                        <div className="px-3 py-8 text-center text-sm leading-relaxed text-slate-600">
-                          گفتگوی دیگری برای ارسال وجود ندارد. از فهرست گفتگوها گفتگوی جدید بسازید.
-                        </div>
-                      );
-                    }
-                    return targets.map((c) => {
-                      const peer = c.participants.find((p) => p.userId !== myUserId)?.user;
-                      const label = peer?.name?.trim() || 'مخاطب';
+                ) : forwardPickItems.length === 0 ? (
+                  <div className="px-3 py-8 text-center text-sm leading-relaxed text-slate-600">
+                    مقصد دیگری برای ارسال نیست. از چت‌ها گفتگوی خصوصی یا گروه جدید بسازید.
+                  </div>
+                ) : (
+                  forwardPickItems.map((t) => {
+                    if (t.kind === 'direct') {
+                      const label = t.peer.name;
                       const sub =
-                        peer?.username != null && peer.username.trim()
-                          ? `@${peer.username.trim()}`
-                          : peer?.phoneMasked || '';
+                        t.peer.username != null && t.peer.username.trim()
+                          ? `@${t.peer.username.trim()}`
+                          : t.peer.phoneMasked || '';
                       const initial = label.slice(0, 1) || '?';
                       return (
                         <button
-                          key={c.id}
+                          key={`d-${t.id}`}
                           type="button"
-                          onClick={() => void confirmForwardTo(c.id)}
+                          onClick={() => void confirmForwardTo(t)}
                           className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-right transition hover:bg-white active:bg-stone-100"
                         >
                           <div className="relative h-11 w-11 shrink-0 overflow-hidden rounded-full bg-stone-200 ring-2 ring-white">
-                            {peer?.avatar ? (
-                              <img src={peer.avatar} alt="" className="h-full w-full object-cover" />
+                            {t.peer.avatar ? (
+                              <img src={t.peer.avatar} alt="" className="h-full w-full object-cover" />
                             ) : (
                               <span className="flex h-full w-full items-center justify-center text-sm font-bold text-slate-600">
                                 {initial}
@@ -3294,15 +3352,41 @@ async function uploadSelectedFile(token: string): Promise<string | null> {
                             <div className="truncate font-semibold text-stone-900">{label}</div>
                             {sub ? (
                               <div className="mt-0.5 truncate text-[11px] text-slate-500">{sub}</div>
-                            ) : null}
+                            ) : (
+                              <div className="mt-0.5 truncate text-[11px] text-slate-500">گفتگوی خصوصی</div>
+                            )}
                           </div>
                           <span className="shrink-0 text-slate-400" aria-hidden>
                             ‹
                           </span>
                         </button>
                       );
-                    });
-                  })()}
+                    }
+                    return (
+                      <button
+                        key={`g-${t.id}`}
+                        type="button"
+                        onClick={() => void confirmForwardTo(t)}
+                        className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-right transition hover:bg-white active:bg-stone-100"
+                      >
+                        <div className="relative flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full bg-sky-100 ring-2 ring-white">
+                          <span className="text-lg font-bold text-sky-800" aria-hidden>
+                            گ
+                          </span>
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="truncate font-semibold text-stone-900">{t.name}</div>
+                          <div className="mt-0.5 truncate text-[11px] text-slate-500">
+                            گروه · {t.memberCount} عضو
+                          </div>
+                        </div>
+                        <span className="shrink-0 text-slate-400" aria-hidden>
+                          ‹
+                        </span>
+                      </button>
+                    );
+                  })
+                )}
               </div>
             </div>
           </div>
