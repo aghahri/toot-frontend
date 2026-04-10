@@ -1,15 +1,19 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
+import { io } from 'socket.io-client';
 import { AuthGate } from '@/components/AuthGate';
 import { getAccessToken } from '@/lib/auth';
-import { apiFetch } from '@/lib/api';
+import { apiFetch, getApiBaseUrl } from '@/lib/api';
 import { IconPlus } from '@/components/MessagingTabIcons';
 import {
   DirectConversationRow,
   type DirectConversationRowMessage,
+  type DirectRowPreviewVariant,
 } from '@/components/direct/DirectConversationRow';
+import { listPreviewForLastMessage } from '@/lib/direct-list-preview';
+import { DIRECT_DRAFT_CHANGED_EVENT, getDirectDraft } from '@/lib/direct-drafts';
 
 type PeerUser = {
   id: string;
@@ -29,12 +33,32 @@ type Conversation = {
     userId: string;
     user: PeerUser;
   }>;
-  messages: Array<DirectConversationRowMessage>;
+  messages?: Array<DirectConversationRowMessage>;
   unreadCount?: number;
   lastMessage?: DirectConversationRowMessage;
   lastActivityAt?: string;
   peerOnline?: boolean;
+  inboxPinned?: boolean;
+  inboxArchived?: boolean;
+  inboxMuted?: boolean;
 };
+
+type SocketMessage = DirectConversationRowMessage & {
+  conversationId?: string;
+  senderId?: string;
+};
+
+function sortConversations(a: Conversation, b: Conversation): number {
+  const aArc = a.inboxArchived ? 1 : 0;
+  const bArc = b.inboxArchived ? 1 : 0;
+  if (aArc !== bArc) return aArc - bArc;
+  const ap = a.inboxPinned ? 1 : 0;
+  const bp = b.inboxPinned ? 1 : 0;
+  if (ap !== bp) return bp - ap;
+  const ta = new Date(a.lastActivityAt ?? a.updatedAt).getTime();
+  const tb = new Date(b.lastActivityAt ?? b.updatedAt).getTime();
+  return tb - ta;
+}
 
 function ConversationListSkeleton() {
   return (
@@ -65,37 +89,87 @@ function peerSubtitle(u: PeerUser | undefined): string {
   return parts.join(' · ');
 }
 
-function isListVoiceMedia(m: { type?: string; mimeType?: string } | null | undefined): boolean {
-  if (!m) return false;
-  if (m.type === 'VOICE') return true;
-  return (m.mimeType ?? '').toLowerCase().startsWith('audio/');
+function matchesListFilter(item: Conversation, q: string, myUserId: string | null): boolean {
+  const term = q.trim().toLowerCase();
+  if (!term) return true;
+  const other =
+    item.participants.find((p) => p.user.id !== myUserId)?.user ?? item.participants[0]?.user;
+  const last = item.lastMessage ?? item.messages?.[0];
+  const preview = last ? listPreviewForLastMessage(last, myUserId) : 'هنوز پیامی ارسال نشده';
+  const blob = [other?.name, other?.username, other?.phoneMasked, preview]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase();
+  return blob.includes(term);
 }
 
-function listPreviewForLastMessage(
-  lastMessage: DirectConversationRowMessage & {
-    messageType?: string;
-    metadata?: Record<string, unknown> | null;
+function renderConversationRows(
+  list: Conversation[],
+  ctx: {
+    myUserId: string | null;
+    menuOpenId: string | null;
+    setMenuOpenId: (id: string | null) => void;
+    typingByConv: Record<string, boolean>;
+    onInboxAction: (conversationId: string, segment: string) => void;
   },
-): string {
-  const t = lastMessage.text?.trim();
-  if (t) return t.length > 120 ? `${t.slice(0, 120)}…` : t;
-  const mt = lastMessage.messageType;
-  if (mt === 'LOCATION') return '📍 موقعیت';
-  if (mt === 'CONTACT') {
-    const n = lastMessage.metadata && typeof lastMessage.metadata.name === 'string' ? lastMessage.metadata.name : 'مخاطب';
-    return `👤 ${n}`;
-  }
-  if (mt === 'POLL') return '🗳️ نظرسنجی';
-  if (mt === 'EVENT') return '📅 رویداد';
-  if (lastMessage.media && isListVoiceMedia(lastMessage.media)) return 'پیام صوتی';
-  if (lastMessage.mediaId && lastMessage.media) {
-    const m = lastMessage.media;
-    if (m.mimeType?.startsWith('image/') || m.type === 'IMAGE') return '🖼 عکس';
-    if (m.mimeType?.startsWith('video/') || m.type === 'VIDEO') return '🎬 ویدیو';
-    return '📄 سند';
-  }
-  if (lastMessage.mediaId) return 'رسانه';
-  return 'هنوز پیامی ارسال نشده';
+) {
+  return list.map((item) => {
+    const other =
+      item.participants.find((p) => p.user.id !== ctx.myUserId)?.user ?? item.participants[0]?.user;
+
+    const lastMessage = item.lastMessage ?? item.messages?.[0];
+    const draft = getDirectDraft(item.id).trim();
+    const peerTyping = ctx.typingByConv[item.id] === true;
+    let previewVariant: DirectRowPreviewVariant = 'default';
+    let preview: string;
+    if (peerTyping) {
+      previewVariant = 'typing';
+      preview = 'در حال نوشتن…';
+    } else if (draft) {
+      previewVariant = 'draft';
+      preview = `پیش‌نویس: ${draft.length > 80 ? `${draft.slice(0, 80)}…` : draft}`;
+    } else {
+      preview = lastMessage
+        ? listPreviewForLastMessage(lastMessage, ctx.myUserId)
+        : 'هنوز پیامی ارسال نشده';
+    }
+
+    const previewTimeIso =
+      lastMessage?.createdAt ?? item.lastActivityAt ?? item.updatedAt;
+    const unreadCount = typeof item.unreadCount === 'number' ? item.unreadCount : 0;
+
+    return (
+      <DirectConversationRow
+        key={item.id}
+        href={`/direct/${item.id}`}
+        peerName={other?.name ?? 'کاربر'}
+        peerAvatarUrl={other?.avatar ?? null}
+        peerSubtitle={peerSubtitle(other)}
+        preview={preview}
+        previewVariant={previewVariant}
+        previewTimeIso={previewTimeIso}
+        myUserId={ctx.myUserId}
+        lastMessage={lastMessage}
+        unreadCount={unreadCount}
+        peerOnline={item.peerOnline === true}
+        inboxPinned={item.inboxPinned === true}
+        inboxArchived={item.inboxArchived === true}
+        inboxMuted={item.inboxMuted === true}
+        unreadEmphasis={unreadCount > 0 && previewVariant === 'default'}
+        menuOpen={ctx.menuOpenId === item.id}
+        onMenuToggle={() =>
+          ctx.setMenuOpenId(ctx.menuOpenId === item.id ? null : item.id)
+        }
+        onPin={() => void ctx.onInboxAction(item.id, item.inboxPinned ? 'inbox/unpin' : 'inbox/pin')}
+        onArchiveToggle={() =>
+          void ctx.onInboxAction(item.id, item.inboxArchived ? 'inbox/unarchive' : 'inbox/archive')
+        }
+        onMuteToggle={() =>
+          void ctx.onInboxAction(item.id, item.inboxMuted ? 'inbox/unmute' : 'inbox/mute')
+        }
+      />
+    );
+  });
 }
 
 export default function DirectPage() {
@@ -108,13 +182,26 @@ export default function DirectPage() {
   const [searchHits, setSearchHits] = useState<UserSearchHit[]>([]);
   const [searching, setSearching] = useState(false);
   const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [listFilterQuery, setListFilterQuery] = useState('');
+  const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
+  const [typingByConv, setTypingByConv] = useState<Record<string, boolean>>({});
+  const [, setDraftRev] = useState(0);
 
-  async function loadMeAndConversations() {
+  const itemsRef = useRef(items);
+  itemsRef.current = items;
+  const myUserIdRef = useRef(myUserId);
+  myUserIdRef.current = myUserId;
+  const typingTimersRef = useRef(new Map<string, ReturnType<typeof setTimeout>>());
+  const socketRef = useRef<ReturnType<typeof io> | null>(null);
+
+  const loadMeAndConversations = useCallback(async (opts?: { silent?: boolean }) => {
     const token = getAccessToken();
     if (!token) return;
 
-    setLoading(true);
-    setError(null);
+    if (!opts?.silent) {
+      setLoading(true);
+      setError(null);
+    }
 
     try {
       const me = await apiFetch<{ id: string; name: string; email: string }>('users/me', {
@@ -129,17 +216,242 @@ export default function DirectPage() {
         token,
       });
 
-      setItems(conversations);
+      setItems(Array.isArray(conversations) ? [...conversations].sort(sortConversations) : []);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'خطا در دریافت گفتگوها');
+      if (!opts?.silent) {
+        setError(e instanceof Error ? e.message : 'خطا در دریافت گفتگوها');
+      }
     } finally {
-      setLoading(false);
+      if (!opts?.silent) {
+        setLoading(false);
+      }
     }
-  }
+  }, []);
+
+  const onInboxAction = useCallback(async (conversationId: string, segment: string) => {
+    const token = getAccessToken();
+    if (!token) return;
+    try {
+      setError(null);
+      await apiFetch(`direct/conversations/${conversationId}/${segment}`, {
+        method: 'POST',
+        token,
+      });
+      await loadMeAndConversations({ silent: true });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'خطا در به‌روزرسانی گفتگو');
+    }
+  }, [loadMeAndConversations]);
 
   useEffect(() => {
-    loadMeAndConversations();
+    void loadMeAndConversations();
+  }, [loadMeAndConversations]);
+
+  useEffect(() => {
+    const onVis = () => {
+      if (document.visibilityState === 'visible') {
+        void loadMeAndConversations({ silent: true });
+      }
+    };
+    document.addEventListener('visibilitychange', onVis);
+    return () => document.removeEventListener('visibilitychange', onVis);
+  }, [loadMeAndConversations]);
+
+  useEffect(() => {
+    const onDraft = () => setDraftRev((n) => n + 1);
+    window.addEventListener(DIRECT_DRAFT_CHANGED_EVENT, onDraft);
+    return () => window.removeEventListener(DIRECT_DRAFT_CHANGED_EVENT, onDraft);
   }, []);
+
+  useEffect(() => {
+    if (menuOpenId == null) return;
+    const onDown = (e: MouseEvent) => {
+      const el = e.target as HTMLElement | null;
+      if (el?.closest?.('[data-direct-inbox-menu]')) return;
+      setMenuOpenId(null);
+    };
+    document.addEventListener('mousedown', onDown);
+    return () => document.removeEventListener('mousedown', onDown);
+  }, [menuOpenId]);
+
+  useEffect(() => {
+    const token = getAccessToken();
+    if (!token || !myUserId) return;
+
+    const socket = io(getApiBaseUrl().replace(/\/+$/, ''), {
+      transports: ['websocket'],
+      auth: { token },
+    });
+    socketRef.current = socket;
+
+    const joinAll = () => {
+      for (const id of itemsRef.current.map((i) => i.id)) {
+        socket.emit('join_direct', { conversationId: id, skipDeliverySync: true });
+      }
+    };
+
+    const leaveAll = () => {
+      for (const id of itemsRef.current.map((i) => i.id)) {
+        socket.emit('leave_direct', { conversationId: id });
+      }
+    };
+
+    const onTyping = (payload: { conversationId: string; userId: string; isTyping: boolean }) => {
+      const me = myUserIdRef.current;
+      if (!me || payload.userId === me) return;
+      const cid = payload.conversationId;
+      const prevT = typingTimersRef.current.get(cid);
+      if (prevT) clearTimeout(prevT);
+      if (payload.isTyping) {
+        setTypingByConv((m) => ({ ...m, [cid]: true }));
+        typingTimersRef.current.set(
+          cid,
+          setTimeout(() => {
+            setTypingByConv((m) => {
+              const n = { ...m };
+              delete n[cid];
+              return n;
+            });
+            typingTimersRef.current.delete(cid);
+          }, 2500),
+        );
+      } else {
+        setTypingByConv((m) => {
+          const n = { ...m };
+          delete n[cid];
+          return n;
+        });
+        typingTimersRef.current.delete(cid);
+      }
+    };
+
+    const onMessage = (message: SocketMessage) => {
+      const cid = message.conversationId;
+      if (!cid) return;
+      const uid = myUserIdRef.current;
+      const rawCreated = message.createdAt as unknown;
+      const created =
+        typeof rawCreated === 'string'
+          ? rawCreated
+          : rawCreated instanceof Date
+            ? rawCreated.toISOString()
+            : String(rawCreated);
+      setItems((prev) => {
+        const ix = prev.findIndex((c) => c.id === cid);
+        if (ix < 0) return prev;
+        const c = prev[ix];
+        const lastMessage = { ...(message as DirectConversationRowMessage), createdAt: created };
+        const lastActivityAt = new Date(
+          Math.max(new Date(c.lastActivityAt ?? c.updatedAt).getTime(), new Date(created).getTime()),
+        ).toISOString();
+        const incoming = !!(uid && message.senderId && message.senderId !== uid);
+        const unreadCount = (c.unreadCount ?? 0) + (incoming ? 1 : 0);
+        const next = [...prev];
+        next[ix] = {
+          ...c,
+          lastMessage,
+          messages: [lastMessage],
+          lastActivityAt,
+          updatedAt: lastActivityAt,
+          unreadCount,
+        };
+        return next.sort(sortConversations);
+      });
+    };
+
+    const onEdited = (payload: {
+      conversationId: string;
+      messageId: string;
+      text: string | null;
+      editedAt: string | null;
+    }) => {
+      setItems((prev) => {
+        const ix = prev.findIndex((c) => c.id === payload.conversationId);
+        if (ix < 0) return prev;
+        const c = prev[ix];
+        const lm = c.lastMessage ?? c.messages?.[0];
+        if (!lm || lm.id !== payload.messageId) return prev;
+        const nextLm = { ...lm, text: payload.text, editedAt: payload.editedAt };
+        const next = [...prev];
+        next[ix] = { ...c, lastMessage: nextLm, messages: [nextLm] };
+        return next;
+      });
+    };
+
+    const onDeleted = (payload: {
+      conversationId: string;
+      messageId: string;
+      isDeleted: boolean;
+      deletedAt: string | null;
+      text: null;
+      mediaId: null;
+      media: null;
+    }) => {
+      setItems((prev) => {
+        const ix = prev.findIndex((c) => c.id === payload.conversationId);
+        if (ix < 0) return prev;
+        const c = prev[ix];
+        const lm = c.lastMessage ?? c.messages?.[0];
+        if (!lm || lm.id !== payload.messageId) return prev;
+        const nextLm: DirectConversationRowMessage = {
+          ...lm,
+          isDeleted: true,
+          deletedAt: payload.deletedAt,
+          text: null,
+          mediaId: null,
+          media: null,
+        };
+        const next = [...prev];
+        next[ix] = { ...c, lastMessage: nextLm, messages: [nextLm] };
+        return next.sort(sortConversations);
+      });
+    };
+
+    const onPresence = (payload: {
+      conversationId: string;
+      userId: string;
+      online: boolean;
+    }) => {
+      const me = myUserIdRef.current;
+      if (!me || payload.userId === me) return;
+      setItems((prev) =>
+        prev.map((row) =>
+          row.id === payload.conversationId ? { ...row, peerOnline: payload.online } : row,
+        ),
+      );
+    };
+
+    socket.on('connect', joinAll);
+    socket.on('direct_typing', onTyping);
+    socket.on('direct_message', onMessage);
+    socket.on('direct_message_edited', onEdited);
+    socket.on('direct_message_deleted', onDeleted);
+    socket.on('direct_presence', onPresence);
+
+    if (socket.connected) joinAll();
+
+    return () => {
+      typingTimersRef.current.forEach((t) => clearTimeout(t));
+      typingTimersRef.current.clear();
+      leaveAll();
+      socket.off('connect', joinAll);
+      socket.off('direct_typing', onTyping);
+      socket.off('direct_message', onMessage);
+      socket.off('direct_message_edited', onEdited);
+      socket.off('direct_message_deleted', onDeleted);
+      socket.off('direct_presence', onPresence);
+      socket.disconnect();
+      socketRef.current = null;
+    };
+  }, [myUserId]);
+
+  useEffect(() => {
+    const socket = socketRef.current;
+    if (!socket?.connected) return;
+    for (const id of items.map((i) => i.id)) {
+      socket.emit('join_direct', { conversationId: id, skipDeliverySync: true });
+    }
+  }, [items]);
 
   useEffect(() => {
     if (!newChatOpen) return;
@@ -199,6 +511,21 @@ export default function DirectPage() {
     }
   }
 
+  const mainItems = items.filter(
+    (i) => !i.inboxArchived && matchesListFilter(i, listFilterQuery, myUserId),
+  );
+  const archivedItems = items.filter(
+    (i) => i.inboxArchived && matchesListFilter(i, listFilterQuery, myUserId),
+  );
+
+  const rowCtx = {
+    myUserId,
+    menuOpenId,
+    setMenuOpenId,
+    typingByConv,
+    onInboxAction,
+  };
+
   return (
     <AuthGate>
       <main className="mx-auto min-h-[60vh] w-full max-w-md bg-stone-100/90 pb-2">
@@ -210,7 +537,7 @@ export default function DirectPage() {
           <div className="flex shrink-0 items-center gap-1">
             <button
               type="button"
-              onClick={loadMeAndConversations}
+              onClick={() => void loadMeAndConversations()}
               disabled={loading}
               title="رفرش"
               className="flex h-10 w-10 items-center justify-center rounded-full text-stone-600 transition hover:bg-stone-200/80 disabled:opacity-40"
@@ -235,6 +562,18 @@ export default function DirectPage() {
           </div>
         </div>
 
+        {!loading && items.length > 0 ? (
+          <div className="mt-2 px-3" dir="rtl">
+            <input
+              value={listFilterQuery}
+              onChange={(e) => setListFilterQuery(e.target.value)}
+              placeholder="جستجو در گفتگوها…"
+              className="w-full rounded-xl border border-stone-200 bg-white px-3 py-2.5 text-sm outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
+              autoComplete="off"
+            />
+          </div>
+        ) : null}
+
         <div className="relative mt-1 overflow-hidden rounded-2xl border border-stone-200/60 bg-white shadow-sm">
           {loading ? (
             <ConversationListSkeleton />
@@ -243,7 +582,7 @@ export default function DirectPage() {
               <p className="text-sm font-semibold text-red-800">{error}</p>
               <button
                 type="button"
-                onClick={loadMeAndConversations}
+                onClick={() => void loadMeAndConversations()}
                 className="mt-3 text-xs font-bold text-emerald-700 underline"
               >
                 تلاش دوباره
@@ -256,41 +595,22 @@ export default function DirectPage() {
                 با دکمهٔ سبز <span className="font-bold text-emerald-600">+</span> گفتگوی جدید بسازید.
               </p>
             </div>
+          ) : mainItems.length === 0 && archivedItems.length === 0 ? (
+            <div className="px-6 py-10 text-center text-sm text-stone-500">نتیجه‌ای یافت نشد.</div>
           ) : (
             <div className="divide-y divide-stone-100">
-              {items.map((item) => {
-                const other =
-                  item.participants.find((p) => p.user.id !== myUserId)?.user ??
-                  item.participants[0]?.user;
-
-                const lastMessage = item.lastMessage ?? item.messages[0];
-                const preview = lastMessage
-                  ? listPreviewForLastMessage(lastMessage as DirectConversationRowMessage & {
-                      messageType?: string;
-                      metadata?: Record<string, unknown> | null;
-                    })
-                  : 'هنوز پیامی ارسال نشده';
-                const previewTimeIso =
-                  lastMessage?.createdAt ?? item.lastActivityAt ?? item.updatedAt;
-                const unreadCount =
-                  typeof item.unreadCount === 'number' ? item.unreadCount : 0;
-
-                return (
-                  <DirectConversationRow
-                    key={item.id}
-                    href={`/direct/${item.id}`}
-                    peerName={other?.name ?? 'کاربر'}
-                    peerAvatarUrl={other?.avatar ?? null}
-                    peerSubtitle={peerSubtitle(other)}
-                    preview={preview}
-                    previewTimeIso={previewTimeIso}
-                    myUserId={myUserId}
-                    lastMessage={lastMessage}
-                    unreadCount={unreadCount}
-                    peerOnline={item.peerOnline === true}
-                  />
-                );
-              })}
+              {renderConversationRows(mainItems, rowCtx)}
+              {archivedItems.length > 0 ? (
+                <>
+                  <div
+                    className="bg-stone-100/90 px-4 py-2 text-[11px] font-bold uppercase tracking-wide text-stone-500"
+                    dir="rtl"
+                  >
+                    بایگانی‌شده
+                  </div>
+                  {renderConversationRows(archivedItems, rowCtx)}
+                </>
+              ) : null}
             </div>
           )}
         </div>
@@ -309,7 +629,6 @@ export default function DirectPage() {
             بازگشت به خانه
           </Link>
         </div>
-
       </main>
 
       {newChatOpen ? (

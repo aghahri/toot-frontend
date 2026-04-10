@@ -6,6 +6,7 @@ import { AuthGate } from '@/components/AuthGate';
 import { getAccessToken } from '@/lib/auth';
 import { apiFetch, getApiBaseUrl, getErrorMessageFromResponse } from '@/lib/api';
 import { markDirectConversationRead } from '@/lib/mark-direct-read';
+import { clearDirectDraft, getDirectDraft, setDirectDraft } from '@/lib/direct-drafts';
 import { DIRECT_REACTION_EMOJIS, type DirectReactionSummary } from '@/lib/direct-reactions';
 import { Card } from '@/components/ui/Card';
 import { io } from 'socket.io-client';
@@ -537,6 +538,7 @@ export default function DirectConversationPage() {
   const forwardIdsOverrideRef = useRef<string[] | null>(null);
   const socketRef = useRef<ReturnType<typeof io> | null>(null);
   const isComposingRef = useRef(false);
+  const draftPersistTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const cameraInputRef = useRef<HTMLInputElement | null>(null);
   const documentInputRef = useRef<HTMLInputElement | null>(null);
@@ -959,7 +961,7 @@ function handleFileSelection(next: File | null) {
 function cancelEdit() {
   setEditMode(false);
   setEditingMessageId(null);
-  setText('');
+  setText(getDirectDraft(conversationId));
   socketRef.current?.emit('direct_typing', {
     conversationId,
     isTyping: false,
@@ -1010,6 +1012,7 @@ function scrollThreadEnd(behavior: ScrollBehavior = 'auto') {
     setSearchHits([]);
     setFlashMessageId(null);
     setInfoMessage(null);
+    setText(getDirectDraft(conversationId));
   }, [conversationId]);
 
   useEffect(() => {
@@ -2055,7 +2058,7 @@ async function uploadSelectedFile(token: string): Promise<string | null> {
         );
         setEditMode(false);
         setEditingMessageId(null);
-        setText('');
+        setText(getDirectDraft(conversationId));
         socketRef.current?.emit('direct_typing', {
           conversationId,
           isTyping: false,
@@ -2100,16 +2103,17 @@ async function uploadSelectedFile(token: string): Promise<string | null> {
       });
 
       setText('');
+      clearDirectDraft(conversationId);
       setFile(null);
       setPreviewUrl(null);
       clearVoiceDraft();
       setReplyDraft(null);
       scrollThreadEnd('auto');
-socketRef.current?.emit('direct_typing', {
-  conversationId,
-  isTyping: false,
-});    
-} catch (e) {
+      socketRef.current?.emit('direct_typing', {
+        conversationId,
+        isTyping: false,
+      });
+    } catch (e) {
       setError(e instanceof Error ? e.message : 'خطا در ارسال پیام');
     } finally {
       setSending(false);
@@ -3077,13 +3081,29 @@ socketRef.current?.emit('direct_typing', {
                 onChange={(e) => {
                   const value = e.target.value;
                   setText(value);
+                  if (!editMode) {
+                    if (draftPersistTimerRef.current) {
+                      clearTimeout(draftPersistTimerRef.current);
+                    }
+                    draftPersistTimerRef.current = setTimeout(() => {
+                      setDirectDraft(conversationId, value);
+                      draftPersistTimerRef.current = null;
+                    }, 220);
+                  }
 
                   socketRef.current?.emit('direct_typing', {
                     conversationId,
                     isTyping: value.trim().length > 0,
                   });
                 }}
-                onBlur={() => {
+                onBlur={(e) => {
+                  if (!editMode) {
+                    if (draftPersistTimerRef.current) {
+                      clearTimeout(draftPersistTimerRef.current);
+                      draftPersistTimerRef.current = null;
+                    }
+                    setDirectDraft(conversationId, e.target.value);
+                  }
                   socketRef.current?.emit('direct_typing', {
                     conversationId,
                     isTyping: false,
