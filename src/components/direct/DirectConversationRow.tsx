@@ -63,6 +63,8 @@ export type DirectConversationRowMessage = {
   messageType?: string;
   metadata?: Record<string, unknown> | null;
   isDeleted?: boolean;
+  editedAt?: string | null;
+  deletedAt?: string | null;
 };
 
 export type DirectRowPreviewVariant = 'default' | 'typing' | 'draft';
