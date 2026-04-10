@@ -521,11 +521,11 @@ export default function GroupThreadPage() {
                       {m.deletedAt ? (
                         <p className="text-sm italic text-stone-500">پیام حذف شد</p>
                       ) : m.media ? (
-                        m.mimeType?.startsWith('image/') || m.media.type === 'IMAGE' ? (
+                        m.media.mimeType?.startsWith('image/') || m.media.type === 'IMAGE' ? (
                           <img src={m.media.url} alt="" className="max-h-56 rounded-lg" />
-                        ) : m.mimeType?.startsWith('video/') || m.media.type === 'VIDEO' ? (
+                        ) : m.media.mimeType?.startsWith('video/') || m.media.type === 'VIDEO' ? (
                           <video src={m.media.url} controls className="max-h-56 rounded-lg" />
-                        ) : m.media.type === 'VOICE' || m.mimeType?.startsWith('audio/') ? (
+                        ) : m.media.type === 'VOICE' || m.media.mimeType?.startsWith('audio/') ? (
                           <audio src={m.media.url} controls className="w-full" />
                         ) : (
                           <a
