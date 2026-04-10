@@ -19,8 +19,8 @@ type GroupInboxRow = {
   id: string;
   name: string;
   description: string | null;
-  networkId: string;
-  network?: { id: string; name: string };
+  networkId: string | null;
+  network?: { id: string; name: string } | null;
   memberCount: number;
   myRole: string;
   lastMessage: Record<string, unknown> | null;

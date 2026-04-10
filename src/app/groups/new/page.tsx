@@ -18,16 +18,29 @@ type NetMember = {
   user: { id: string; name: string; avatar: string | null; email: string };
 };
 
+type UserSearchHit = {
+  id: string;
+  name: string;
+  username: string;
+  phoneMasked: string;
+};
+
+type CreateMode = 'normal' | 'network';
+
 type Step = 'members' | 'details';
 
 export default function CreateGroupPage() {
   const router = useRouter();
   const [step, setStep] = useState<Step>('members');
+  const [mode, setMode] = useState<CreateMode>('normal');
   const [myUserId, setMyUserId] = useState<string | null>(null);
   const [networks, setNetworks] = useState<NetworkRow[]>([]);
   const [networkId, setNetworkId] = useState<string>('');
   const [members, setMembers] = useState<NetMember[]>([]);
   const [search, setSearch] = useState('');
+  const [searchHits, setSearchHits] = useState<UserSearchHit[]>([]);
+  const [searching, setSearching] = useState(false);
+  const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [groupName, setGroupName] = useState('');
   const [description, setDescription] = useState('');
@@ -76,13 +89,23 @@ export default function CreateGroupPage() {
   }, [loadNetworks]);
 
   useEffect(() => {
-    if (memberNetworks.length === 1 && !networkId) {
-      setNetworkId(memberNetworks[0].id);
+    if (memberNetworks.length === 0 && mode === 'network') {
+      setMode('normal');
+      setNetworkId('');
+      setSelectedIds([]);
+      setSearch('');
+      setMembers([]);
     }
-  }, [memberNetworks, networkId]);
+  }, [memberNetworks.length, mode]);
 
   useEffect(() => {
-    if (!networkId || !myUserId) {
+    if (memberNetworks.length === 1 && !networkId && mode === 'network') {
+      setNetworkId(memberNetworks[0].id);
+    }
+  }, [memberNetworks, networkId, mode]);
+
+  useEffect(() => {
+    if (mode !== 'network' || !networkId || !myUserId) {
       setMembers([]);
       return;
     }
@@ -107,7 +130,41 @@ export default function CreateGroupPage() {
     return () => {
       cancelled = true;
     };
-  }, [networkId, myUserId]);
+  }, [networkId, myUserId, mode]);
+
+  useEffect(() => {
+    if (mode !== 'normal') return;
+    const q = search.trim();
+    if (q.length < 2) {
+      setSearchHits([]);
+      setSearching(false);
+      return;
+    }
+    const token = getAccessToken();
+    if (!token) return;
+
+    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    searchDebounceRef.current = setTimeout(() => {
+      void (async () => {
+        setSearching(true);
+        try {
+          const rows = await apiFetch<UserSearchHit[]>(
+            `users/search?q=${encodeURIComponent(q)}&limit=30`,
+            { method: 'GET', token },
+          );
+          setSearchHits(Array.isArray(rows) ? rows.filter((h) => h.id !== myUserId) : []);
+        } catch {
+          setSearchHits([]);
+        } finally {
+          setSearching(false);
+        }
+      })();
+    }, 320);
+
+    return () => {
+      if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    };
+  }, [search, mode, myUserId]);
 
   const others = useMemo(
     () => members.filter((m) => m.user?.id && m.user.id !== myUserId),
@@ -134,30 +191,58 @@ export default function CreateGroupPage() {
     setSelectedIds((prev) => prev.filter((x) => x !== id));
   }
 
-  const selectedUsers = useMemo(
+  const selectedUsersNetwork = useMemo(
     () => selectedIds.map((id) => others.find((m) => m.user.id === id)?.user).filter(Boolean) as NetMember['user'][],
     [selectedIds, others],
   );
 
-  const canNext = selectedIds.length >= 1 && !!networkId;
-  const canCreate =
-    groupName.trim().length >= 2 && selectedIds.length >= 1 && !!networkId && !creating;
+  const selectedUsersNormal = useMemo(() => {
+    const map = new Map(searchHits.map((h) => [h.id, h] as const));
+    return selectedIds.map((id) => map.get(id)).filter(Boolean) as UserSearchHit[];
+  }, [selectedIds, searchHits]);
+
+  const canNextNormal = selectedIds.length >= 1;
+  const canNextNetwork = selectedIds.length >= 1 && !!networkId;
+  const canNext = mode === 'normal' ? canNextNormal : canNextNetwork;
+
+  const canCreateNormal =
+    groupName.trim().length >= 2 && selectedIds.length >= 1 && !creating && mode === 'normal';
+  const canCreateNetwork =
+    groupName.trim().length >= 2 &&
+    selectedIds.length >= 1 &&
+    !!networkId &&
+    !creating &&
+    mode === 'network';
+  const canCreate = mode === 'normal' ? canCreateNormal : canCreateNetwork;
+
+  function setModeAndReset(next: CreateMode) {
+    setMode(next);
+    setSelectedIds([]);
+    setSearch('');
+    setSearchHits([]);
+    setError(null);
+    setStep('members');
+  }
 
   async function handleCreate() {
     if (!canCreate || submitLockRef.current) return;
     const token = getAccessToken();
-    if (!token || !networkId) return;
+    if (!token) return;
 
     submitLockRef.current = true;
     setCreating(true);
     setError(null);
     try {
-      const body = {
+      const base = {
         name: groupName.trim(),
         description: description.trim() || undefined,
-        networkId,
         memberUserIds: [...new Set(selectedIds)],
       };
+      const body =
+        mode === 'network' && networkId
+          ? { ...base, networkId }
+          : base;
+
       const created = await apiFetch<{ id: string }>('groups', {
         method: 'POST',
         token,
@@ -188,7 +273,7 @@ export default function CreateGroupPage() {
       <main className="mx-auto min-h-[60vh] w-full max-w-md bg-stone-100/90 pb-24" dir="rtl">
         <header className="sticky top-0 z-10 flex items-center gap-2 border-b border-stone-200/80 bg-stone-50/95 px-3 py-2.5 backdrop-blur-sm">
           <Link
-            href="/groups"
+            href="/direct"
             className="flex h-10 min-w-[2.5rem] items-center justify-center rounded-full text-stone-600 hover:bg-stone-200/80"
             aria-label="بازگشت"
           >
@@ -199,20 +284,122 @@ export default function CreateGroupPage() {
           </h1>
         </header>
 
-        {memberNetworks.length === 0 ? (
-          <div className="mx-4 mt-8 rounded-2xl border border-amber-200 bg-amber-50/90 px-4 py-6 text-center">
-            <p className="text-sm font-bold text-amber-900">ابتدا به یک شبکه بپیوندید</p>
-            <p className="mt-2 text-xs text-amber-800/90">
-              برای ساخت گروه باید عضو حداقل یک شبکه باشید.
-            </p>
-            <Link
-              href="/spaces"
-              className="mt-4 inline-block rounded-full bg-amber-600 px-4 py-2 text-sm font-bold text-white"
+        {step === 'members' && memberNetworks.length > 0 ? (
+          <div className="mx-3 mt-3 flex gap-1 rounded-xl border border-stone-200 bg-white p-1">
+            <button
+              type="button"
+              onClick={() => setModeAndReset('normal')}
+              className={`flex-1 rounded-lg py-2 text-xs font-bold transition ${
+                mode === 'normal' ? 'bg-emerald-500 text-white shadow-sm' : 'text-stone-600'
+              }`}
             >
-              رفتن به فضاها
-            </Link>
+              گروه معمولی
+            </button>
+            <button
+              type="button"
+              onClick={() => setModeAndReset('network')}
+              className={`flex-1 rounded-lg py-2 text-xs font-bold transition ${
+                mode === 'network' ? 'bg-sky-600 text-white shadow-sm' : 'text-stone-600'
+              }`}
+            >
+              در شبکه
+            </button>
           </div>
-        ) : step === 'members' ? (
+        ) : null}
+
+        {step === 'members' && mode === 'normal' ? (
+          <div className="px-3 pt-3">
+            <p className="mb-2 text-[11px] leading-relaxed text-stone-600">
+              حداقل یک نفر را از میان کاربران جستجو و انتخاب کنید (نیازی به شبکه نیست).
+            </p>
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="نام، نام کاربری یا بخشی از شماره…"
+              className="mb-3 w-full rounded-xl border border-stone-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
+              autoComplete="off"
+            />
+
+            <div className="mb-2 flex flex-wrap items-center gap-2">
+              <span className="text-xs font-bold text-stone-600">انتخاب‌شده: {selectedIds.length}</span>
+              {selectedUsersNormal.map((u) => (
+                <button
+                  key={u.id}
+                  type="button"
+                  onClick={() => removeSelected(u.id)}
+                  className="inline-flex max-w-full items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-1 text-[11px] font-bold text-emerald-900"
+                >
+                  <span className="truncate">{u.name}</span>
+                  <span aria-hidden>×</span>
+                </button>
+              ))}
+            </div>
+
+            {error ? (
+              <p className="mb-2 rounded-lg border border-red-100 bg-red-50 px-3 py-2 text-xs font-semibold text-red-800">
+                {error}
+              </p>
+            ) : null}
+
+            <div className="mb-2 max-h-64 overflow-y-auto rounded-2xl border border-stone-200 bg-white shadow-sm">
+              {search.trim().length < 2 ? (
+                <p className="px-3 py-6 text-center text-sm text-stone-500">حداقل ۲ نویسه برای جستجو وارد کنید.</p>
+              ) : searching ? (
+                <p className="px-3 py-6 text-center text-sm text-stone-500">در حال جستجو…</p>
+              ) : searchHits.length === 0 ? (
+                <p className="px-3 py-6 text-center text-sm text-stone-500">نتیجه‌ای یافت نشد.</p>
+              ) : (
+                <ul className="divide-y divide-stone-100">
+                  {searchHits.map((hit) => {
+                    const on = selectedSet.has(hit.id);
+                    return (
+                      <li key={hit.id}>
+                        <button
+                          type="button"
+                          onClick={() => toggleUser(hit.id)}
+                          className={`flex w-full items-center gap-3 px-3 py-3 text-right transition ${
+                            on ? 'bg-emerald-50' : 'hover:bg-stone-50'
+                          }`}
+                        >
+                          <span
+                            className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 text-xs font-bold ${
+                              on ? 'border-emerald-500 bg-emerald-500 text-white' : 'border-stone-300 text-transparent'
+                            }`}
+                            aria-hidden
+                          >
+                            ✓
+                          </span>
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-sm font-bold text-stone-900">{hit.name}</p>
+                            <p className="truncate text-[11px] text-stone-500" dir="ltr">
+                              @{hit.username} · {hit.phoneMasked}
+                            </p>
+                          </div>
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </div>
+
+            <div className="sticky bottom-0 mt-4 bg-stone-100/95 py-2 backdrop-blur-sm">
+              <button
+                type="button"
+                disabled={!canNext}
+                onClick={() => {
+                  setError(null);
+                  setStep('details');
+                }}
+                className="w-full rounded-2xl bg-emerald-600 py-3 text-sm font-bold text-white shadow-md shadow-emerald-800/20 transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                بعدی
+              </button>
+            </div>
+          </div>
+        ) : null}
+
+        {step === 'members' && mode === 'network' ? (
           <div className="px-3 pt-3">
             {memberNetworks.length > 1 ? (
               <label className="mb-3 block">
@@ -245,10 +432,8 @@ export default function CreateGroupPage() {
             />
 
             <div className="mb-2 flex flex-wrap items-center gap-2">
-              <span className="text-xs font-bold text-stone-600">
-                انتخاب‌شده: {selectedIds.length}
-              </span>
-              {selectedUsers.map((u) => (
+              <span className="text-xs font-bold text-stone-600">انتخاب‌شده: {selectedIds.length}</span>
+              {selectedUsersNetwork.map((u) => (
                 <button
                   key={u.id}
                   type="button"
@@ -324,7 +509,9 @@ export default function CreateGroupPage() {
               </button>
             </div>
           </div>
-        ) : (
+        ) : null}
+
+        {step === 'details' ? (
           <div className="px-3 pt-3">
             <button
               type="button"
@@ -336,6 +523,7 @@ export default function CreateGroupPage() {
 
             <p className="mb-2 text-[11px] font-bold text-stone-500">
               {selectedIds.length} عضو به‌اضافهٔ شما
+              {mode === 'normal' ? ' · گروه معمولی' : ' · مرتبط با شبکه'}
             </p>
 
             <label className="mb-3 block">
@@ -384,7 +572,7 @@ export default function CreateGroupPage() {
               )}
             </button>
           </div>
-        )}
+        ) : null}
       </main>
     </AuthGate>
   );

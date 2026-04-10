@@ -412,7 +412,7 @@ export default function GroupThreadPage() {
       >
         <header className="sticky top-0 z-20 border-b border-stone-200/90 bg-[#f8f8f8] px-3 py-2 shadow-sm backdrop-blur-md">
           <div className="flex items-center justify-between gap-2">
-            <Link href="/groups" className="shrink-0 text-sm font-bold text-sky-700">
+            <Link href="/direct" className="shrink-0 text-sm font-bold text-sky-700">
               ←
             </Link>
             <Link href={`/groups/${groupId}/info`} className="min-w-0 flex-1 text-center">

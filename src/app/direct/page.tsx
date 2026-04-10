@@ -184,8 +184,10 @@ export default function DirectPage() {
   const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [listFilterQuery, setListFilterQuery] = useState('');
   const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
+  const [plusMenuOpen, setPlusMenuOpen] = useState(false);
   const [typingByConv, setTypingByConv] = useState<Record<string, boolean>>({});
   const [, setDraftRev] = useState(0);
+  const plusMenuRef = useRef<HTMLDivElement | null>(null);
 
   const itemsRef = useRef(items);
   itemsRef.current = items;
@@ -262,6 +264,17 @@ export default function DirectPage() {
     window.addEventListener(DIRECT_DRAFT_CHANGED_EVENT, onDraft);
     return () => window.removeEventListener(DIRECT_DRAFT_CHANGED_EVENT, onDraft);
   }, []);
+
+  useEffect(() => {
+    if (!plusMenuOpen) return;
+    const onPointerDown = (e: PointerEvent) => {
+      const el = plusMenuRef.current;
+      if (el && e.target instanceof Node && el.contains(e.target)) return;
+      setPlusMenuOpen(false);
+    };
+    document.addEventListener('pointerdown', onPointerDown, true);
+    return () => document.removeEventListener('pointerdown', onPointerDown, true);
+  }, [plusMenuOpen]);
 
   useEffect(() => {
     if (menuOpenId == null) return;
@@ -546,19 +559,47 @@ export default function DirectPage() {
                 ↻
               </span>
             </button>
-            <button
-              type="button"
-              onClick={() => {
-                setNewChatOpen(true);
-                setError(null);
-                setSearchQuery('');
-                setSearchHits([]);
-              }}
-              title="گفتگوی جدید"
-              className="flex h-11 w-11 items-center justify-center rounded-full bg-emerald-500 text-white shadow-md shadow-emerald-600/25 transition hover:bg-emerald-600 active:scale-95"
-            >
-              <IconPlus className="h-6 w-6 stroke-[2.5]" />
-            </button>
+            <div className="relative" ref={plusMenuRef}>
+              <button
+                type="button"
+                onClick={() => setPlusMenuOpen((v) => !v)}
+                title="جدید"
+                aria-expanded={plusMenuOpen}
+                aria-haspopup="menu"
+                className="flex h-11 w-11 items-center justify-center rounded-full bg-emerald-500 text-white shadow-md shadow-emerald-600/25 transition hover:bg-emerald-600 active:scale-95"
+              >
+                <IconPlus className="h-6 w-6 stroke-[2.5]" />
+              </button>
+              {plusMenuOpen ? (
+                <div
+                  role="menu"
+                  className="absolute end-0 top-full z-30 mt-1 min-w-[11rem] overflow-hidden rounded-xl border border-stone-200 bg-white py-1 shadow-lg ring-1 ring-stone-900/5"
+                >
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className="flex w-full px-4 py-3 text-right text-sm font-bold text-stone-800 transition hover:bg-stone-100"
+                    onClick={() => {
+                      setPlusMenuOpen(false);
+                      setNewChatOpen(true);
+                      setError(null);
+                      setSearchQuery('');
+                      setSearchHits([]);
+                    }}
+                  >
+                    گفتگوی جدید
+                  </button>
+                  <Link
+                    href="/groups/new"
+                    role="menuitem"
+                    className="flex w-full px-4 py-3 text-right text-sm font-bold text-stone-800 transition hover:bg-stone-100"
+                    onClick={() => setPlusMenuOpen(false)}
+                  >
+                    گروه جدید
+                  </Link>
+                </div>
+              ) : null}
+            </div>
           </div>
         </div>
 

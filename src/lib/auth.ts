@@ -62,6 +62,7 @@ export async function requestOtp(phone: string): Promise<{
   const data = await apiFetch<{
     phoneMask?: string;
     devOtpCode?: string;
+    dev_otp_code?: string;
     otp?: string;
     success?: boolean;
   }>('auth/request-otp', {
@@ -70,7 +71,7 @@ export async function requestOtp(phone: string): Promise<{
     body: JSON.stringify({ phone }),
   });
 
-  const devOtp = data.devOtpCode ?? data.otp;
+  const devOtp = data.devOtpCode ?? data.dev_otp_code ?? data.otp;
   return {
     phoneMask: typeof data.phoneMask === 'string' ? data.phoneMask : '',
     ...(devOtp != null && String(devOtp).trim() !== ''

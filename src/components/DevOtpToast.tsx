@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 
 const AUTO_DISMISS_MS = 15_000;
 const COPY_FEEDBACK_MS = 2_000;
@@ -19,9 +20,14 @@ type DevOtpToastProps = {
 export function DevOtpToast({ code, requestEpoch = 0 }: DevOtpToastProps) {
   const [hidden, setHidden] = useState(true);
   const [copied, setCopied] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const copyResetRef = useRef<number | null>(null);
   const display = code?.trim() ?? '';
   const hasCode = display.length > 0;
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     return () => {
@@ -64,13 +70,13 @@ export function DevOtpToast({ code, requestEpoch = 0 }: DevOtpToastProps) {
     }
   }, [display]);
 
-  if (!hasCode || hidden) return null;
+  if (!hasCode || hidden || !mounted) return null;
 
   const showEnvHint = isDevOtpPopupEnabled();
 
-  return (
+  const node = (
     <div
-      className="fixed right-4 top-4 z-50 w-[min(18rem,calc(100vw-2rem))] rounded-xl bg-slate-900 px-4 py-3 text-white shadow-lg ring-1 ring-white/10"
+      className="pointer-events-auto fixed right-4 top-4 z-[200] w-[min(18rem,calc(100vw-2rem))] rounded-xl bg-slate-900 px-4 py-3 text-white shadow-lg ring-1 ring-white/10"
       role="status"
       dir="rtl"
     >
@@ -114,4 +120,6 @@ export function DevOtpToast({ code, requestEpoch = 0 }: DevOtpToastProps) {
       </div>
     </div>
   );
+
+  return createPortal(node, document.body);
 }

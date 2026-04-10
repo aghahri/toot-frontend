@@ -208,12 +208,6 @@ function removeSelectedFile(indexToRemove: number) {
             >
               چت‌ها
             </Link>
-            <Link
-              href="/groups"
-              className="rounded-full border border-sky-200 bg-sky-50 px-3 py-1.5 text-xs font-bold text-sky-800 transition hover:bg-sky-100"
-            >
-              گروه‌ها
-            </Link>
           </div>
         </div>
         <div className="space-y-4">
