@@ -72,10 +72,8 @@ export default function LoginClient() {
     try {
       const res = await requestOtp(phone.trim());
       setPhoneMask(res.phoneMask);
-      setDevOtpCode(res.devOtpCode ?? null);
-      if (res.devOtpCode?.trim()) {
-        setDevOtpToastEpoch((e) => e + 1);
-      }
+      setDevOtpCode(res.devOtpCode?.trim() ? res.devOtpCode.trim() : null);
+      setDevOtpToastEpoch((e) => e + 1);
       setOtpRequested(true);
       setSuccess('کد یکبار مصرف ارسال شد.');
     } catch (err) {
