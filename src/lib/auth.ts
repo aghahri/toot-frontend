@@ -59,11 +59,24 @@ export async function requestOtp(phone: string): Promise<{
   phoneMask: string;
   devOtpCode?: string;
 }> {
-  return apiFetch<{ phoneMask: string; devOtpCode?: string }>('auth/request-otp', {
+  const data = await apiFetch<{
+    phoneMask?: string;
+    devOtpCode?: string;
+    otp?: string;
+    success?: boolean;
+  }>('auth/request-otp', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ phone }),
   });
+
+  const devOtp = data.devOtpCode ?? data.otp;
+  return {
+    phoneMask: typeof data.phoneMask === 'string' ? data.phoneMask : '',
+    ...(devOtp != null && String(devOtp).trim() !== ''
+      ? { devOtpCode: String(devOtp).trim() }
+      : {}),
+  };
 }
 
 export async function verifyOtp(phone: string, code: string): Promise<{

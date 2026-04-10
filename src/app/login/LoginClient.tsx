@@ -4,6 +4,7 @@ import type { FormEvent } from 'react';
 import { useEffect, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { login, requestOtp, verifyOtp } from '@/lib/auth';
+import { DevOtpToast } from '@/components/DevOtpToast';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { TextInput } from '@/components/forms/TextInput';
@@ -22,6 +23,7 @@ export default function LoginClient() {
   const [otpCode, setOtpCode] = useState('');
   const [phoneMask, setPhoneMask] = useState<string | null>(null);
   const [devOtpCode, setDevOtpCode] = useState<string | null>(null);
+  const [devOtpToastEpoch, setDevOtpToastEpoch] = useState(0);
   const [otpRequested, setOtpRequested] = useState(false);
 
   const [loading, setLoading] = useState(false);
@@ -71,6 +73,9 @@ export default function LoginClient() {
       const res = await requestOtp(phone.trim());
       setPhoneMask(res.phoneMask);
       setDevOtpCode(res.devOtpCode ?? null);
+      if (res.devOtpCode?.trim()) {
+        setDevOtpToastEpoch((e) => e + 1);
+      }
       setOtpRequested(true);
       setSuccess('کد یکبار مصرف ارسال شد.');
     } catch (err) {
@@ -79,9 +84,6 @@ export default function LoginClient() {
       setLoading(false);
     }
   }
-
-  /** Shown only when the backend includes debug fields (e.g. AUTH_DEV_OTP_IN_RESPONSE). */
-  const showDevOtpBadge = Boolean(devOtpCode && phoneMask);
 
   async function onVerifyOtp(e: FormEvent) {
     e.preventDefault();
@@ -104,22 +106,7 @@ export default function LoginClient() {
 
   return (
     <>
-      {showDevOtpBadge ? (
-        <div
-          className="fixed right-3 top-3 z-[100] max-w-[12rem] rounded-lg border-2 border-amber-400 bg-slate-950 px-2.5 py-2 text-[11px] leading-snug shadow-lg ring-1 ring-amber-500/40"
-          dir="ltr"
-          role="status"
-          aria-label="Development OTP debug"
-        >
-          <div className="font-mono text-xs font-bold text-amber-100">
-            <span className="font-extrabold uppercase tracking-wide text-amber-400">DEV OTP:</span>{' '}
-            <span className="tabular-nums">{devOtpCode}</span>
-          </div>
-          <div className="mt-1 font-mono text-[10px] font-semibold tracking-wide text-slate-300">
-            {phoneMask}
-          </div>
-        </div>
-      ) : null}
+      <DevOtpToast code={devOtpCode} requestEpoch={devOtpToastEpoch} />
 
       <main className="mx-auto w-full max-w-md p-4">
       <div className="mb-5">
