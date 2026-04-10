@@ -46,6 +46,8 @@ export type DirectConversationRowMessage = {
   sender: { id: string; name: string; avatar: string | null };
   deliveredAt?: string | null;
   seenAt?: string | null;
+  mediaId?: string | null;
+  media?: { type?: string; mimeType?: string } | null;
 };
 
 type Props = {

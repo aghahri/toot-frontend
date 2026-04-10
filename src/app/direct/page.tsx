@@ -65,6 +65,12 @@ function peerSubtitle(u: PeerUser | undefined): string {
   return parts.join(' · ');
 }
 
+function isListVoiceMedia(m: { type?: string; mimeType?: string } | null | undefined): boolean {
+  if (!m) return false;
+  if (m.type === 'VOICE') return true;
+  return (m.mimeType ?? '').toLowerCase().startsWith('audio/');
+}
+
 export default function DirectPage() {
   const [items, setItems] = useState<Conversation[]>([]);
   const [loading, setLoading] = useState(true);
@@ -233,7 +239,11 @@ export default function DirectPage() {
                 const lastMessage = item.lastMessage ?? item.messages[0];
                 const preview = lastMessage?.text?.trim()
                   ? lastMessage.text
-                  : 'هنوز پیامی ارسال نشده';
+                  : lastMessage?.media && isListVoiceMedia(lastMessage.media)
+                    ? 'پیام صوتی'
+                    : lastMessage?.mediaId
+                      ? 'رسانه'
+                      : 'هنوز پیامی ارسال نشده';
                 const previewTimeIso =
                   lastMessage?.createdAt ?? item.lastActivityAt ?? item.updatedAt;
                 const unreadCount =
