@@ -18,13 +18,16 @@ type DevOtpToastProps = {
 export function DevOtpToast({ code, requestEpoch = 0 }: DevOtpToastProps) {
   const [hidden, setHidden] = useState(true);
   const [copied, setCopied] = useState(false);
-  const copyResetRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const copyResetRef = useRef<number | null>(null);
 
   const enabled = isDevOtpPopupEnabled();
 
   useEffect(() => {
     return () => {
-      if (copyResetRef.current) clearTimeout(copyResetRef.current);
+      if (copyResetRef.current != null) {
+        window.clearTimeout(copyResetRef.current);
+        copyResetRef.current = null;
+      }
     };
   }, []);
 
@@ -54,7 +57,9 @@ export function DevOtpToast({ code, requestEpoch = 0 }: DevOtpToastProps) {
     try {
       await navigator.clipboard.writeText(next);
       setCopied(true);
-      if (copyResetRef.current) clearTimeout(copyResetRef.current);
+      if (copyResetRef.current != null) {
+        window.clearTimeout(copyResetRef.current);
+      }
       copyResetRef.current = window.setTimeout(() => {
         setCopied(false);
         copyResetRef.current = null;
