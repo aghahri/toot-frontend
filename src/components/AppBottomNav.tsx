@@ -18,6 +18,13 @@ const tabs = [
     match: (p: string) => p === '/direct' || p.startsWith('/direct/'),
   },
   {
+    href: '/groups',
+    label: 'گروه‌ها',
+    Icon: IconTabSpaces,
+    primary: false,
+    match: (p: string) => p === '/groups' || p.startsWith('/groups/'),
+  },
+  {
     href: '/home',
     label: 'استوری',
     Icon: IconTabStory,
