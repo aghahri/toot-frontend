@@ -6,6 +6,7 @@ import { useParams } from 'next/navigation';
 import { AuthGate } from '@/components/AuthGate';
 import { getAccessToken } from '@/lib/auth';
 import { apiFetch } from '@/lib/api';
+import { groupRoleLabelFa } from '@/lib/group-roles';
 
 type GroupDetail = {
   id: string;
@@ -82,9 +83,7 @@ export default function GroupInfoPage() {
               {group.myRole ? (
                 <div className="flex justify-between gap-2 border-t border-stone-100 pt-2">
                   <dt className="text-stone-500">نقش شما</dt>
-                  <dd className="font-semibold text-stone-800">
-                    {group.myRole === 'GROUP_ADMIN' ? 'مدیر گروه' : 'عضو'}
-                  </dd>
+                  <dd className="font-semibold text-stone-800">{groupRoleLabelFa(group.myRole)}</dd>
                 </div>
               ) : null}
             </dl>
