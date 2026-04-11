@@ -1,7 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 const AUTO_DISMISS_MS = 15_000;
 const COPY_FEEDBACK_MS = 2_000;
@@ -12,21 +11,23 @@ export function isDevOtpPopupEnabled(): boolean {
 }
 
 type DevOtpToastProps = {
-  code: string | null | undefined;
+  /** Non-empty OTP from the server (parent only mounts this component when present). */
+  code: string;
+  /** Called after ~15s or when the user closes the banner (must be stable; see LoginClient useCallback). */
+  onClose: () => void;
 };
 
 /**
- * Dev OTP toast — visibility must NOT depend on an initial `hidden: true` gate before effects run
- * (that pattern returned null on the first paint whenever `hidden` was still true, so the portal
- * never mounted in some real browsers/React timings). We only hide after dismiss timer or manual
- * close, and `dismissed` resets whenever `display` changes so repeat requests reopen reliably.
+ * Dev OTP banner — no createPortal, no “dismissed” gate on first paint.
+ * Parent should render `{code ? <DevOtpToast key=… /> : null}` so the first commit always includes visible UI.
+ * In-tree `position:fixed` is anchored to the viewport unless an ancestor uses transform/filter (root layout does not).
  */
-export function DevOtpToast({ code }: DevOtpToastProps) {
-  const display = (code ?? '').trim();
-  const hasCode = display.length > 0;
-  const [dismissed, setDismissed] = useState(false);
-  const copyResetRef = useRef<number | null>(null);
+export function DevOtpToast({ code, onClose }: DevOtpToastProps) {
+  const display = code.trim();
   const [copied, setCopied] = useState(false);
+  const copyResetRef = useRef<number | null>(null);
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
 
   useEffect(() => {
     return () => {
@@ -37,21 +38,11 @@ export function DevOtpToast({ code }: DevOtpToastProps) {
     };
   }, []);
 
-  // New code → show again; start / reset 15s auto-dismiss.
-  useLayoutEffect(() => {
-    if (!hasCode) {
-      setDismissed(true);
-      return;
-    }
-    setDismissed(false);
-    setCopied(false);
-    const t = window.setTimeout(() => setDismissed(true), AUTO_DISMISS_MS);
+  useEffect(() => {
+    if (!display) return;
+    const t = window.setTimeout(() => onCloseRef.current(), AUTO_DISMISS_MS);
     return () => window.clearTimeout(t);
-  }, [display, hasCode]);
-
-  const dismiss = useCallback(() => {
-    setDismissed(true);
-  }, []);
+  }, [display]);
 
   const onCopyCode = useCallback(async () => {
     if (!display) return;
@@ -70,18 +61,16 @@ export function DevOtpToast({ code }: DevOtpToastProps) {
     }
   }, [display]);
 
-  if (!hasCode || dismissed) return null;
-
-  if (typeof document === 'undefined' || !document.body) return null;
+  if (!display) return null;
 
   const showEnvHint = isDevOtpPopupEnabled();
 
-  const node = (
+  return (
     <div
       className="pointer-events-auto fixed right-4 top-4 w-[min(18rem,calc(100vw-2rem))] rounded-xl bg-slate-900 px-4 py-3 text-white shadow-lg ring-1 ring-white/10"
       style={{ zIndex: 2147483647 }}
       role="status"
-      aria-live="polite"
+      aria-live="assertive"
       dir="rtl"
     >
       <div className="flex items-start justify-between gap-2">
@@ -115,7 +104,7 @@ export function DevOtpToast({ code }: DevOtpToastProps) {
         </div>
         <button
           type="button"
-          onClick={dismiss}
+          onClick={() => onCloseRef.current()}
           className="shrink-0 rounded-lg px-2 py-1 text-lg leading-none text-slate-400 transition hover:bg-white/10 hover:text-white"
           aria-label="بستن"
         >
@@ -124,6 +113,4 @@ export function DevOtpToast({ code }: DevOtpToastProps) {
       </div>
     </div>
   );
-
-  return createPortal(node, document.body);
 }

@@ -1,7 +1,7 @@
 'use client';
 
 import type { FormEvent } from 'react';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { login, requestOtp, verifyOtp } from '@/lib/auth';
 import { DevOtpToast } from '@/components/DevOtpToast';
@@ -35,6 +35,11 @@ export default function LoginClient() {
     return () => {
       if (redirectTimer.current) clearTimeout(redirectTimer.current);
     };
+  }, []);
+
+  /** Stable — avoids resetting the 15s auto-dismiss timer on every LoginClient re-render. */
+  const dismissDevOtpBanner = useCallback(() => {
+    setDevOtpCode(null);
   }, []);
 
   function resetOtpFlow() {
@@ -77,7 +82,9 @@ export default function LoginClient() {
           ? String(res.devOtpCode).trim()
           : null;
       setDevOtpCode(otp);
-      setDevOtpToastEpoch((e) => e + 1);
+      if (otp) {
+        setDevOtpToastEpoch((e) => e + 1);
+      }
       setOtpRequested(true);
       setSuccess('کد یکبار مصرف ارسال شد.');
     } catch (err) {
@@ -108,8 +115,14 @@ export default function LoginClient() {
 
   return (
     <>
-      {/* key remounts toast per OTP request so internal state cannot stick hidden from a prior cycle */}
-      <DevOtpToast key={devOtpToastEpoch} code={devOtpCode} />
+      {/* Only mount when a code exists: first paint is always the visible banner (no portal, no dismissed gate). */}
+      {devOtpCode ? (
+        <DevOtpToast
+          key={`${devOtpToastEpoch}-${devOtpCode}`}
+          code={devOtpCode}
+          onClose={dismissDevOtpBanner}
+        />
+      ) : null}
 
       <main className="mx-auto w-full max-w-md p-4">
       <div className="mb-5">
