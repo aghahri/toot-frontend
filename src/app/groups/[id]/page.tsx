@@ -23,10 +23,15 @@ import { ReplyQuoteBlock, groupReplyToModel } from '@/components/chat/ReplyQuote
 import { VoiceMessageBubble } from '@/components/chat/VoiceMessageBubble';
 import { ForwardPickerSheet } from '@/components/chat/ForwardPickerSheet';
 import { loadForwardPickTargets, type ForwardPickTarget } from '@/lib/chat-forward';
-import { isVoiceMedia } from '@/lib/chat-media';
+import { isVoiceMedia, formatVoiceClock } from '@/lib/chat-media';
 import { calendarDayKey, dayDividerLabelFa } from '@/lib/chat-dates';
+import { Card } from '@/components/ui/Card';
 
 const PAGE_SIZE = 40;
+const MAX_VOICE_RECORD_SEC = 120;
+const MIN_VOICE_RECORD_MS = 600;
+const MAX_IMAGE_BYTES = 20 * 1024 * 1024;
+const MAX_VIDEO_BYTES = 100 * 1024 * 1024;
 
 type ReplyTo = {
   id: string;
@@ -96,10 +101,22 @@ export default function GroupThreadPage() {
   const [lastReadMessageId, setLastReadMessageId] = useState<string | null>(null);
   const [pinned, setPinned] = useState<GroupMessage | null>(null);
   const [otherTyping, setOtherTyping] = useState(false);
-  const [reactionForId, setReactionForId] = useState<string | null>(null);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQ, setSearchQ] = useState('');
   const [searchHits, setSearchHits] = useState<GroupMessage[]>([]);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [searchHighlightIndex, setSearchHighlightIndex] = useState(0);
+  const [attachmentSheetOpen, setAttachmentSheetOpen] = useState(false);
+  const [file, setFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [uploadProgress, setUploadProgress] = useState<number | null>(null);
+  type VoicePhase = 'idle' | 'recording' | 'sending' | 'failed';
+  const [voicePhase, setVoicePhase] = useState<VoicePhase>('idle');
+  const [voiceBlob, setVoiceBlob] = useState<Blob | null>(null);
+  const [voiceMime, setVoiceMime] = useState('');
+  const [voicePreviewUrl, setVoicePreviewUrl] = useState<string | null>(null);
+  const [voiceDurationMs, setVoiceDurationMs] = useState(0);
+  const [recordElapsedMs, setRecordElapsedMs] = useState(0);
   const [selectedMessageIds, setSelectedMessageIds] = useState<Set<string>>(() => new Set());
   const isSelectionMode = selectedMessageIds.size > 0;
   const [openActionsMessageId, setOpenActionsMessageId] = useState<string | null>(null);
@@ -118,6 +135,16 @@ export default function GroupThreadPage() {
   const draftTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const bottomRef = useRef<HTMLDivElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const cameraInputRef = useRef<HTMLInputElement | null>(null);
+  const documentInputRef = useRef<HTMLInputElement | null>(null);
+  const isComposingRef = useRef(false);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const mediaStreamRef = useRef<MediaStream | null>(null);
+  const recordChunksRef = useRef<BlobPart[]>([]);
+  const recordMimeRef = useRef('');
+  const recordTickRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const recordStartedAtRef = useRef(0);
+  const voiceCancelledRef = useRef(false);
   const messagesRef = useRef<GroupMessage[]>([]);
   messagesRef.current = messages;
   const forwardIdsOverrideRef = useRef<string[] | null>(null);
@@ -241,6 +268,20 @@ export default function GroupThreadPage() {
   }, [loading, groupId]);
 
   useEffect(() => {
+    if (!file) {
+      setPreviewUrl(null);
+      return;
+    }
+    const url = URL.createObjectURL(file);
+    setPreviewUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [file]);
+
+  useEffect(() => {
+    if (isSelectionMode) setAttachmentSheetOpen(false);
+  }, [isSelectionMode]);
+
+  useEffect(() => {
     if (!groupId) return;
     const token = getAccessToken();
     if (!token) return;
@@ -344,6 +385,44 @@ export default function GroupThreadPage() {
     };
   }, [groupId, myUserId]);
 
+  const groupInitial = useMemo(() => {
+    const t = groupName.trim();
+    if (!t) return 'گ';
+    return t.slice(0, 1);
+  }, [groupName]);
+
+  const reloadMessages = useCallback(async () => {
+    const token = getAccessToken();
+    if (!token || !groupId) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const [pack, self, pin] = await Promise.all([
+        apiFetch<{ data: GroupMessage[]; meta: { hasMore: boolean; total: number } }>(
+          `groups/${groupId}/messages?offset=0&limit=${PAGE_SIZE}`,
+          { method: 'GET', token },
+        ),
+        apiFetch<{ lastReadMessageId: string | null }>(`groups/${groupId}/participant-self`, {
+          method: 'GET',
+          token,
+        }),
+        apiFetch<{ message: GroupMessage | null }>(`groups/${groupId}/pinned-message`, {
+          method: 'GET',
+          token,
+        }),
+      ]);
+      setMessages(pack.data ?? []);
+      setOffset(0);
+      setHasMore(pack.meta?.hasMore ?? false);
+      setLastReadMessageId(self.lastReadMessageId ?? null);
+      setPinned(pin.message ?? null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'خطا');
+    } finally {
+      setLoading(false);
+    }
+  }, [groupId]);
+
   useEffect(() => {
     const was = wasSelectionModeRef.current;
     wasSelectionModeRef.current = isSelectionMode;
@@ -396,10 +475,309 @@ export default function GroupThreadPage() {
     selectedMessageIds.size,
   ]);
 
-  async function uploadMedia(token: string, file: File): Promise<string> {
+  function clearSelectedFile() {
+    setFile(null);
+    setPreviewUrl(null);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+    if (cameraInputRef.current) cameraInputRef.current.value = '';
+    if (documentInputRef.current) documentInputRef.current.value = '';
+  }
+
+  function handleFileSelection(next: File | null) {
+    if (!next) {
+      clearSelectedFile();
+      return;
+    }
+    const mime = next.type || '';
+    const isImage = mime.startsWith('image/');
+    const isVideo = mime.startsWith('video/');
+    const isDoc =
+      mime === 'application/pdf' ||
+      mime === 'application/zip' ||
+      mime === 'application/x-zip-compressed' ||
+      mime === 'application/msword' ||
+      mime === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+    if (!isImage && !isVideo && !isDoc) {
+      setError('نوع فایل پشتیبانی نمی‌شود');
+      clearSelectedFile();
+      return;
+    }
+    if (isImage && next.size > MAX_IMAGE_BYTES) {
+      setError('حجم تصویر از 20MB بیشتر است');
+      clearSelectedFile();
+      return;
+    }
+    if (isVideo && next.size > MAX_VIDEO_BYTES) {
+      setError('حجم ویدیو از 100MB بیشتر است.');
+      clearSelectedFile();
+      return;
+    }
+    if (isDoc && next.size > MAX_IMAGE_BYTES) {
+      setError('حجم فایل از 20MB بیشتر است');
+      clearSelectedFile();
+      return;
+    }
+    setError(null);
+    setFile(next);
+  }
+
+  function clearVoiceDraft() {
+    voiceCancelledRef.current = true;
+    mediaRecorderRef.current?.stop();
+    if (recordTickRef.current) {
+      clearInterval(recordTickRef.current);
+      recordTickRef.current = null;
+    }
+    mediaStreamRef.current?.getTracks().forEach((t) => t.stop());
+    mediaStreamRef.current = null;
+    mediaRecorderRef.current = null;
+    recordChunksRef.current = [];
+    setVoicePreviewUrl((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return null;
+    });
+    setVoiceBlob(null);
+    setVoiceMime('');
+    setVoiceDurationMs(0);
+    setRecordElapsedMs(0);
+    setVoicePhase('idle');
+    voiceCancelledRef.current = false;
+  }
+
+  function pickRecorderMime(): string {
+    const candidates = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4'];
+    for (const m of candidates) {
+      if (typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported(m)) return m;
+    }
+    return '';
+  }
+
+  async function startVoiceRecording() {
+    if (editingId || sending || voicePhase !== 'idle') return;
+    if (typeof MediaRecorder === 'undefined') {
+      setError('ضبط صدا در این مرورگر پشتیبانی نمی‌شود');
+      return;
+    }
+    setError(null);
+    clearSelectedFile();
+    if (fileInputRef.current) fileInputRef.current.value = '';
+    clearVoiceDraft();
+
+    const mime = pickRecorderMime();
+    if (!mime) {
+      setError('ضبط صدا در این مرورگر پشتیبانی نمی‌شود');
+      return;
+    }
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      mediaStreamRef.current = stream;
+      recordChunksRef.current = [];
+      recordMimeRef.current = mime;
+      voiceCancelledRef.current = false;
+
+      const rec = new MediaRecorder(stream, { mimeType: mime });
+      mediaRecorderRef.current = rec;
+
+      rec.ondataavailable = (e) => {
+        if (e.data?.size) recordChunksRef.current.push(e.data);
+      };
+
+      rec.onstop = () => {
+        mediaRecorderRef.current = null;
+        if (recordTickRef.current) {
+          clearInterval(recordTickRef.current);
+          recordTickRef.current = null;
+        }
+        stream.getTracks().forEach((t) => t.stop());
+        if (mediaStreamRef.current === stream) {
+          mediaStreamRef.current = null;
+        }
+
+        if (voiceCancelledRef.current) {
+          voiceCancelledRef.current = false;
+          return;
+        }
+
+        const blob = new Blob(recordChunksRef.current, {
+          type: recordMimeRef.current || mime,
+        });
+        recordChunksRef.current = [];
+
+        if (blob.size < 1) {
+          setVoicePhase('idle');
+          setRecordElapsedMs(0);
+          return;
+        }
+
+        const dur = Math.min(
+          MAX_VOICE_RECORD_SEC * 1000,
+          Date.now() - recordStartedAtRef.current,
+        );
+        if (dur < MIN_VOICE_RECORD_MS) {
+          setVoicePhase('idle');
+          setRecordElapsedMs(0);
+          return;
+        }
+
+        const finalMime = blob.type || mime;
+        setVoiceBlob(blob);
+        setVoiceMime(finalMime);
+        setVoiceDurationMs(dur);
+        void autoSendVoiceMessage(blob, finalMime, dur).catch((e) => {
+          setError(e instanceof Error ? e.message : 'خطا در ارسال پیام صوتی');
+        });
+        setRecordElapsedMs(0);
+      };
+
+      recordStartedAtRef.current = Date.now();
+      setRecordElapsedMs(0);
+      setVoicePhase('recording');
+      rec.start(250);
+
+      recordTickRef.current = setInterval(() => {
+        const elapsed = Date.now() - recordStartedAtRef.current;
+        setRecordElapsedMs(elapsed);
+        if (elapsed >= MAX_VOICE_RECORD_SEC * 1000) {
+          stopVoiceRecording();
+        }
+      }, 200);
+    } catch {
+      setError('اجازهٔ میکروفون داده نشد یا دستگاه در دسترس نیست');
+      setVoicePhase('idle');
+      mediaStreamRef.current?.getTracks().forEach((t) => t.stop());
+      mediaStreamRef.current = null;
+    }
+  }
+
+  function stopVoiceRecording() {
+    if (recordTickRef.current) {
+      clearInterval(recordTickRef.current);
+      recordTickRef.current = null;
+    }
+    try {
+      mediaRecorderRef.current?.stop();
+    } catch {
+      mediaRecorderRef.current = null;
+    }
+  }
+
+  function cancelVoiceRecording() {
+    if (voicePhase !== 'recording') return;
+    voiceCancelledRef.current = true;
+    stopVoiceRecording();
+  }
+
+  function uploadVoiceBlob(
+    token: string,
+    blobArg?: Blob,
+    mimeArg?: string,
+    durationArg?: number,
+  ): Promise<string | null> {
+    const activeBlob = blobArg ?? voiceBlob;
+    if (!activeBlob) return Promise.resolve(null);
+
+    const activeMime = mimeArg ?? voiceMime;
+    const activeDuration = durationArg ?? voiceDurationMs;
+    const ext = activeMime.includes('webm') ? 'webm' : activeMime.includes('mp4') ? 'm4a' : 'webm';
+    const form = new FormData();
+    form.append('file', activeBlob, `voice.${ext}`);
+    form.append('durationMs', String(Math.round(activeDuration)));
+
+    const uploadUrl = `${getApiBaseUrl().replace(/\/+$/, '')}/media/upload`;
+
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', uploadUrl);
+      xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+
+      xhr.upload.onprogress = (event) => {
+        if (!event.lengthComputable) return;
+        const percent = Math.round((event.loaded / event.total) * 100);
+        setUploadProgress(percent);
+      };
+
+      xhr.onload = () => {
+        try {
+          if (xhr.status < 200 || xhr.status >= 300) {
+            let errMsg = 'خطا در آپلود صدا';
+            try {
+              const j = JSON.parse(xhr.responseText) as Record<string, unknown>;
+              const m = j.message;
+              if (typeof m === 'string') errMsg = m;
+              else if (Array.isArray(m) && m.every((x) => typeof x === 'string')) {
+                errMsg = m.join(' ');
+              } else {
+                const er = j.error;
+                if (typeof er === 'string') errMsg = er;
+              }
+            } catch {
+              /* ignore */
+            }
+            reject(new Error(errMsg));
+            return;
+          }
+          const data = JSON.parse(xhr.responseText) as { media?: { id: string } };
+          resolve(data.media?.id ?? null);
+        } catch {
+          reject(new Error('پاسخ آپلود معتبر نیست'));
+        }
+      };
+
+      xhr.onerror = () => reject(new Error('خطا در ارتباط هنگام آپلود'));
+      xhr.onabort = () => reject(new Error('آپلود لغو شد'));
+      xhr.send(form);
+    });
+  }
+
+  async function autoSendVoiceMessage(blob: Blob, mime: string, durationMs: number) {
+    const token = getAccessToken();
+    if (!token) throw new Error('نشست شما منقضی شده است');
+    if (!groupId) throw new Error('گروه معتبر نیست');
+
+    setSending(true);
+    setError(null);
+    setUploadProgress(0);
+    setVoicePhase('sending');
+
+    try {
+      const mediaId = await uploadVoiceBlob(token, blob, mime, durationMs);
+      if (!mediaId) throw new Error('آپلود صدا انجام نشد');
+
+      await apiFetch(`groups/${groupId}/messages`, {
+        method: 'POST',
+        token,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          mediaId,
+          replyToMessageId: replyTo?.id,
+        }),
+      });
+
+      clearVoiceDraft();
+      setReplyTo(null);
+      scrollToBottom();
+      socketRef.current?.emit('group_typing', { groupId, isTyping: false });
+    } catch (err) {
+      setVoiceBlob(blob);
+      setVoiceMime(mime);
+      setVoiceDurationMs(durationMs);
+      setVoicePreviewUrl((prev) => {
+        if (prev) URL.revokeObjectURL(prev);
+        return URL.createObjectURL(blob);
+      });
+      setVoicePhase('failed');
+      throw err;
+    } finally {
+      setSending(false);
+      setUploadProgress(null);
+    }
+  }
+
+  async function uploadMedia(token: string, f: File): Promise<string> {
     const uploadUrl = `${getApiBaseUrl().replace(/\/+$/, '')}/media/upload`;
     const form = new FormData();
-    form.append('file', file);
+    form.append('file', f);
     const res = await fetch(uploadUrl, {
       method: 'POST',
       headers: { Authorization: `Bearer ${token}` },
@@ -416,8 +794,10 @@ export default function GroupThreadPage() {
     if (isSelectionMode) return;
     const token = getAccessToken();
     if (!token || !groupId || sending) return;
+    if (voicePhase === 'recording' || voicePhase === 'sending') return;
+
     const trimmed = text.trim();
-    const picked = fileInputRef.current?.files?.[0] ?? null;
+    const pickedFile = file;
 
     if (editingId) {
       if (!trimmed) return;
@@ -432,6 +812,8 @@ export default function GroupThreadPage() {
         setEditingId(null);
         setText(getGroupDraft(groupId));
         setReplyTo(null);
+        clearSelectedFile();
+        clearVoiceDraft();
       } catch (err) {
         setError(err instanceof Error ? err.message : 'خطا');
       } finally {
@@ -440,15 +822,15 @@ export default function GroupThreadPage() {
       return;
     }
 
-    if (!trimmed && !picked) return;
+    if (!trimmed && !pickedFile) return;
 
     setSending(true);
     setError(null);
     try {
       let mediaId: string | undefined;
-      if (picked) {
-        mediaId = await uploadMedia(token, picked);
-        if (fileInputRef.current) fileInputRef.current.value = '';
+      if (pickedFile) {
+        mediaId = await uploadMedia(token, pickedFile);
+        clearSelectedFile();
       }
       await apiFetch(`groups/${groupId}/messages`, {
         method: 'POST',
@@ -464,6 +846,7 @@ export default function GroupThreadPage() {
       clearGroupDraft(groupId);
       setReplyTo(null);
       scrollToBottom();
+      socketRef.current?.emit('group_typing', { groupId, isTyping: false });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'خطا');
     } finally {
@@ -493,7 +876,6 @@ export default function GroupThreadPage() {
     } catch {
       /* ignore */
     }
-    setReactionForId(null);
   }
 
   async function pinMessageOnServer(messageId: string | null) {
@@ -659,15 +1041,31 @@ export default function GroupThreadPage() {
   async function runSearch() {
     const token = getAccessToken();
     if (!token || !groupId || !searchQ.trim()) return;
+    setSearchLoading(true);
     try {
       const hits = await apiFetch<GroupMessage[]>(
         `groups/${groupId}/messages/search?q=${encodeURIComponent(searchQ.trim())}&limit=30`,
         { method: 'GET', token },
       );
-      setSearchHits(Array.isArray(hits) ? hits : []);
+      const list = Array.isArray(hits) ? hits : [];
+      setSearchHits(list);
+      setSearchHighlightIndex(0);
     } catch {
       setSearchHits([]);
+      setSearchHighlightIndex(0);
+    } finally {
+      setSearchLoading(false);
     }
+  }
+
+  function jumpToSearchHit(delta: number) {
+    if (searchHits.length === 0) return;
+    let i = searchHighlightIndex + delta;
+    if (i < 0) i = searchHits.length - 1;
+    if (i >= searchHits.length) i = 0;
+    setSearchHighlightIndex(i);
+    const hit = searchHits[i];
+    if (hit) scrollToMessageAndFlash(hit.id);
   }
 
   const readAnchorIndex = useMemo(() => {
@@ -675,20 +1073,22 @@ export default function GroupThreadPage() {
     return messages.findIndex((m) => m.id === lastReadMessageId);
   }, [messages, lastReadMessageId]);
 
+  const pinnedOk = pinned && !pinned.deletedAt;
+
   return (
     <AuthGate>
-      <main
-        className="mx-auto min-h-[100dvh] w-full max-w-md bg-[#e5ddd5] pb-28 pt-0"
-        dir="rtl"
-      >
-        <header className="sticky top-0 z-20 border-b border-stone-200/90 bg-[#f8f8f8] shadow-sm backdrop-blur-md">
+      <main className="mx-auto flex min-h-[100dvh] w-full max-w-md flex-col bg-[#e5ddd5] bg-[linear-gradient(180deg,rgba(255,255,255,0.5)_0%,rgba(255,255,255,0)_28%)]">
+        <header
+          className="sticky top-0 z-30 border-b border-stone-200/90 bg-[#f8f8f8] shadow-[0_1px_0_rgba(0,0,0,0.04)] backdrop-blur-md"
+          dir="rtl"
+        >
           {isSelectionMode ? (
             <div className="space-y-2 px-3 py-2">
               <div className="flex items-center gap-2">
                 <button
                   type="button"
                   onClick={exitSelectionMode}
-                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-slate-700 transition hover:bg-slate-100"
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-slate-700 transition hover:bg-slate-100 active:bg-slate-200"
                   aria-label="لغو انتخاب"
                 >
                   <span className="text-xl font-semibold leading-none text-slate-800" aria-hidden>
@@ -737,82 +1137,132 @@ export default function GroupThreadPage() {
               </div>
             </div>
           ) : (
-            <div className="px-3 py-2">
-              <div className="flex items-center justify-between gap-2">
-                <Link href="/direct" className="shrink-0 text-sm font-bold text-sky-700">
-                  ←
-                </Link>
-                <Link href={`/groups/${groupId}/info`} className="min-w-0 flex-1 text-center">
-                  <div className="truncate text-[15px] font-extrabold text-stone-900">{groupName || 'گروه'}</div>
-                  <div className="truncate text-[11px] text-stone-500">
-                    {otherTyping
-                      ? 'در حال نوشتن…'
-                      : memberCount != null
-                        ? `${memberCount} عضو`
-                        : 'گفتگوی گروه'}
-                  </div>
-                </Link>
-                <button
-                  type="button"
-                  className="shrink-0 text-xs font-bold text-sky-700"
-                  onClick={() => setSearchOpen((v) => !v)}
-                >
-                  جستجو
-                </button>
+            <div className="flex items-center gap-2.5 px-3 py-2">
+              <Link
+                href="/groups"
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-slate-700 transition hover:bg-slate-100 active:bg-slate-200"
+                aria-label="بازگشت"
+              >
+                <span className="text-xl font-semibold leading-none text-slate-800" aria-hidden>
+                  ›
+                </span>
+              </Link>
+
+              <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-full bg-stone-200 ring-2 ring-white">
+                <span className="flex h-full w-full items-center justify-center text-sm font-bold text-slate-600">
+                  {groupInitial}
+                </span>
               </div>
-              {searchOpen ? (
-                <div className="mt-2 flex gap-2 border-t border-stone-100 pt-2">
-                  <input
-                    value={searchQ}
-                    onChange={(e) => setSearchQ(e.target.value)}
-                    placeholder="متن…"
-                    className="min-w-0 flex-1 rounded-lg border border-stone-200 px-2 py-1.5 text-sm"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => void runSearch()}
-                    className="rounded-lg bg-sky-600 px-3 py-1.5 text-xs font-bold text-white"
-                  >
-                    برو
-                  </button>
-                </div>
-              ) : null}
-              {searchHits.length > 0 ? (
-                <ul className="mt-2 max-h-32 overflow-y-auto rounded-lg bg-white text-xs">
-                  {searchHits.map((h) => (
-                    <li key={h.id} className="border-b border-stone-100 px-2 py-1 truncate">
-                      {(h.content ?? '').slice(0, 80)}
-                    </li>
-                  ))}
-                </ul>
-              ) : null}
+
+              <Link href={`/groups/${groupId}/info`} className="min-w-0 flex-1 text-right">
+                <h1 className="truncate text-[16px] font-bold leading-tight text-stone-900">
+                  {groupName || 'گروه'}
+                </h1>
+                <p
+                  className={`mt-0.5 truncate text-[11px] ${
+                    otherTyping ? 'font-semibold text-emerald-600' : 'text-stone-500'
+                  }`}
+                >
+                  {otherTyping
+                    ? 'در حال تایپ…'
+                    : memberCount != null
+                      ? `${memberCount} عضو`
+                      : 'گفتگوی گروه'}
+                </p>
+              </Link>
+
+              <button
+                type="button"
+                title="جستجو در گفتگو"
+                onClick={() => {
+                  setSearchOpen(true);
+                  setSearchQ('');
+                  setSearchHits([]);
+                  setSearchHighlightIndex(0);
+                }}
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-slate-600 transition hover:bg-slate-100"
+              >
+                <span className="text-base" aria-hidden>
+                  🔍
+                </span>
+              </button>
+              <button
+                type="button"
+                title="رفرش پیام‌ها"
+                onClick={() => void reloadMessages()}
+                disabled={loading}
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-slate-600 transition hover:bg-slate-100 disabled:opacity-40"
+              >
+                <span className={`text-lg ${loading ? 'animate-pulse' : ''}`} aria-hidden>
+                  ↻
+                </span>
+              </button>
             </div>
           )}
         </header>
 
-        {pinned ? (
-          <div className="mx-2 mt-2 rounded-lg border border-amber-200/80 bg-amber-50/95 px-3 py-2 text-xs text-amber-950">
-            <span className="font-bold">📌 سنجاق: </span>
-            <span>{(pinned.content ?? '').slice(0, 120) || 'رسانه'}</span>
+        {pinnedOk ? (
+          <div
+            dir="rtl"
+            className="sticky top-[3.25rem] z-20 flex w-full items-center gap-1 border-b border-amber-200/80 bg-amber-50/95 px-2 py-2 text-start text-xs font-semibold text-amber-950 shadow-sm backdrop-blur-sm"
+          >
+            <button
+              type="button"
+              onClick={() => {
+                if (pinned) scrollToMessageAndFlash(pinned.id);
+              }}
+              className="flex min-w-0 flex-1 items-center gap-2 text-start"
+            >
+              <span className="shrink-0 text-amber-600" aria-hidden>
+                📌
+              </span>
+              <span className="min-w-0 truncate">
+                {pinned ? replySnippetGroup(pinned) : ''}
+              </span>
+            </button>
+            <button
+              type="button"
+              title="برداشتن سنجاق"
+              disabled={pinSubmitting}
+              onClick={() => void pinMessageOnServer(null)}
+              className="shrink-0 rounded-full px-2 py-1 text-[11px] font-bold text-amber-800 hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              ✕
+            </button>
           </div>
         ) : null}
 
-        {loading ? (
-          <p className="px-4 py-8 text-center text-sm text-stone-600">در حال بارگذاری…</p>
-        ) : error ? (
-          <p className="px-4 py-8 text-center text-sm text-red-700">{error}</p>
-        ) : (
-          <div className="space-y-1 px-2 py-3">
-            {hasMore ? (
-              <button
-                type="button"
-                className="mb-2 w-full rounded-lg bg-white/80 py-2 text-xs font-bold text-stone-700 shadow-sm"
-                onClick={() => void loadOlder()}
-                disabled={loadingOlder}
-              >
-                {loadingOlder ? '…' : 'پیام‌های قدیمی‌تر'}
-              </button>
-            ) : null}
+        {error ? (
+          <div className="px-3 pt-3">
+            <Card>
+              <div className="text-sm font-semibold text-red-600">{error}</div>
+            </Card>
+          </div>
+        ) : null}
+
+        <div className="flex-1 space-y-2 px-2.5 py-2 sm:px-3">
+          {loading ? (
+            <Card>
+              <div className="text-sm text-slate-700">در حال دریافت پیام‌ها...</div>
+            </Card>
+          ) : messages.length === 0 ? (
+            <Card>
+              <div className="text-sm text-slate-700">هنوز پیامی در این گفتگو نیست.</div>
+            </Card>
+          ) : (
+            <>
+              {hasMore ? (
+                <div className="flex justify-center pb-2" dir="rtl">
+                  <button
+                    type="button"
+                    disabled={loadingOlder}
+                    onClick={() => void loadOlder()}
+                    className="rounded-full border border-slate-200/90 bg-white px-4 py-2.5 text-xs font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 active:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {loadingOlder ? 'در حال بارگذاری…' : 'پیام‌های قدیمی‌تر'}
+                  </button>
+                </div>
+              ) : null}
             {messages.map((m, i) => {
               const mine = myUserId != null && m.senderId === myUserId;
               const deleted = !!m.deletedAt;
@@ -847,6 +1297,11 @@ export default function GroupThreadPage() {
                   <div
                     id={`group-msg-${m.id}`}
                     className={`flex ${mine ? 'justify-end' : 'justify-start'}`}
+                    onContextMenu={(e) => {
+                      const t = e.target;
+                      if (t instanceof Element && t.closest('a[href], [data-group-msg-actions]')) return;
+                      e.preventDefault();
+                    }}
                     onPointerDown={(e) => {
                       if (e.button !== 0) return;
                       if (editingId || isSelectionMode) return;
@@ -1037,6 +1492,8 @@ export default function GroupThreadPage() {
                                         setEditingId(m.id);
                                         setText(m.content ?? '');
                                         setReplyTo(null);
+                                        clearSelectedFile();
+                                        clearVoiceDraft();
                                         setOpenActionsMessageId(null);
                                       }}
                                     >
@@ -1082,13 +1539,6 @@ export default function GroupThreadPage() {
                         />
                       ) : null}
 
-                      {deleted ? (
-                        <p
-                          className={`text-sm italic ${mine ? 'text-white/70' : 'text-slate-500'}`}
-                        >
-                          این پیام حذف شده است
-                        </p>
-                      ) : null}
                       {!deleted && media ? (
                         isVoiceMedia(media) ? (
                           <VoiceMessageBubble
@@ -1107,35 +1557,25 @@ export default function GroupThreadPage() {
                         ) : media.mimeType?.startsWith('image/') || media.type === 'IMAGE' ? (
                           <img
                             src={media.url}
-                            alt={media.originalName || ''}
-                            className="mb-2 max-h-72 w-full rounded-xl object-contain shadow-inner"
+                            alt={media.originalName || 'message media'}
+                            className="mb-2 max-h-72 w-full rounded-xl bg-white object-contain shadow-inner"
                           />
                         ) : (
                           <a
                             href={media.url}
                             target="_blank"
                             rel="noreferrer"
-                            className={`mb-2 inline-block text-sm font-semibold underline ${
-                              mine ? 'text-sky-200' : 'text-sky-700'
-                            }`}
+                            className="mb-2 block rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700"
                           >
-                            {media.originalName || 'فایل'}
+                            📄 {media.originalName || 'Document'}
                           </a>
                         )
                       ) : null}
-                      {!deleted && m.content ? (
-                        <div
-                          className={`whitespace-pre-wrap text-[15px] leading-relaxed ${
-                            mine ? 'text-white' : 'text-slate-900'
-                          }`}
-                        >
-                          {m.content}
-                        </div>
-                      ) : null}
-                      {m.isEdited ? (
-                        <p className={`mt-0.5 text-[10px] ${mine ? 'text-white/50' : 'text-slate-400'}`}>
-                          ویرایش شده
-                        </p>
+
+                      {deleted ? (
+                        <div className="text-sm font-medium italic opacity-80">این پیام حذف شده است</div>
+                      ) : m.content ? (
+                        <div className="whitespace-pre-wrap text-[15px] leading-relaxed">{m.content}</div>
                       ) : null}
 
                       <div
@@ -1151,6 +1591,7 @@ export default function GroupThreadPage() {
                         dir="rtl"
                       >
                         <span className="tabular-nums">{timeShort}</span>
+                        {m.isEdited ? <span className="opacity-80">ویرایش شده</span> : null}
                       </div>
 
                       {!deleted && (m.reactions?.length ?? 0) > 0 ? (
@@ -1179,45 +1620,6 @@ export default function GroupThreadPage() {
                               ) : null}
                             </button>
                           ))}
-                          <button
-                            type="button"
-                            className={`rounded-full px-2 py-0.5 text-[13px] ${
-                              mine ? 'bg-white/10 text-white/80' : 'bg-slate-100 text-slate-600'
-                            }`}
-                            onClick={() => setReactionForId((id) => (id === m.id ? null : m.id))}
-                          >
-                            +
-                          </button>
-                        </div>
-                      ) : !deleted ? (
-                        <div className="mt-1" dir="ltr">
-                          <button
-                            type="button"
-                            className={`rounded-full px-2 py-0.5 text-[13px] ${
-                              mine ? 'bg-white/10 text-white/80' : 'bg-slate-100 text-slate-600'
-                            }`}
-                            onClick={() => setReactionForId((id) => (id === m.id ? null : m.id))}
-                          >
-                            + واکنش
-                          </button>
-                        </div>
-                      ) : null}
-                      {reactionForId === m.id ? (
-                        <div
-                          className={`mt-1 flex flex-wrap gap-1 border-t pt-1 ${
-                            mine ? 'border-white/10' : 'border-slate-200/80'
-                          }`}
-                        >
-                          {DIRECT_REACTION_EMOJIS.map((em) => (
-                            <button
-                              key={em}
-                              type="button"
-                              className="text-lg"
-                              onClick={() => void toggleReaction(m, em)}
-                            >
-                              {em}
-                            </button>
-                          ))}
                         </div>
                       ) : null}
                     </div>
@@ -1225,98 +1627,351 @@ export default function GroupThreadPage() {
                 </Fragment>
               );
             })}
-            <div ref={bottomRef} />
-          </div>
-        )}
+            </>
+          )}
+        </div>
 
-        <form
-          onSubmit={onSubmit}
-          className={`fixed bottom-0 left-0 right-0 z-30 mx-auto max-w-md border-t border-stone-200 bg-[#f0f0f0] px-3 py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] ${
+        <div
+          className={`sticky bottom-0 z-20 border-t border-stone-200/90 bg-[#f6f6f6]/98 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2 shadow-[0_-2px_12px_rgba(0,0,0,0.05)] backdrop-blur-md ${
             isSelectionMode ? 'pointer-events-none opacity-50' : ''
           }`}
         >
-          {replyTo && !editingId ? (
-            <div className="mb-2 flex items-start gap-2 rounded-2xl border border-slate-200/90 bg-slate-50 px-3 py-2.5 shadow-sm ring-1 ring-slate-200/60">
-              <div className="min-w-0 flex-1 text-right">
-                <div className="text-[10px] font-bold text-sky-600">
-                  پاسخ به {replyTo.sender.name}
-                </div>
-                <div className="mt-0.5 truncate text-sm text-slate-800">{replySnippetGroup(replyTo)}</div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setReplyTo(null)}
-                className="shrink-0 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 shadow-sm transition hover:bg-slate-50"
-              >
-                لغو
-              </button>
-            </div>
-          ) : null}
-          {editingId ? (
-            <div className="mb-1 flex items-center justify-between text-[11px] font-bold text-amber-800">
-              <span>حالت ویرایش پیام</span>
-              <button
-                type="button"
-                className="text-red-600"
-                onClick={() => {
-                  setEditingId(null);
-                  setText(getGroupDraft(groupId));
-                }}
-              >
-                لغو
-              </button>
-            </div>
-          ) : null}
-          <div className="flex items-end gap-2">
-            <label
-              className={`shrink-0 rounded-xl border border-stone-300 bg-white px-2 py-2 text-xs font-bold text-stone-600 ${
-                isSelectionMode ? 'cursor-not-allowed' : 'cursor-pointer'
-              }`}
-            >
-              فایل
-              <input
-                ref={fileInputRef}
-                type="file"
-                className="hidden"
-                disabled={isSelectionMode}
-                accept="image/*,video/*,.pdf,.doc,.docx,.zip"
-              />
-            </label>
-            <textarea
-              value={text}
-              disabled={isSelectionMode}
+          <form onSubmit={onSubmit} className="space-y-2.5" dir="rtl">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*,video/*"
+              disabled={sending || !!editingId || voicePhase !== 'idle' || isSelectionMode}
+              className="sr-only"
               onChange={(e) => {
-                const v = e.target.value;
-                setText(v);
-                if (!editingId) {
-                  if (draftTimerRef.current) clearTimeout(draftTimerRef.current);
-                  draftTimerRef.current = setTimeout(() => {
-                    setGroupDraft(groupId, v);
-                    draftTimerRef.current = null;
-                  }, 200);
-                }
-                socketRef.current?.emit('group_typing', {
-                  groupId,
-                  isTyping: v.trim().length > 0,
-                });
+                clearVoiceDraft();
+                handleFileSelection(e.target.files?.[0] ?? null);
               }}
-              onBlur={() => {
-                if (!editingId) setGroupDraft(groupId, text);
-                socketRef.current?.emit('group_typing', { groupId, isTyping: false });
-              }}
-              rows={1}
-              placeholder={editingId ? 'ویرایش…' : 'پیام…'}
-              className="min-h-[2.5rem] flex-1 resize-none rounded-xl border border-stone-300 bg-white px-3 py-2 text-sm"
             />
-            <button
-              type="submit"
-              disabled={sending || isSelectionMode}
-              className="shrink-0 rounded-xl bg-slate-900 px-4 py-2 text-sm font-bold text-white disabled:opacity-50"
-            >
-              {editingId ? 'ذخیره' : 'ارسال'}
-            </button>
-          </div>
-        </form>
+            <input
+              ref={cameraInputRef}
+              type="file"
+              accept="image/*,video/*"
+              capture="environment"
+              disabled={sending || !!editingId || voicePhase !== 'idle' || isSelectionMode}
+              className="sr-only"
+              onChange={(e) => {
+                clearVoiceDraft();
+                handleFileSelection(e.target.files?.[0] ?? null);
+              }}
+            />
+            <input
+              ref={documentInputRef}
+              type="file"
+              accept=".pdf,.zip,.doc,.docx,application/pdf,application/zip,application/x-zip-compressed,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+              disabled={sending || !!editingId || voicePhase !== 'idle' || isSelectionMode}
+              className="sr-only"
+              onChange={(e) => {
+                clearVoiceDraft();
+                handleFileSelection(e.target.files?.[0] ?? null);
+              }}
+            />
+
+            {editingId ? (
+              <div className="flex items-start gap-2 rounded-2xl border border-amber-200/90 bg-amber-50/95 px-3 py-2.5 shadow-sm ring-1 ring-amber-100">
+                <div className="min-w-0 flex-1 text-right">
+                  <div className="text-[11px] font-bold text-amber-900">ویرایش پیام</div>
+                  <div className="mt-0.5 truncate text-xs text-amber-800/90">
+                    متن را اصلاح کنید و ذخیره را بزنید.
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditingId(null);
+                    setText(getGroupDraft(groupId));
+                    socketRef.current?.emit('group_typing', { groupId, isTyping: false });
+                  }}
+                  className="shrink-0 rounded-xl border border-amber-300/80 bg-white px-3 py-1.5 text-xs font-semibold text-amber-900 shadow-sm transition hover:bg-amber-50"
+                >
+                  لغو ویرایش
+                </button>
+              </div>
+            ) : replyTo ? (
+              <div className="flex items-start gap-2 rounded-2xl border border-slate-200/90 bg-slate-50 px-3 py-2.5 shadow-sm ring-1 ring-slate-200/60">
+                <div className="min-w-0 flex-1 text-right">
+                  <div className="text-[10px] font-bold text-sky-600">پاسخ به {replyTo.sender.name}</div>
+                  <div className="mt-0.5 truncate text-sm text-slate-800">{replySnippetGroup(replyTo)}</div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setReplyTo(null)}
+                  className="shrink-0 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 shadow-sm transition hover:bg-slate-50"
+                >
+                  لغو
+                </button>
+              </div>
+            ) : null}
+
+            {attachmentSheetOpen ? (
+              <div className="grid grid-cols-3 gap-2 rounded-2xl border border-slate-200/90 bg-white p-2 shadow-sm">
+                {[
+                  { key: 'photos', label: 'گالری' },
+                  { key: 'camera', label: 'دوربین' },
+                  { key: 'document', label: 'سند' },
+                ].map((item) => (
+                  <button
+                    key={item.key}
+                    type="button"
+                    disabled={sending || !!editingId || isSelectionMode}
+                    className="rounded-xl border border-slate-200 px-2 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-40"
+                    onClick={() => {
+                      setAttachmentSheetOpen(false);
+                      if (item.key === 'photos') {
+                        fileInputRef.current?.click();
+                        return;
+                      }
+                      if (item.key === 'camera') {
+                        cameraInputRef.current?.click();
+                        return;
+                      }
+                      documentInputRef.current?.click();
+                    }}
+                  >
+                    {item.label}
+                  </button>
+                ))}
+              </div>
+            ) : null}
+
+            <div className="flex items-end gap-2">
+              <button
+                type="button"
+                disabled={sending || !!editingId || isSelectionMode}
+                title="پیوست"
+                onClick={() => setAttachmentSheetOpen((v) => !v)}
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-slate-200/90 bg-white text-slate-600 shadow-sm transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                <span className="text-xl font-bold leading-none">+</span>
+              </button>
+
+              {editingId ? null : voicePhase === 'recording' ? (
+                <div
+                  className="flex min-w-0 flex-1 items-center justify-between gap-2 rounded-2xl border border-red-200/90 bg-red-50 px-3 py-2 shadow-sm"
+                  dir="rtl"
+                >
+                  <div className="flex min-w-0 items-center gap-2">
+                    <span className="relative flex h-2.5 w-2.5 shrink-0">
+                      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75" />
+                      <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-red-500" />
+                    </span>
+                    <span className="text-xs font-semibold text-red-800">در حال ضبط</span>
+                    <span className="tabular-nums text-xs text-red-700">
+                      {formatVoiceClock(recordElapsedMs)}
+                    </span>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => cancelVoiceRecording()}
+                      className="rounded-xl border border-red-200 bg-white px-2.5 py-1.5 text-[11px] font-semibold text-red-700 shadow-sm transition hover:bg-red-50"
+                    >
+                      لغو
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => stopVoiceRecording()}
+                      className="rounded-xl bg-red-600 px-2.5 py-1.5 text-[11px] font-semibold text-white shadow-sm transition hover:bg-red-700"
+                    >
+                      توقف
+                    </button>
+                  </div>
+                </div>
+              ) : voicePhase === 'sending' ? (
+                <div
+                  className="flex min-w-0 flex-1 items-center justify-between gap-2 rounded-2xl border border-emerald-200/90 bg-emerald-50 px-3 py-2 shadow-sm"
+                  dir="rtl"
+                >
+                  <div className="text-xs font-semibold text-emerald-800">در حال ارسال پیام صوتی…</div>
+                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-emerald-300 border-t-emerald-700" />
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  disabled={sending || !!file || voicePhase !== 'idle' || isSelectionMode}
+                  title="پیام صوتی"
+                  onClick={() => void startVoiceRecording()}
+                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-slate-200/90 bg-white text-slate-600 shadow-sm transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+                    <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.91-3c-.49 0-.9.36-.98.85C16.52 14.2 14.47 16 12 16s-4.52-1.8-4.93-4.15c-.08-.49-.49-.85-.98-.85-.61 0-1.09.54-1 1.14.49 3 2.89 5.35 5.91 5.78V20c0 .55.45 1 1 1s1-.45 1-1v-2.08c3.02-.43 5.42-2.78 5.91-5.78.1-.6-.39-1.14-1-1.14z" />
+                  </svg>
+                </button>
+              )}
+
+              <button
+                type="button"
+                disabled={sending || !!editingId || voicePhase !== 'idle' || isSelectionMode}
+                title="دوربین"
+                onClick={() => cameraInputRef.current?.click()}
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-slate-200/90 bg-white text-slate-600 shadow-sm transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                <span className="text-lg" aria-hidden>
+                  📷
+                </span>
+              </button>
+
+              <textarea
+                value={text}
+                onCompositionStart={() => {
+                  isComposingRef.current = true;
+                }}
+                onCompositionEnd={() => {
+                  isComposingRef.current = false;
+                }}
+                onKeyDown={(e) => {
+                  if (e.key !== 'Enter') return;
+                  if (e.shiftKey) return;
+                  const native = e.nativeEvent as KeyboardEvent;
+                  if (isComposingRef.current || native.isComposing || native.keyCode === 229) return;
+                  const trimmed = text.trim();
+                  if (
+                    !trimmed ||
+                    sending ||
+                    !!editingId ||
+                    isSelectionMode ||
+                    voicePhase === 'recording' ||
+                    voicePhase === 'sending'
+                  ) {
+                    e.preventDefault();
+                    return;
+                  }
+                  e.preventDefault();
+                  const form = e.currentTarget.closest('form');
+                  if (form) form.requestSubmit();
+                }}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  setText(value);
+                  if (!editingId) {
+                    if (draftTimerRef.current) clearTimeout(draftTimerRef.current);
+                    draftTimerRef.current = setTimeout(() => {
+                      setGroupDraft(groupId, value);
+                      draftTimerRef.current = null;
+                    }, 220);
+                  }
+                  socketRef.current?.emit('group_typing', {
+                    groupId,
+                    isTyping: value.trim().length > 0,
+                  });
+                }}
+                onBlur={(e) => {
+                  if (!editingId) {
+                    if (draftTimerRef.current) {
+                      clearTimeout(draftTimerRef.current);
+                      draftTimerRef.current = null;
+                    }
+                    setGroupDraft(groupId, e.target.value);
+                  }
+                  socketRef.current?.emit('group_typing', { groupId, isTyping: false });
+                }}
+                placeholder="پیام…"
+                rows={1}
+                disabled={sending || voicePhase === 'recording' || isSelectionMode}
+                className="min-h-[2.75rem] max-h-32 min-w-0 flex-1 resize-none rounded-2xl border border-slate-200/90 bg-white px-3.5 py-2.5 text-[15px] leading-normal text-slate-900 shadow-sm outline-none ring-0 transition placeholder:text-slate-400 focus:border-sky-400/60 focus:ring-2 focus:ring-sky-100"
+              />
+
+              <button
+                type="submit"
+                disabled={
+                  sending || voicePhase === 'recording' || voicePhase === 'sending' || isSelectionMode
+                }
+                className="inline-flex h-11 min-w-[4.5rem] shrink-0 items-center justify-center rounded-2xl bg-slate-900 px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {sending ? (
+                  <span
+                    className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white"
+                    aria-label={editingId ? 'در حال ذخیره' : 'در حال ارسال'}
+                  />
+                ) : (
+                  <span>{editingId ? 'ذخیره' : 'ارسال'}</span>
+                )}
+              </button>
+            </div>
+
+            {voicePhase === 'failed' && voiceBlob ? (
+              <div className="space-y-2 rounded-2xl border border-red-200/90 bg-red-50/80 px-3 py-2.5 shadow-sm ring-1 ring-red-100/80">
+                <div className="text-[11px] font-bold text-red-800">ارسال پیام صوتی ناموفق بود</div>
+                {voicePreviewUrl ? (
+                  <audio
+                    src={voicePreviewUrl}
+                    controls
+                    preload="metadata"
+                    className="w-full rounded-xl bg-white"
+                  />
+                ) : null}
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      void autoSendVoiceMessage(voiceBlob, voiceMime, voiceDurationMs).catch((e) => {
+                        setError(e instanceof Error ? e.message : 'خطا در ارسال پیام صوتی');
+                      })
+                    }
+                    className="rounded-xl bg-red-600 px-3 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-red-700"
+                  >
+                    تلاش دوباره
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => clearVoiceDraft()}
+                    className="rounded-xl border border-red-200 bg-white px-3 py-2 text-xs font-semibold text-red-600 shadow-sm transition hover:bg-red-50"
+                  >
+                    حذف ضبط
+                  </button>
+                </div>
+              </div>
+            ) : null}
+
+            {file ? (
+              <div className="space-y-3">
+                <div className="text-xs text-slate-600">
+                  فایل انتخاب شده: <span className="font-semibold">{file.name}</span>
+                </div>
+                {previewUrl ? (
+                  file.type.startsWith('video/') ? (
+                    <video
+                      src={previewUrl}
+                      controls
+                      className="max-h-72 w-full rounded-2xl border border-slate-200 bg-black"
+                    />
+                  ) : (
+                    <img
+                      src={previewUrl}
+                      alt={file.name}
+                      className="max-h-72 w-full rounded-2xl border border-slate-200 bg-white object-contain"
+                    />
+                  )
+                ) : null}
+                <button
+                  type="button"
+                  onClick={() => clearSelectedFile()}
+                  className="rounded-xl border border-red-200 px-3 py-2 text-xs font-semibold text-red-600"
+                >
+                  حذف فایل انتخاب‌شده
+                </button>
+              </div>
+            ) : null}
+
+            {uploadProgress !== null ? (
+              <div className="space-y-2">
+                <div className="text-xs font-semibold text-slate-700">در حال آپلود: {uploadProgress}%</div>
+                <div className="h-2 w-full overflow-hidden rounded-full bg-slate-200">
+                  <div
+                    className="h-full rounded-full bg-slate-900 transition-all"
+                    style={{ width: `${uploadProgress}%` }}
+                  />
+                </div>
+              </div>
+            ) : null}
+          </form>
+        </div>
+        <div ref={bottomRef} className="h-px w-full shrink-0" aria-hidden />
 
         <ForwardPickerSheet
           open={forwardPickerOpen}
@@ -1327,6 +1982,98 @@ export default function GroupThreadPage() {
           onDismiss={() => dismissForwardPicker()}
           onPick={(t) => void confirmForwardTo(t)}
         />
+
+        {searchOpen ? (
+          <div
+            className="fixed inset-0 z-[60] flex items-start justify-center bg-black/45 p-3 pt-16 backdrop-blur-[1px] sm:items-center sm:pt-3"
+            role="presentation"
+            onClick={() => setSearchOpen(false)}
+          >
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="group-search-title"
+              className="w-full max-w-md overflow-hidden rounded-2xl border border-stone-200/90 bg-white shadow-2xl"
+              dir="rtl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="border-b border-stone-200/80 px-3 py-2">
+                <h2 id="group-search-title" className="text-sm font-bold text-stone-900">
+                  جستجو در گفتگو
+                </h2>
+                <div className="mt-2 flex gap-2">
+                  <input
+                    value={searchQ}
+                    onChange={(e) => setSearchQ(e.target.value)}
+                    placeholder="متن…"
+                    className="min-w-0 flex-1 rounded-xl border border-stone-200 px-3 py-2 text-sm outline-none focus:border-sky-400"
+                    dir="rtl"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => void runSearch()}
+                    disabled={searchLoading}
+                    className="shrink-0 rounded-xl bg-slate-900 px-3 py-2 text-xs font-bold text-white disabled:opacity-40"
+                  >
+                    جستجو
+                  </button>
+                </div>
+                <div className="mt-2 flex items-center justify-between gap-2">
+                  <span className="text-[11px] text-slate-500">
+                    {searchHits.length > 0
+                      ? `${searchHighlightIndex + 1} / ${searchHits.length}`
+                      : '—'}
+                  </span>
+                  <div className="flex gap-1">
+                    <button
+                      type="button"
+                      disabled={searchHits.length === 0}
+                      onClick={() => jumpToSearchHit(-1)}
+                      className="rounded-lg border border-stone-200 px-2 py-1 text-[11px] font-semibold disabled:opacity-40"
+                    >
+                      قبلی
+                    </button>
+                    <button
+                      type="button"
+                      disabled={searchHits.length === 0}
+                      onClick={() => jumpToSearchHit(1)}
+                      className="rounded-lg border border-stone-200 px-2 py-1 text-[11px] font-semibold disabled:opacity-40"
+                    >
+                      بعدی
+                    </button>
+                  </div>
+                </div>
+              </div>
+              <div className="max-h-64 overflow-y-auto px-2 py-2 text-sm">
+                {searchLoading ? (
+                  <div className="py-8 text-center text-slate-500">در حال جستجو…</div>
+                ) : searchHits.length === 0 ? (
+                  <div className="py-6 text-center text-xs text-slate-500">نتیجه‌ای نیست</div>
+                ) : (
+                  searchHits.map((m, idx) => (
+                    <button
+                      key={m.id}
+                      type="button"
+                      onClick={() => {
+                        setSearchHighlightIndex(idx);
+                        scrollToMessageAndFlash(m.id);
+                      }}
+                      className={`mb-1 w-full rounded-lg border px-2 py-2 text-right text-xs ${
+                        idx === searchHighlightIndex
+                          ? 'border-sky-400 bg-sky-50'
+                          : 'border-transparent hover:bg-stone-50'
+                      }`}
+                    >
+                      <span className="line-clamp-2 font-medium text-stone-800">
+                        {(m.content ?? '').trim() || '—'}
+                      </span>
+                    </button>
+                  ))
+                )}
+              </div>
+            </div>
+          </div>
+        ) : null}
       </main>
     </AuthGate>
   );
