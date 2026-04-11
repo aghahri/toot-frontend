@@ -26,7 +26,7 @@ const tabs = [
     label: 'استوری',
     Icon: IconTabStory,
     primary: false,
-    match: (p: string) => p === '/home',
+    match: (p: string) => p === '/home' || p === '/search' || p === '/notifications',
   },
   {
     href: '/vitrin',

@@ -1,0 +1,267 @@
+'use client';
+
+import type { FormEvent } from 'react';
+import { useCallback, useState } from 'react';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { AuthGate } from '@/components/AuthGate';
+import { apiFetch } from '@/lib/api';
+import { getAccessToken } from '@/lib/auth';
+
+type SearchUser = { id: string; name: string; username: string; avatar: string | null };
+type SearchPost = {
+  id: string;
+  text: string;
+  createdAt: string;
+  userId: string;
+  user: { id: string; name: string; username: string; avatar: string | null };
+};
+type SearchGroup = { id: string; name: string; description: string | null; networkId: string | null };
+type SearchNetwork = { id: string; name: string; description: string | null; slug: string | null };
+type SearchChannel = { id: string; name: string; description: string | null; networkId: string | null };
+
+type SearchAllResponse = {
+  users: SearchUser[];
+  posts: SearchPost[];
+  networks: SearchNetwork[];
+  groups: SearchGroup[];
+  channels: SearchChannel[];
+};
+
+function excerpt(text: string, max = 120): string {
+  const t = text.replace(/\s+/g, ' ').trim();
+  if (t.length <= max) return t;
+  return `${t.slice(0, max)}…`;
+}
+
+export default function SearchPage() {
+  const router = useRouter();
+  const [q, setQ] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [result, setResult] = useState<SearchAllResponse | null>(null);
+
+  const runSearch = useCallback(async (raw: string) => {
+    const term = raw.trim();
+    if (term.length < 2) {
+      setResult(null);
+      setError('حداقل دو نویسه وارد کنید.');
+      return;
+    }
+    const t = getAccessToken();
+    if (!t) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await apiFetch<SearchAllResponse>(
+        `search/all?q=${encodeURIComponent(term)}&limit=15`,
+        { method: 'GET', token: t },
+      );
+      setResult(data);
+    } catch (e) {
+      setResult(null);
+      setError(e instanceof Error ? e.message : 'خطا در جستجو');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  function onSubmit(e: FormEvent) {
+    e.preventDefault();
+    void runSearch(q);
+  }
+
+  const empty =
+    result &&
+    result.users.length === 0 &&
+    result.posts.length === 0 &&
+    result.networks.length === 0 &&
+    result.groups.length === 0 &&
+    result.channels.length === 0;
+
+  return (
+    <AuthGate>
+      <div className="min-h-[50dvh] bg-[#f7f9f9] pb-28" dir="rtl">
+        <header className="sticky top-14 z-[12] border-b border-slate-200/80 bg-white/95 px-3 py-3 backdrop-blur-md sm:px-4">
+          <div className="mx-auto flex max-w-lg flex-col gap-3">
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => router.back()}
+                className="shrink-0 rounded-full px-2 py-1 text-sm font-bold text-slate-600 hover:bg-slate-100"
+              >
+                ← بازگشت
+              </button>
+              <h1 className="text-lg font-extrabold text-slate-900">جستجو</h1>
+            </div>
+            <form onSubmit={onSubmit} className="flex min-w-0 gap-2">
+              <input
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+                placeholder="نام کاربر، متن پست، هشتگ…"
+                className="min-w-0 flex-1 rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-900 outline-none focus:border-sky-400/50"
+                dir="rtl"
+                autoComplete="off"
+              />
+              <button
+                type="submit"
+                disabled={loading}
+                className="shrink-0 rounded-2xl bg-slate-900 px-4 py-2.5 text-sm font-bold text-white disabled:opacity-60"
+              >
+                {loading ? '…' : 'برو'}
+              </button>
+            </form>
+          </div>
+        </header>
+
+        <main className="mx-auto max-w-lg px-3 pt-4 sm:px-4">
+          {error && !loading ? (
+            <p className="mb-4 text-center text-sm font-semibold text-amber-800">{error}</p>
+          ) : null}
+
+          {loading ? (
+            <div className="space-y-3">
+              {[0, 1, 2, 3].map((i) => (
+                <div key={i} className="h-16 animate-pulse rounded-2xl bg-slate-200/50" />
+              ))}
+            </div>
+          ) : null}
+
+          {!loading && result && empty ? (
+            <div className="rounded-2xl border border-slate-200/90 bg-white px-6 py-10 text-center shadow-sm">
+              <p className="text-sm font-bold text-slate-700">نتیجه‌ای پیدا نشد</p>
+              <p className="mt-2 text-xs text-slate-500">عبارت دیگری امتحان کنید یا هشتگ را با # بنویسید.</p>
+            </div>
+          ) : null}
+
+          {!loading && result && !empty ? (
+            <div className="space-y-8 pb-6">
+              {result.users.length > 0 ? (
+                <section aria-labelledby="sec-users">
+                  <h2 id="sec-users" className="mb-3 text-xs font-extrabold text-slate-500">
+                    کاربران
+                  </h2>
+                  <ul className="space-y-2 rounded-2xl border border-slate-200/80 bg-white p-2 shadow-sm">
+                    {result.users.map((u) => (
+                      <li key={u.id}>
+                        <Link
+                          href={`/profile/${u.id}`}
+                          className="flex items-center gap-3 rounded-xl px-3 py-2.5 transition hover:bg-slate-50"
+                        >
+                          <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-slate-200 text-sm font-bold text-slate-600">
+                            {u.avatar ? (
+                              <img src={u.avatar} alt="" className="h-full w-full object-cover" />
+                            ) : (
+                              u.name.slice(0, 1)
+                            )}
+                          </div>
+                          <div className="min-w-0">
+                            <div className="truncate font-bold text-slate-900">{u.name}</div>
+                            <div className="truncate text-xs text-slate-500" dir="ltr">
+                              @{u.username}
+                            </div>
+                          </div>
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              ) : null}
+
+              {result.posts.length > 0 ? (
+                <section aria-labelledby="sec-posts">
+                  <h2 id="sec-posts" className="mb-3 text-xs font-extrabold text-slate-500">
+                    پست‌ها و هشتگ
+                  </h2>
+                  <ul className="space-y-2">
+                    {result.posts.map((p) => (
+                      <li key={p.id}>
+                        <Link
+                          href="/home"
+                          className="block rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm transition hover:border-slate-300"
+                        >
+                          <div className="flex items-center gap-2 text-xs text-slate-500">
+                            <span className="font-bold text-slate-800">{p.user.name}</span>
+                            <span dir="ltr">@{p.user.username}</span>
+                          </div>
+                          <p className="mt-2 text-sm leading-relaxed text-slate-700">
+                            {excerpt(p.text)}
+                          </p>
+                          <p className="mt-2 text-[11px] font-semibold text-sky-700">مشاهده در فید خانه ←</p>
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              ) : null}
+
+              {result.groups.length > 0 ? (
+                <section aria-labelledby="sec-groups">
+                  <h2 id="sec-groups" className="mb-3 text-xs font-extrabold text-slate-500">
+                    گروه‌ها
+                  </h2>
+                  <ul className="space-y-2">
+                    {result.groups.map((g) => (
+                      <li key={g.id}>
+                        <Link
+                          href={`/groups/${g.id}`}
+                          className="block rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm transition hover:border-slate-300"
+                        >
+                          <div className="font-bold text-slate-900">{g.name}</div>
+                          {g.description ? (
+                            <p className="mt-1 text-xs text-slate-600">{excerpt(g.description, 100)}</p>
+                          ) : null}
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              ) : null}
+
+              {result.channels.length > 0 ? (
+                <section aria-labelledby="sec-channels">
+                  <h2 id="sec-channels" className="mb-3 text-xs font-extrabold text-slate-500">
+                    کانال‌ها
+                  </h2>
+                  <ul className="space-y-2">
+                    {result.channels.map((c) => (
+                      <li
+                        key={c.id}
+                        className="rounded-2xl border border-slate-200/80 bg-white p-4 text-sm font-bold text-slate-800 shadow-sm"
+                      >
+                        {c.name}
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              ) : null}
+
+              {result.networks.length > 0 ? (
+                <section aria-labelledby="sec-networks">
+                  <h2 id="sec-networks" className="mb-3 text-xs font-extrabold text-slate-500">
+                    شبکه‌ها
+                  </h2>
+                  <ul className="space-y-2">
+                    {result.networks.map((n) => (
+                      <li
+                        key={n.id}
+                        className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm"
+                      >
+                        <div className="font-bold text-slate-900">{n.name}</div>
+                        {n.slug ? (
+                          <div className="mt-1 text-xs text-slate-500" dir="ltr">
+                            {n.slug}
+                          </div>
+                        ) : null}
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              ) : null}
+            </div>
+          ) : null}
+        </main>
+      </div>
+    </AuthGate>
+  );
+}

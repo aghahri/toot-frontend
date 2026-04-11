@@ -40,7 +40,6 @@ export default function HomePage() {
   const [tab, setTab] = useState<FeedTabId>('for-you');
   const [composeOpen, setComposeOpen] = useState(false);
   const [replyPost, setReplyPost] = useState<FeedPost | null>(null);
-  const [searchHint, setSearchHint] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
 
   const loadFeed = useCallback(async (opts?: { silent?: boolean }) => {
@@ -121,20 +120,9 @@ export default function HomePage() {
     <AuthGate>
       <div className="relative min-h-[60dvh] bg-[#f7f9f9]" dir="rtl">
         <div className="sticky top-14 z-[15] bg-white/90 shadow-[0_1px_0_rgba(0,0,0,0.04)] backdrop-blur-md">
-          <HomeFeedHeader
-            onSearchClick={() => {
-              setSearchHint(true);
-              window.setTimeout(() => setSearchHint(false), 2500);
-            }}
-          />
+          <HomeFeedHeader />
           <FeedTabs active={tab} onChange={setTab} />
         </div>
-
-        {searchHint ? (
-          <div className="border-b border-sky-100 bg-sky-50/95 px-4 py-2 text-center text-xs font-semibold text-sky-800">
-            جستجوی سراسری به‌زودی فعال می‌شود.
-          </div>
-        ) : null}
 
         <main className="mx-auto min-h-[40dvh] w-full max-w-lg pb-28">
           {tab === 'for-you' ? (
