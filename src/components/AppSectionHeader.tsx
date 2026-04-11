@@ -4,7 +4,8 @@ import { usePathname } from 'next/navigation';
 
 /** Section titles for the four main tabs; other routes get no shell header. */
 export function getAppSectionTitle(pathname: string): string | null {
-  if (pathname === '/home') return 'استوری';
+  /** Home uses its own sticky feed header (`HomeFeedHeader`); avoid double title. */
+  if (pathname === '/home') return null;
   if (pathname === '/direct' || pathname.startsWith('/direct/')) return 'چت‌ها';
   if (pathname === '/vitrin') return 'ویترین';
   if (pathname === '/spaces') return 'فضاها';
