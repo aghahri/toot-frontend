@@ -11,20 +11,7 @@ import { HomeFeedHeader } from '@/components/home/HomeFeedHeader';
 import { HomeComposeSheet } from '@/components/home/HomeComposeSheet';
 import { PostReplySheet } from '@/components/home/PostReplySheet';
 import type { FeedPost, FeedTabId } from '@/components/home/feed-types';
-
-function normalizeFeedPost(p: FeedPost): FeedPost {
-  return {
-    ...p,
-    likeCount: p.likeCount ?? 0,
-    repostCount: p.repostCount ?? 0,
-    replyCount: p.replyCount ?? 0,
-    liked: p.liked ?? false,
-    reposted: p.reposted ?? false,
-    bookmarked: p.bookmarked ?? false,
-    feedEntry: p.feedEntry === 'viewer_repost' ? 'viewer_repost' : (p.feedEntry ?? 'post'),
-    viewerRepostedAt: p.viewerRepostedAt ?? undefined,
-  };
-}
+import { normalizeFeedPost } from '@/lib/feed-normalize';
 
 function FeedSkeleton() {
   return (

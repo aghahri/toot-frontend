@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { getAccessToken } from '@/lib/auth';
 import { apiFetch } from '@/lib/api';
@@ -41,9 +42,17 @@ type FeedPostCardProps = {
   onOpenReply: (post: FeedPost) => void;
   /** After repost toggle succeeds, refresh feed (e.g. silent) so repost strip/order matches server. */
   onRepostChanged?: () => void;
+  /** Link avatar/name to `/profile/[userId]` (disable on a profile-only timeline if desired). */
+  linkAuthorProfile?: boolean;
 };
 
-export function FeedPostCard({ post, onPatch, onOpenReply, onRepostChanged }: FeedPostCardProps) {
+export function FeedPostCard({
+  post,
+  onPatch,
+  onOpenReply,
+  onRepostChanged,
+  linkAuthorProfile = true,
+}: FeedPostCardProps) {
   const p = post;
   const handle = p.user?.username?.trim() || `@user_${p.userId.slice(0, 6)}`;
   const name = p.user?.name?.trim() || 'کاربر';
@@ -221,6 +230,8 @@ export function FeedPostCard({ post, onPatch, onOpenReply, onRepostChanged }: Fe
   ]);
 
   const isViewerRepostRow = p.feedEntry === 'viewer_repost';
+  const authorProfileHref =
+    linkAuthorProfile && p.user?.id ? `/profile/${p.user.id}` : null;
 
   return (
     <article
@@ -249,28 +260,62 @@ export function FeedPostCard({ post, onPatch, onOpenReply, onRepostChanged }: Fe
         </div>
       ) : null}
       <div className="flex gap-3">
-        <div className="shrink-0">
-          {p.user?.avatar ? (
-            <img
-              src={p.user.avatar}
-              alt=""
-              className="h-11 w-11 rounded-full object-cover ring-1 ring-slate-200/80"
-            />
-          ) : (
-            <div className="flex h-11 w-11 items-center justify-center rounded-full bg-gradient-to-br from-sky-500 to-slate-600 text-sm font-bold text-white ring-1 ring-slate-200/60">
-              {initials(name)}
-            </div>
-          )}
-        </div>
+        {authorProfileHref ? (
+          <Link
+            href={authorProfileHref}
+            className="shrink-0 rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2"
+            aria-label={`پروفایل ${name}`}
+          >
+            {p.user?.avatar ? (
+              <img
+                src={p.user.avatar}
+                alt=""
+                className="h-11 w-11 rounded-full object-cover ring-1 ring-slate-200/80"
+              />
+            ) : (
+              <div className="flex h-11 w-11 items-center justify-center rounded-full bg-gradient-to-br from-sky-500 to-slate-600 text-sm font-bold text-white ring-1 ring-slate-200/60">
+                {initials(name)}
+              </div>
+            )}
+          </Link>
+        ) : (
+          <div className="shrink-0">
+            {p.user?.avatar ? (
+              <img
+                src={p.user.avatar}
+                alt=""
+                className="h-11 w-11 rounded-full object-cover ring-1 ring-slate-200/80"
+              />
+            ) : (
+              <div className="flex h-11 w-11 items-center justify-center rounded-full bg-gradient-to-br from-sky-500 to-slate-600 text-sm font-bold text-white ring-1 ring-slate-200/60">
+                {initials(name)}
+              </div>
+            )}
+          </div>
+        )}
 
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0">
               <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0">
-                <span className="truncate text-[15px] font-bold text-slate-900">{name}</span>
-                <span className="truncate text-sm text-slate-500" dir="ltr">
-                  {handle}
-                </span>
+                {authorProfileHref ? (
+                  <Link
+                    href={authorProfileHref}
+                    className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-0 hover:opacity-90"
+                  >
+                    <span className="truncate text-[15px] font-bold text-slate-900">{name}</span>
+                    <span className="truncate text-sm text-slate-500" dir="ltr">
+                      {handle}
+                    </span>
+                  </Link>
+                ) : (
+                  <>
+                    <span className="truncate text-[15px] font-bold text-slate-900">{name}</span>
+                    <span className="truncate text-sm text-slate-500" dir="ltr">
+                      {handle}
+                    </span>
+                  </>
+                )}
                 <span className="text-slate-300">·</span>
                 <time
                   className="shrink-0 text-sm text-slate-400"
