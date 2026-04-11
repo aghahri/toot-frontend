@@ -55,28 +55,53 @@ export async function register(input: {
   });
 }
 
+function extractDevOtpCodeFromPayload(data: unknown): string | undefined {
+  if (data == null || typeof data !== 'object') return undefined;
+
+  const tryPick = (obj: Record<string, unknown>): string | undefined => {
+    const v =
+      obj.devOtpCode ??
+      obj.dev_otp_code ??
+      obj.otp ??
+      obj.code ??
+      obj.oneTimePassword;
+    if (v == null) return undefined;
+    const s = String(v).trim();
+    return s.length > 0 ? s : undefined;
+  };
+
+  const root = data as Record<string, unknown>;
+  const direct = tryPick(root);
+  if (direct) return direct;
+
+  const nested = root.data;
+  if (nested != null && typeof nested === 'object') {
+    return tryPick(nested as Record<string, unknown>);
+  }
+  return undefined;
+}
+
 export async function requestOtp(phone: string): Promise<{
   phoneMask: string;
   devOtpCode?: string;
 }> {
-  const data = await apiFetch<{
-    phoneMask?: string;
-    devOtpCode?: string;
-    dev_otp_code?: string;
-    otp?: string;
-    success?: boolean;
-  }>('auth/request-otp', {
+  const data = await apiFetch<unknown>('auth/request-otp', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ phone }),
   });
 
-  const devOtp = data.devOtpCode ?? data.dev_otp_code ?? data.otp;
+  const devOtp = extractDevOtpCodeFromPayload(data);
+  const phoneMask =
+    data != null &&
+    typeof data === 'object' &&
+    typeof (data as Record<string, unknown>).phoneMask === 'string'
+      ? ((data as Record<string, unknown>).phoneMask as string)
+      : '';
+
   return {
-    phoneMask: typeof data.phoneMask === 'string' ? data.phoneMask : '',
-    ...(devOtp != null && String(devOtp).trim() !== ''
-      ? { devOtpCode: String(devOtp).trim() }
-      : {}),
+    phoneMask,
+    ...(devOtp != null ? { devOtpCode: devOtp } : {}),
   };
 }
 

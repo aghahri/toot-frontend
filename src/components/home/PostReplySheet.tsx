@@ -105,7 +105,10 @@ export function PostReplySheet({ post, open, onClose, onReplied }: PostReplyShee
   if (!open || !post) return null;
 
   return (
-    <div className="fixed inset-0 z-[100] flex flex-col justify-end" role="presentation">
+    <div
+      className="fixed inset-0 z-[100] flex flex-col justify-end overflow-x-hidden overflow-y-auto sm:items-center sm:justify-center sm:p-4"
+      role="presentation"
+    >
       <button
         type="button"
         className="absolute inset-0 bg-black/40 backdrop-blur-[1px]"
@@ -113,7 +116,7 @@ export function PostReplySheet({ post, open, onClose, onReplied }: PostReplyShee
         onClick={() => !submitting && onClose()}
       />
       <div
-        className="relative flex max-h-[min(88dvh,560px)] w-full flex-col overflow-hidden rounded-t-3xl border border-slate-200/90 bg-white shadow-2xl"
+        className="relative z-[1] mx-auto flex min-h-0 w-full max-w-lg max-h-[min(88dvh,560px)] flex-col overflow-hidden rounded-t-3xl border border-slate-200/90 bg-white shadow-2xl sm:max-h-[min(85dvh,640px)] sm:rounded-2xl"
         role="dialog"
         aria-modal="true"
         aria-labelledby="reply-sheet-title"

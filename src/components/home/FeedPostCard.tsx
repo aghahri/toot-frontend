@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { getAccessToken } from '@/lib/auth';
 import { apiFetch } from '@/lib/api';
 import type { FeedPost, PostEngagementSnapshot } from './feed-types';
@@ -60,6 +60,16 @@ export function FeedPostCard({ post, onPatch, onOpenReply }: FeedPostCardProps) 
   const likeLock = useRef(false);
   const repostLock = useRef(false);
   const bookmarkLock = useRef(false);
+  const repostFeedbackTimerRef = useRef<number | null>(null);
+  const [repostFeedback, setRepostFeedback] = useState<string | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (repostFeedbackTimerRef.current != null) {
+        window.clearTimeout(repostFeedbackTimerRef.current);
+      }
+    };
+  }, []);
 
   const applySnapshot = useCallback(
     (snap: PostEngagementSnapshot) => {
@@ -141,6 +151,14 @@ export function FeedPostCard({ post, onPatch, onOpenReply }: FeedPostCardProps) 
         { method: 'POST', token: t },
       );
       applySnapshot(snap);
+      if (repostFeedbackTimerRef.current != null) {
+        window.clearTimeout(repostFeedbackTimerRef.current);
+      }
+      setRepostFeedback(snap.reposted ? 'بازنشر شد' : 'بازنشر برداشته شد');
+      repostFeedbackTimerRef.current = window.setTimeout(() => {
+        setRepostFeedback(null);
+        repostFeedbackTimerRef.current = null;
+      }, 2800);
     } catch {
       applySnapshot(prev);
     } finally {
@@ -303,19 +321,29 @@ export function FeedPostCard({ post, onPatch, onOpenReply }: FeedPostCardProps) 
               type="button"
               onClick={() => void toggleRepost()}
               disabled={repostBusy}
-              className={`flex h-9 min-w-0 flex-1 items-center justify-center gap-1 rounded-full text-sm transition disabled:opacity-60 ${
+              className={`flex min-h-9 min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-full px-0.5 py-1 text-sm transition disabled:opacity-60 ${
                 reposted
-                  ? 'text-emerald-600 hover:bg-emerald-50'
-                  : 'hover:bg-emerald-50 hover:text-emerald-700'
+                  ? 'bg-emerald-50 text-emerald-700 ring-2 ring-emerald-500/45 hover:bg-emerald-100'
+                  : 'text-slate-500 hover:bg-emerald-50 hover:text-emerald-700'
               }`}
               aria-label={reposted ? 'حذف بازنشر' : 'بازنشر داخلی'}
+              aria-pressed={reposted}
             >
-              <span className="text-base" aria-hidden>
-                ↻
+              <span className="flex items-center gap-1">
+                <span className="text-base" aria-hidden>
+                  ↻
+                </span>
+                <span
+                  className={`text-[10px] font-bold leading-none ${reposted ? 'text-emerald-800' : 'text-slate-500'}`}
+                >
+                  بازنشر
+                </span>
               </span>
-              {repostCount > 0 ? (
-                <span className="text-xs font-semibold tabular-nums">{formatCount(repostCount)}</span>
-              ) : null}
+              <span
+                className={`text-[11px] font-semibold tabular-nums leading-none ${reposted ? 'text-emerald-900' : 'text-slate-400'}`}
+              >
+                {formatCount(repostCount)}
+              </span>
             </button>
             <button
               type="button"
@@ -349,6 +377,11 @@ export function FeedPostCard({ post, onPatch, onOpenReply }: FeedPostCardProps) 
               </span>
             </button>
           </div>
+          {repostFeedback ? (
+            <p className="mt-2 text-center text-xs font-bold text-emerald-700" role="status">
+              {repostFeedback}
+            </p>
+          ) : null}
         </div>
       </div>
     </article>

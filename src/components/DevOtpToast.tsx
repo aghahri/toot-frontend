@@ -20,14 +20,9 @@ type DevOtpToastProps = {
 export function DevOtpToast({ code, requestEpoch = 0 }: DevOtpToastProps) {
   const [hidden, setHidden] = useState(true);
   const [copied, setCopied] = useState(false);
-  const [mounted, setMounted] = useState(false);
   const copyResetRef = useRef<number | null>(null);
   const display = code?.trim() ?? '';
   const hasCode = display.length > 0;
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
 
   useEffect(() => {
     return () => {
@@ -38,7 +33,7 @@ export function DevOtpToast({ code, requestEpoch = 0 }: DevOtpToastProps) {
     };
   }, []);
 
-  // useLayoutEffect so the toast becomes visible in the same frame as the new code (useEffect ran too late and looked like a no-op).
+  // useLayoutEffect: show in the same frame as the new code; drive visibility from code+epoch only (no "mounted" gate — that deferred the portal until after paint and caused flaky visibility).
   useLayoutEffect(() => {
     if (!hasCode) {
       setHidden(true);
@@ -71,13 +66,15 @@ export function DevOtpToast({ code, requestEpoch = 0 }: DevOtpToastProps) {
     }
   }, [display]);
 
-  if (!hasCode || hidden || !mounted) return null;
+  if (!hasCode || hidden) return null;
+
+  if (typeof document === 'undefined' || !document.body) return null;
 
   const showEnvHint = isDevOtpPopupEnabled();
 
   const node = (
     <div
-      className="pointer-events-auto fixed right-4 top-4 z-[9999] w-[min(18rem,calc(100vw-2rem))] rounded-xl bg-slate-900 px-4 py-3 text-white shadow-lg ring-1 ring-white/10"
+      className="pointer-events-auto fixed right-4 top-4 z-[10050] w-[min(18rem,calc(100vw-2rem))] rounded-xl bg-slate-900 px-4 py-3 text-white shadow-lg ring-1 ring-white/10"
       role="status"
       dir="rtl"
     >
