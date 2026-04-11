@@ -72,6 +72,15 @@ export function PostReplySheet({ post, open, onClose, onReplied }: PostReplyShee
     }
   }, [open]);
 
+  useEffect(() => {
+    if (!open) return;
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [open]);
+
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     if (!post) return;
@@ -106,7 +115,7 @@ export function PostReplySheet({ post, open, onClose, onReplied }: PostReplyShee
 
   return (
     <div
-      className="fixed inset-0 z-[100] flex flex-col justify-end overflow-x-hidden overflow-y-auto sm:items-center sm:justify-center sm:p-4"
+      className="fixed inset-0 z-[100] flex items-end justify-center overflow-x-hidden overflow-y-auto overscroll-contain px-3 sm:items-center sm:px-4"
       role="presentation"
     >
       <button
@@ -116,7 +125,7 @@ export function PostReplySheet({ post, open, onClose, onReplied }: PostReplyShee
         onClick={() => !submitting && onClose()}
       />
       <div
-        className="relative z-[1] mx-auto flex min-h-0 w-full max-w-lg max-h-[min(88dvh,560px)] flex-col overflow-hidden rounded-t-3xl border border-slate-200/90 bg-white shadow-2xl sm:max-h-[min(85dvh,640px)] sm:rounded-2xl"
+        className="relative z-[1] box-border flex min-h-0 w-full max-w-[min(42rem,calc(100vw-2rem))] max-h-[85vh] flex-col overflow-hidden rounded-t-2xl border border-slate-200/90 bg-white shadow-xl sm:rounded-2xl"
         role="dialog"
         aria-modal="true"
         aria-labelledby="reply-sheet-title"
@@ -138,7 +147,9 @@ export function PostReplySheet({ post, open, onClose, onReplied }: PostReplyShee
         </div>
 
         <div className="shrink-0 border-b border-slate-50 px-4 py-3 text-sm text-slate-600">
-          <p className="line-clamp-3 whitespace-pre-wrap">{post.text || '(بدون متن)'}</p>
+          <p className="line-clamp-3 min-w-0 break-words whitespace-pre-wrap">
+            {post.text || '(بدون متن)'}
+          </p>
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto px-2 py-2">
@@ -186,7 +197,7 @@ export function PostReplySheet({ post, open, onClose, onReplied }: PostReplyShee
                         </span>
                         <span className="text-slate-400">{formatReplyTime(r.createdAt)}</span>
                       </div>
-                      <p className="mt-1 whitespace-pre-wrap text-sm leading-relaxed text-slate-800">
+                      <p className="mt-1 min-w-0 break-words whitespace-pre-wrap text-sm leading-relaxed text-slate-800">
                         {r.text}
                       </p>
                     </div>
@@ -199,7 +210,7 @@ export function PostReplySheet({ post, open, onClose, onReplied }: PostReplyShee
 
         <form
           onSubmit={onSubmit}
-          className="shrink-0 border-t border-slate-100 bg-white p-4 pb-[max(1rem,env(safe-area-inset-bottom))]"
+          className="min-w-0 shrink-0 border-t border-slate-100 bg-white p-4 pb-[max(1rem,env(safe-area-inset-bottom))]"
         >
           <textarea
             value={text}
@@ -207,7 +218,7 @@ export function PostReplySheet({ post, open, onClose, onReplied }: PostReplyShee
             placeholder="پاسخ خود را بنویسید…"
             disabled={submitting}
             rows={3}
-            className="mb-3 w-full resize-none rounded-2xl border border-slate-200 bg-slate-50/80 p-3 text-sm leading-relaxed text-slate-900 outline-none focus:border-sky-400/50 focus:bg-white"
+            className="mb-3 box-border max-w-full min-w-0 w-full resize-none rounded-2xl border border-slate-200 bg-slate-50/80 p-3 text-sm leading-relaxed text-slate-900 outline-none focus:border-sky-400/50 focus:bg-white"
           />
           {submitError ? (
             <div className="mb-2 text-xs font-semibold text-red-600">{submitError}</div>
