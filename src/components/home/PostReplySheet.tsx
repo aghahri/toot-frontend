@@ -2,6 +2,7 @@
 
 import type { FormEvent } from 'react';
 import { useCallback, useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { getAccessToken } from '@/lib/auth';
 import { apiFetch } from '@/lib/api';
 import { Button } from '@/components/ui/Button';
@@ -32,12 +33,17 @@ type PostReplySheetProps = {
 };
 
 export function PostReplySheet({ post, open, onClose, onReplied }: PostReplySheetProps) {
+  const [mounted, setMounted] = useState(false);
   const [replies, setReplies] = useState<PostReplyItem[]>([]);
   const [loadingList, setLoadingList] = useState(false);
   const [listError, setListError] = useState<string | null>(null);
   const [text, setText] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const loadReplies = useCallback(async () => {
     if (!post) return;
@@ -74,10 +80,13 @@ export function PostReplySheet({ post, open, onClose, onReplied }: PostReplyShee
 
   useEffect(() => {
     if (!open) return;
-    const prevOverflow = document.body.style.overflow;
+    const prevBodyOverflow = document.body.style.overflow;
+    const prevHtmlOverflowX = document.documentElement.style.overflowX;
     document.body.style.overflow = 'hidden';
+    document.documentElement.style.overflowX = 'hidden';
     return () => {
-      document.body.style.overflow = prevOverflow;
+      document.body.style.overflow = prevBodyOverflow;
+      document.documentElement.style.overflowX = prevHtmlOverflowX;
     };
   }, [open]);
 
@@ -111,11 +120,11 @@ export function PostReplySheet({ post, open, onClose, onReplied }: PostReplyShee
     }
   }
 
-  if (!open || !post) return null;
+  if (!open || !post || !mounted) return null;
 
-  return (
+  const sheet = (
     <div
-      className="fixed inset-0 z-[100] flex items-end justify-center overflow-x-hidden overflow-y-auto overscroll-contain px-3 sm:items-center sm:px-4"
+      className="fixed inset-0 z-[100] flex w-full max-w-[100vw] items-end justify-center overflow-x-hidden overflow-y-auto overscroll-contain px-3 sm:items-center sm:px-4"
       role="presentation"
     >
       <button
@@ -125,14 +134,14 @@ export function PostReplySheet({ post, open, onClose, onReplied }: PostReplyShee
         onClick={() => !submitting && onClose()}
       />
       <div
-        className="relative z-[1] box-border flex min-h-0 w-full max-w-[min(42rem,calc(100vw-2rem))] max-h-[85vh] flex-col overflow-hidden rounded-t-2xl border border-slate-200/90 bg-white shadow-xl sm:rounded-2xl"
+        className="relative z-[1] box-border flex min-h-0 min-w-0 w-full max-w-[min(42rem,calc(100vw-2rem))] max-h-[85vh] flex-col overflow-hidden rounded-t-2xl border border-slate-200/90 bg-white shadow-xl sm:rounded-2xl"
         role="dialog"
         aria-modal="true"
         aria-labelledby="reply-sheet-title"
         dir="rtl"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex shrink-0 items-center justify-between border-b border-slate-100 bg-white/95 px-4 py-3 backdrop-blur-sm">
+        <div className="flex min-w-0 shrink-0 items-center justify-between gap-2 border-b border-slate-100 bg-white/95 px-4 py-3 backdrop-blur-sm">
           <h2 id="reply-sheet-title" className="text-base font-bold text-slate-900">
             پاسخ به پست
           </h2>
@@ -240,4 +249,6 @@ export function PostReplySheet({ post, open, onClose, onReplied }: PostReplyShee
       </div>
     </div>
   );
+
+  return createPortal(sheet, document.body);
 }

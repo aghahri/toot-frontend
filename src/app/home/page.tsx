@@ -32,8 +32,11 @@ function FeedSkeleton() {
 
 export default function HomePage() {
   const [posts, setPosts] = useState<FeedPost[]>([]);
+  const [followingPosts, setFollowingPosts] = useState<FeedPost[]>([]);
   const [loadingFeed, setLoadingFeed] = useState(true);
+  const [loadingFollowingFeed, setLoadingFollowingFeed] = useState(false);
   const [feedError, setFeedError] = useState<string | null>(null);
+  const [followingFeedError, setFollowingFeedError] = useState<string | null>(null);
   const [tab, setTab] = useState<FeedTabId>('for-you');
   const [composeOpen, setComposeOpen] = useState(false);
   const [replyPost, setReplyPost] = useState<FeedPost | null>(null);
@@ -64,6 +67,30 @@ export default function HomePage() {
     }
   }, []);
 
+  const loadFollowingFeed = useCallback(async (opts?: { silent?: boolean }) => {
+    const t = getAccessToken();
+    if (!t) return;
+    if (!opts?.silent) {
+      setLoadingFollowingFeed(true);
+      setFollowingFeedError(null);
+    }
+    try {
+      const data = await apiFetch<FeedPost[]>('posts/feed?scope=following', {
+        method: 'GET',
+        token: t,
+      });
+      setFollowingPosts(data.map(normalizeFeedPost));
+    } catch (e) {
+      if (!opts?.silent) {
+        setFollowingFeedError(e instanceof Error ? e.message : 'خطا در دریافت فید دنبال‌شده‌ها');
+      }
+    } finally {
+      if (!opts?.silent) {
+        setLoadingFollowingFeed(false);
+      }
+    }
+  }, []);
+
   useEffect(() => {
     if (tab !== 'for-you') return;
     loadFeed();
@@ -72,14 +99,18 @@ export default function HomePage() {
     };
   }, [tab, loadFeed]);
 
+  useEffect(() => {
+    if (tab !== 'following') return;
+    void loadFollowingFeed();
+  }, [tab, loadFollowingFeed]);
+
   const onPostCreated = useCallback((created: FeedPost) => {
     setPosts((prev) => [normalizeFeedPost(created), ...prev]);
   }, []);
 
   const patchPost = useCallback((postId: string, patch: Partial<FeedPost>) => {
-    setPosts((prev) =>
-      prev.map((x) => (x.id === postId ? { ...x, ...patch } : x)),
-    );
+    setPosts((prev) => prev.map((x) => (x.id === postId ? { ...x, ...patch } : x)));
+    setFollowingPosts((prev) => prev.map((x) => (x.id === postId ? { ...x, ...patch } : x)));
   }, []);
 
   const onReplied = useCallback((postId: string, replyCount: number) => {
@@ -158,11 +189,52 @@ export default function HomePage() {
               ) : null}
             </>
           ) : tab === 'following' ? (
-            <FeedEmptyState
-              title="دنبال‌شده‌ها"
-              description="به‌زودی اینجا فقط پست‌های کسانی را می‌بینید که دنبال می‌کنید — شبیه فید شخصی در شبکه‌های اجتماعی مدرن، با تمرکز بر محله و شبکهٔ توت."
-              icon="◎"
-            />
+            <>
+              {loadingFollowingFeed ? (
+                <FeedSkeleton />
+              ) : followingFeedError ? (
+                <div className="px-4 py-8 text-center">
+                  <p className="text-sm font-semibold text-red-600">{followingFeedError}</p>
+                  <button
+                    type="button"
+                    onClick={() => void loadFollowingFeed()}
+                    className="mt-4 rounded-full bg-slate-900 px-5 py-2 text-sm font-bold text-white"
+                  >
+                    تلاش دوباره
+                  </button>
+                </div>
+              ) : followingPosts.length === 0 ? (
+                <FeedEmptyState
+                  title="دنبال‌شده‌ها"
+                  description="هنوز پستی از کسانی که دنبال می‌کنید اینجا نیست. کاربران بیشتری را دنبال کنید یا بعداً دوباره بررسی کنید."
+                  icon="◎"
+                />
+              ) : (
+                <div className="overflow-hidden rounded-b-2xl bg-white shadow-sm ring-1 ring-slate-100/80">
+                  {followingPosts.map((p) => (
+                    <FeedPostCard
+                      key={p.id}
+                      post={p}
+                      onPatch={patchPost}
+                      onOpenReply={setReplyPost}
+                      onRepostChanged={() => void loadFollowingFeed({ silent: true })}
+                    />
+                  ))}
+                </div>
+              )}
+
+              {!loadingFollowingFeed && !followingFeedError ? (
+                <div className="px-4 py-4 text-center">
+                  <button
+                    type="button"
+                    onClick={() => void loadFollowingFeed()}
+                    className="text-sm font-semibold text-sky-700 hover:underline"
+                  >
+                    به‌روزرسانی فید
+                  </button>
+                </div>
+              ) : null}
+            </>
           ) : tab === 'local' ? (
             <FeedEmptyState
               title="محلهٔ من"
