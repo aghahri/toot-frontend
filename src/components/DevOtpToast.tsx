@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 
 const AUTO_DISMISS_MS = 15_000;
@@ -38,7 +38,8 @@ export function DevOtpToast({ code, requestEpoch = 0 }: DevOtpToastProps) {
     };
   }, []);
 
-  useEffect(() => {
+  // useLayoutEffect so the toast becomes visible in the same frame as the new code (useEffect ran too late and looked like a no-op).
+  useLayoutEffect(() => {
     if (!hasCode) {
       setHidden(true);
       return;
@@ -76,7 +77,7 @@ export function DevOtpToast({ code, requestEpoch = 0 }: DevOtpToastProps) {
 
   const node = (
     <div
-      className="pointer-events-auto fixed right-4 top-4 z-[200] w-[min(18rem,calc(100vw-2rem))] rounded-xl bg-slate-900 px-4 py-3 text-white shadow-lg ring-1 ring-white/10"
+      className="pointer-events-auto fixed right-4 top-4 z-[9999] w-[min(18rem,calc(100vw-2rem))] rounded-xl bg-slate-900 px-4 py-3 text-white shadow-lg ring-1 ring-white/10"
       role="status"
       dir="rtl"
     >
