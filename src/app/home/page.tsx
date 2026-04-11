@@ -9,7 +9,20 @@ import { FeedPostCard } from '@/components/home/FeedPostCard';
 import { FeedEmptyState } from '@/components/home/FeedEmptyState';
 import { HomeFeedHeader } from '@/components/home/HomeFeedHeader';
 import { HomeComposeSheet } from '@/components/home/HomeComposeSheet';
+import { PostReplySheet } from '@/components/home/PostReplySheet';
 import type { FeedPost, FeedTabId } from '@/components/home/feed-types';
+
+function normalizeFeedPost(p: FeedPost): FeedPost {
+  return {
+    ...p,
+    likeCount: p.likeCount ?? 0,
+    repostCount: p.repostCount ?? 0,
+    replyCount: p.replyCount ?? 0,
+    liked: p.liked ?? false,
+    reposted: p.reposted ?? false,
+    bookmarked: p.bookmarked ?? false,
+  };
+}
 
 function FeedSkeleton() {
   return (
@@ -34,6 +47,7 @@ export default function HomePage() {
   const [feedError, setFeedError] = useState<string | null>(null);
   const [tab, setTab] = useState<FeedTabId>('for-you');
   const [composeOpen, setComposeOpen] = useState(false);
+  const [replyPost, setReplyPost] = useState<FeedPost | null>(null);
   const [searchHint, setSearchHint] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
 
@@ -47,7 +61,7 @@ export default function HomePage() {
         method: 'GET',
         token: t,
       });
-      setPosts(data);
+      setPosts(data.map(normalizeFeedPost));
     } catch (e) {
       setFeedError(e instanceof Error ? e.message : 'خطا در دریافت فید');
     } finally {
@@ -64,8 +78,18 @@ export default function HomePage() {
   }, [tab, loadFeed]);
 
   const onPostCreated = useCallback((created: FeedPost) => {
-    setPosts((prev) => [created, ...prev]);
+    setPosts((prev) => [normalizeFeedPost(created), ...prev]);
   }, []);
+
+  const patchPost = useCallback((postId: string, patch: Partial<FeedPost>) => {
+    setPosts((prev) =>
+      prev.map((x) => (x.id === postId ? { ...x, ...patch } : x)),
+    );
+  }, []);
+
+  const onReplied = useCallback((postId: string, replyCount: number) => {
+    patchPost(postId, { replyCount });
+  }, [patchPost]);
 
   return (
     <AuthGate>
@@ -111,7 +135,12 @@ export default function HomePage() {
               ) : (
                 <div className="overflow-hidden rounded-b-2xl bg-white shadow-sm ring-1 ring-slate-100/80">
                   {posts.map((p) => (
-                    <FeedPostCard key={p.id} post={p} />
+                    <FeedPostCard
+                      key={p.id}
+                      post={p}
+                      onPatch={patchPost}
+                      onOpenReply={setReplyPost}
+                    />
                   ))}
                 </div>
               )}
@@ -162,6 +191,13 @@ export default function HomePage() {
           open={composeOpen}
           onClose={() => setComposeOpen(false)}
           onPostCreated={onPostCreated}
+        />
+
+        <PostReplySheet
+          post={replyPost}
+          open={replyPost !== null}
+          onClose={() => setReplyPost(null)}
+          onReplied={onReplied}
         />
       </div>
     </AuthGate>

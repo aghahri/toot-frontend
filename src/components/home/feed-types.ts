@@ -16,6 +16,28 @@ export type FeedPost = {
   createdAt: string;
   user: { id: string; name: string; avatar: string | null; username?: string | null };
   media: FeedMedia[];
+  likeCount: number;
+  repostCount: number;
+  replyCount: number;
+  liked: boolean;
+  reposted: boolean;
+  bookmarked: boolean;
+};
+
+export type PostEngagementSnapshot = Pick<
+  FeedPost,
+  'likeCount' | 'repostCount' | 'replyCount' | 'liked' | 'reposted' | 'bookmarked'
+>;
+
+export type PostReplyItem = {
+  id: string;
+  text: string;
+  createdAt: string;
+  user: { id: string; name: string; avatar: string | null; username?: string | null };
+};
+
+export type CreatePostReplyResponse = PostEngagementSnapshot & {
+  reply: PostReplyItem;
 };
 
 export type FeedTabId = 'for-you' | 'following' | 'local' | 'networks';

@@ -1,6 +1,9 @@
 'use client';
 
-import type { FeedPost } from './feed-types';
+import { useCallback, useRef, useState } from 'react';
+import { getAccessToken } from '@/lib/auth';
+import { apiFetch } from '@/lib/api';
+import type { FeedPost, PostEngagementSnapshot } from './feed-types';
 
 function formatFeedTime(iso: string): string {
   const d = new Date(iso);
@@ -21,14 +24,179 @@ function initials(name: string): string {
   return t.slice(0, 1);
 }
 
+function formatCount(n: number): string {
+  const v = Math.max(0, n);
+  if (v < 1000) return String(v);
+  if (v < 1_000_000) {
+    const k = v / 1000;
+    return `${k >= 10 ? Math.round(k) : k.toFixed(1).replace(/\.0$/, '')}k`;
+  }
+  const m = v / 1_000_000;
+  return `${m >= 10 ? Math.round(m) : m.toFixed(1).replace(/\.0$/, '')}M`;
+}
+
 type FeedPostCardProps = {
   post: FeedPost;
+  onPatch: (postId: string, patch: Partial<FeedPost>) => void;
+  onOpenReply: (post: FeedPost) => void;
 };
 
-export function FeedPostCard({ post }: FeedPostCardProps) {
+export function FeedPostCard({ post, onPatch, onOpenReply }: FeedPostCardProps) {
   const p = post;
   const handle = p.user?.username?.trim() || `@user_${p.userId.slice(0, 6)}`;
   const name = p.user?.name?.trim() || 'کاربر';
+
+  const likeCount = p.likeCount ?? 0;
+  const repostCount = p.repostCount ?? 0;
+  const replyCount = p.replyCount ?? 0;
+  const liked = p.liked ?? false;
+  const reposted = p.reposted ?? false;
+  const bookmarked = p.bookmarked ?? false;
+
+  const [likeBusy, setLikeBusy] = useState(false);
+  const [repostBusy, setRepostBusy] = useState(false);
+  const [bookmarkBusy, setBookmarkBusy] = useState(false);
+
+  const likeLock = useRef(false);
+  const repostLock = useRef(false);
+  const bookmarkLock = useRef(false);
+
+  const applySnapshot = useCallback(
+    (snap: PostEngagementSnapshot) => {
+      onPatch(p.id, {
+        likeCount: snap.likeCount,
+        repostCount: snap.repostCount,
+        replyCount: snap.replyCount,
+        liked: snap.liked,
+        reposted: snap.reposted,
+        bookmarked: snap.bookmarked,
+      });
+    },
+    [onPatch, p.id],
+  );
+
+  const toggleLike = useCallback(async () => {
+    if (likeLock.current) return;
+    const t = getAccessToken();
+    if (!t) return;
+    likeLock.current = true;
+    setLikeBusy(true);
+    const prev: PostEngagementSnapshot = {
+      likeCount,
+      repostCount,
+      replyCount,
+      liked,
+      reposted,
+      bookmarked,
+    };
+    onPatch(p.id, {
+      liked: !liked,
+      likeCount: liked ? likeCount - 1 : likeCount + 1,
+    });
+    try {
+      const snap = await apiFetch<PostEngagementSnapshot>(
+        `posts/${encodeURIComponent(p.id)}/like`,
+        { method: 'POST', token: t },
+      );
+      applySnapshot(snap);
+    } catch {
+      applySnapshot(prev);
+    } finally {
+      setLikeBusy(false);
+      likeLock.current = false;
+    }
+  }, [
+    applySnapshot,
+    bookmarked,
+    likeCount,
+    liked,
+    onPatch,
+    p.id,
+    repostCount,
+    reposted,
+    replyCount,
+  ]);
+
+  const toggleRepost = useCallback(async () => {
+    if (repostLock.current) return;
+    const t = getAccessToken();
+    if (!t) return;
+    repostLock.current = true;
+    setRepostBusy(true);
+    const prev: PostEngagementSnapshot = {
+      likeCount,
+      repostCount,
+      replyCount,
+      liked,
+      reposted,
+      bookmarked,
+    };
+    onPatch(p.id, {
+      reposted: !reposted,
+      repostCount: reposted ? repostCount - 1 : repostCount + 1,
+    });
+    try {
+      const snap = await apiFetch<PostEngagementSnapshot>(
+        `posts/${encodeURIComponent(p.id)}/repost`,
+        { method: 'POST', token: t },
+      );
+      applySnapshot(snap);
+    } catch {
+      applySnapshot(prev);
+    } finally {
+      setRepostBusy(false);
+      repostLock.current = false;
+    }
+  }, [
+    applySnapshot,
+    bookmarked,
+    likeCount,
+    liked,
+    onPatch,
+    p.id,
+    repostCount,
+    reposted,
+    replyCount,
+  ]);
+
+  const toggleBookmark = useCallback(async () => {
+    if (bookmarkLock.current) return;
+    const t = getAccessToken();
+    if (!t) return;
+    bookmarkLock.current = true;
+    setBookmarkBusy(true);
+    const prev: PostEngagementSnapshot = {
+      likeCount,
+      repostCount,
+      replyCount,
+      liked,
+      reposted,
+      bookmarked,
+    };
+    onPatch(p.id, { bookmarked: !bookmarked });
+    try {
+      const snap = await apiFetch<PostEngagementSnapshot>(
+        `posts/${encodeURIComponent(p.id)}/bookmark`,
+        { method: 'POST', token: t },
+      );
+      applySnapshot(snap);
+    } catch {
+      applySnapshot(prev);
+    } finally {
+      setBookmarkBusy(false);
+      bookmarkLock.current = false;
+    }
+  }, [
+    applySnapshot,
+    bookmarked,
+    likeCount,
+    liked,
+    onPatch,
+    p.id,
+    repostCount,
+    reposted,
+    replyCount,
+  ]);
 
   return (
     <article
@@ -71,7 +239,7 @@ export function FeedPostCard({ post }: FeedPostCardProps) {
             <button
               type="button"
               className="shrink-0 rounded-full p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
-              aria-label="گزینه‌های بیشتر"
+              aria-label="گزینه‌های بیشتر (به‌زودی)"
               disabled
             >
               <span className="text-lg leading-none">⋯</span>
@@ -114,38 +282,71 @@ export function FeedPostCard({ post }: FeedPostCardProps) {
             </div>
           ) : null}
 
-          <div className="mt-3 flex max-w-md items-center justify-between text-slate-400" dir="ltr">
+          <div
+            className="mt-3 flex max-w-md items-center justify-between gap-0.5 text-slate-500"
+            dir="ltr"
+          >
             <button
               type="button"
-              disabled
-              className="flex h-9 min-w-[2.75rem] items-center justify-center gap-1 rounded-full text-sm transition hover:bg-sky-50 hover:text-sky-600 disabled:cursor-not-allowed disabled:opacity-50"
+              onClick={() => onOpenReply(p)}
+              className="flex h-9 min-w-0 flex-1 items-center justify-center gap-1 rounded-full text-sm transition hover:bg-sky-50 hover:text-sky-700"
               aria-label="پاسخ"
             >
-              <span className="text-base">💬</span>
+              <span className="text-base" aria-hidden>
+                💬
+              </span>
+              {replyCount > 0 ? (
+                <span className="text-xs font-semibold tabular-nums">{formatCount(replyCount)}</span>
+              ) : null}
             </button>
             <button
               type="button"
-              disabled
-              className="flex h-9 min-w-[2.75rem] items-center justify-center gap-1 rounded-full text-sm transition hover:bg-emerald-50 hover:text-emerald-600 disabled:cursor-not-allowed disabled:opacity-50"
-              aria-label="بازنشر"
+              onClick={() => void toggleRepost()}
+              disabled={repostBusy}
+              className={`flex h-9 min-w-0 flex-1 items-center justify-center gap-1 rounded-full text-sm transition disabled:opacity-60 ${
+                reposted
+                  ? 'text-emerald-600 hover:bg-emerald-50'
+                  : 'hover:bg-emerald-50 hover:text-emerald-700'
+              }`}
+              aria-label={reposted ? 'حذف بازنشر' : 'بازنشر داخلی'}
             >
-              <span className="text-base">↻</span>
+              <span className="text-base" aria-hidden>
+                ↻
+              </span>
+              {repostCount > 0 ? (
+                <span className="text-xs font-semibold tabular-nums">{formatCount(repostCount)}</span>
+              ) : null}
             </button>
             <button
               type="button"
-              disabled
-              className="flex h-9 min-w-[2.75rem] items-center justify-center gap-1 rounded-full text-sm transition hover:bg-rose-50 hover:text-rose-500 disabled:cursor-not-allowed disabled:opacity-50"
-              aria-label="پسند"
+              onClick={() => void toggleLike()}
+              disabled={likeBusy}
+              className={`flex h-9 min-w-0 flex-1 items-center justify-center gap-1 rounded-full text-sm transition disabled:opacity-60 ${
+                liked ? 'text-rose-600 hover:bg-rose-50' : 'hover:bg-rose-50 hover:text-rose-600'
+              }`}
+              aria-label={liked ? 'لغو پسند' : 'پسند'}
             >
-              <span className="text-base">♡</span>
+              <span className="text-base" aria-hidden>
+                {liked ? '♥' : '♡'}
+              </span>
+              {likeCount > 0 ? (
+                <span className="text-xs font-semibold tabular-nums">{formatCount(likeCount)}</span>
+              ) : null}
             </button>
             <button
               type="button"
-              disabled
-              className="flex h-9 min-w-[2.75rem] items-center justify-center gap-1 rounded-full text-sm transition hover:bg-amber-50 hover:text-amber-600 disabled:cursor-not-allowed disabled:opacity-50"
-              aria-label="نشان‌گذاری"
+              onClick={() => void toggleBookmark()}
+              disabled={bookmarkBusy}
+              className={`flex h-9 min-w-0 flex-1 items-center justify-center rounded-full text-sm transition disabled:opacity-60 ${
+                bookmarked
+                  ? 'text-amber-700 hover:bg-amber-50'
+                  : 'hover:bg-amber-50 hover:text-amber-700'
+              }`}
+              aria-label={bookmarked ? 'حذف نشان' : 'نشان‌گذاری'}
             >
-              <span className="text-base">🔖</span>
+              <span className="text-base" aria-hidden>
+                {bookmarked ? '🔖' : '📑'}
+              </span>
             </button>
           </div>
         </div>
