@@ -33,7 +33,7 @@ const tabs = [
     label: 'ویترین',
     Icon: IconTabVitrin,
     primary: false,
-    match: (p: string) => p === '/vitrin',
+    match: (p: string) => p === '/vitrin' || p.startsWith('/vitrin/'),
   },
   {
     href: '/spaces',

@@ -7,7 +7,7 @@ export function getAppSectionTitle(pathname: string): string | null {
   /** Home uses its own sticky feed header (`HomeFeedHeader`); avoid double title. */
   if (pathname === '/home') return null;
   if (pathname === '/direct' || pathname.startsWith('/direct/')) return 'چت‌ها';
-  if (pathname === '/vitrin') return 'ویترین';
+  if (pathname === '/vitrin' || pathname.startsWith('/vitrin/')) return 'ویترین';
   if (pathname === '/spaces') return 'فضاها';
   return null;
 }

@@ -1,51 +1,47 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { AuthGate } from '@/components/AuthGate';
-import { Card } from '@/components/ui/Card';
 import { getAccessToken } from '@/lib/auth';
 import { apiFetch } from '@/lib/api';
-import Link from 'next/link';
 
-type Network = { id: string; name: string; description: string | null };
-type GroupStub = { id: string; name: string; description: string | null; networkId: string };
+type GroupRow = {
+  id: string;
+  name: string;
+  description: string | null;
+  networkId: string | null;
+  joinable: boolean;
+};
+
+const SPACE_SECTIONS = [
+  { key: 'PUBLIC_GENERAL', title: 'فضاهای عمومی' },
+  { key: 'NEIGHBORHOOD', title: 'فضای محله' },
+  { key: 'EDUCATION', title: 'فضای آموزش' },
+  { key: 'SPORT', title: 'فضای ورزش' },
+  { key: 'TECH', title: 'فضای تکنولوژی' },
+] as const;
+
+type SpacesGroupsResponse = Record<string, GroupRow[]>;
 
 export default function SpacesPage() {
-  const [networks, setNetworks] = useState<Network[]>([]);
-  const [groupsByNet, setGroupsByNet] = useState<Record<string, GroupStub[]>>({});
+  const [bySpace, setBySpace] = useState<SpacesGroupsResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [joining, setJoining] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const token = getAccessToken();
-    if (!token) {
-      setLoading(false);
-      return;
-    }
     let cancelled = false;
     void (async () => {
       setLoading(true);
+      setError(null);
       try {
-        const nets = await apiFetch<Network[]>('discover/networks?limit=20', {
+        const token = getAccessToken();
+        const data = await apiFetch<SpacesGroupsResponse>('discover/spaces/groups?limit=18', {
           method: 'GET',
-          token,
+          ...(token ? { token } : {}),
         });
-        if (cancelled) return;
-        setNetworks(Array.isArray(nets) ? nets : []);
-        const map: Record<string, GroupStub[]> = {};
-        for (const n of nets ?? []) {
-          try {
-            const gs = await apiFetch<GroupStub[]>(`discover/networks/${n.id}/groups?limit=15`, {
-              method: 'GET',
-              token,
-            });
-            map[n.id] = Array.isArray(gs) ? gs : [];
-          } catch {
-            map[n.id] = [];
-          }
-        }
-        if (!cancelled) setGroupsByNet(map);
+        if (!cancelled) setBySpace(data && typeof data === 'object' ? data : {});
       } catch (e) {
         if (!cancelled) setError(e instanceof Error ? e.message : 'خطا');
       } finally {
@@ -74,57 +70,74 @@ export default function SpacesPage() {
 
   return (
     <AuthGate>
-      <main className="mx-auto w-full max-w-md px-4 pb-3 pt-2" dir="rtl">
+      <main className="mx-auto w-full max-w-md px-4 pb-6 pt-2" dir="rtl">
         <div className="mb-3 flex items-center justify-between">
-          <h1 className="text-lg font-extrabold text-slate-900">فضاها و گروه‌ها</h1>
+          <h1 className="text-lg font-extrabold text-slate-900">فضاها</h1>
           <Link href="/groups" className="text-xs font-bold text-sky-700 underline">
             گروه‌های من
           </Link>
         </div>
-        <Card>
-          <p className="text-sm leading-relaxed text-slate-600">
-            شبکه‌های عمومی و گروه‌های هر شبکه را ببینید. برای پیوستن باید عضو همان شبکه باشید.
-          </p>
-        </Card>
+        <p className="mb-4 text-sm leading-relaxed text-slate-600">
+          گروه‌ها بر اساس دستهٔ موقت نمایش داده می‌شوند. برای گروه‌های زیر شبکه، پیوستن نیازمند عضویت در
+          همان شبکه است.
+        </p>
         {loading ? (
-          <p className="mt-4 text-sm text-slate-500">در حال بارگذاری…</p>
+          <p className="text-sm text-slate-500">در حال بارگذاری…</p>
         ) : error ? (
-          <p className="mt-4 text-sm font-semibold text-red-700">{error}</p>
+          <p className="text-sm font-semibold text-red-700">{error}</p>
         ) : (
-          <div className="mt-4 space-y-4">
-            {networks.map((n) => (
-              <Card key={n.id}>
-                <h2 className="text-base font-bold text-slate-900">{n.name}</h2>
-                {n.description ? (
-                  <p className="mt-1 text-xs text-slate-600">{n.description}</p>
-                ) : null}
-                <ul className="mt-3 space-y-2 border-t border-slate-100 pt-3">
-                  {(groupsByNet[n.id] ?? []).length === 0 ? (
-                    <li className="text-xs text-slate-400">گروهی نیست</li>
-                  ) : (
-                    (groupsByNet[n.id] ?? []).map((g) => (
-                      <li
-                        key={g.id}
-                        className="flex items-center justify-between gap-2 rounded-xl border border-slate-100 bg-slate-50/80 px-3 py-2"
-                      >
-                        <div className="min-w-0">
-                          <div className="truncate text-sm font-bold text-slate-900">{g.name}</div>
-                        </div>
-                        <button
-                          type="button"
-                          disabled={joining === g.id}
-                          onClick={() => void joinGroup(g.id)}
-                          className="shrink-0 rounded-lg bg-emerald-600 px-3 py-1.5 text-[11px] font-bold text-white disabled:opacity-50"
-                        >
-                          {joining === g.id ? '…' : 'پیوستن'}
-                        </button>
-                      </li>
-                    ))
-                  )}
-                </ul>
-              </Card>
-            ))}
-          </div>
+          <ul className="space-y-5">
+            {SPACE_SECTIONS.map((section) => {
+              const groups = (bySpace?.[section.key] ?? []) as GroupRow[];
+              return (
+                <li key={section.key}>
+                  <section
+                    className="overflow-hidden rounded-3xl border border-slate-200/90 bg-gradient-to-br from-white to-slate-50/90 shadow-sm ring-1 ring-slate-100/80"
+                    aria-labelledby={`space-h-${section.key}`}
+                  >
+                    <div className="border-b border-slate-100/90 bg-slate-50/80 px-4 py-3">
+                      <h2 id={`space-h-${section.key}`} className="text-base font-extrabold text-slate-900">
+                        {section.title}
+                      </h2>
+                    </div>
+                    <ul className="divide-y divide-slate-100 px-2 py-1">
+                      {groups.length === 0 ? (
+                        <li className="px-2 py-6 text-center text-xs text-slate-400">هنوز گروهی در این بخش نیست</li>
+                      ) : (
+                        groups.map((g) => (
+                          <li key={g.id} className="px-2 py-2">
+                            <div className="flex items-start justify-between gap-3 rounded-2xl px-2 py-2">
+                              <div className="min-w-0 flex-1">
+                                <div className="truncate text-sm font-bold text-slate-900">{g.name}</div>
+                                {g.description ? (
+                                  <p className="mt-0.5 line-clamp-2 text-[11px] leading-relaxed text-slate-500">
+                                    {g.description}
+                                  </p>
+                                ) : null}
+                                {!g.joinable ? (
+                                  <p className="mt-1 text-[10px] font-medium text-slate-400">گروه بدون شبکه — عضویت با دعوت</p>
+                                ) : null}
+                              </div>
+                              {g.joinable ? (
+                                <button
+                                  type="button"
+                                  disabled={joining === g.id}
+                                  onClick={() => void joinGroup(g.id)}
+                                  className="shrink-0 rounded-xl bg-emerald-600 px-3 py-2 text-[11px] font-bold text-white shadow-sm disabled:opacity-50"
+                                >
+                                  {joining === g.id ? '…' : 'پیوستن'}
+                                </button>
+                              ) : null}
+                            </div>
+                          </li>
+                        ))
+                      )}
+                    </ul>
+                  </section>
+                </li>
+              );
+            })}
+          </ul>
         )}
       </main>
     </AuthGate>
