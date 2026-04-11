@@ -5,32 +5,61 @@ import Link from 'next/link';
 import { AuthGate } from '@/components/AuthGate';
 import { getAccessToken } from '@/lib/auth';
 import { apiFetch } from '@/lib/api';
+import {
+  SPACE_CARD_META,
+  SPACE_KEYS,
+  type SpaceKey,
+  type SpaceSummaryRow,
+} from '@/lib/spacesCatalog';
 
-type GroupRow = {
-  id: string;
-  name: string;
-  description: string | null;
-  networkId: string | null;
-  joinable: boolean;
-};
+type SummaryResponse = { spaces: SpaceSummaryRow[] };
 
-const SPACE_SECTIONS = [
-  { key: 'PUBLIC_GENERAL', title: 'فضاهای عمومی', hint: 'گروه‌های عمومی و بدون شبکهٔ مشخص' },
-  { key: 'NEIGHBORHOOD', title: 'فضای محله', hint: 'محله و همسایگی' },
-  { key: 'EDUCATION', title: 'فضای آموزش', hint: 'آموزش و یادگیری' },
-  { key: 'SPORT', title: 'فضای ورزش', hint: 'ورزش و تندرستی' },
-  { key: 'TECH', title: 'فضای تکنولوژی', hint: 'فناوری و ابزار' },
-] as const;
+function SpaceGlyph({ spaceKey }: { spaceKey: SpaceKey }) {
+  const common = 'h-8 w-8 text-white drop-shadow-sm';
+  switch (spaceKey) {
+    case 'PUBLIC_GENERAL':
+      return (
+        <svg className={common} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden>
+          <circle cx="12" cy="12" r="9" />
+          <path d="M12 8v4l2.5 2.5" strokeLinecap="round" />
+        </svg>
+      );
+    case 'NEIGHBORHOOD':
+      return (
+        <svg className={common} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden>
+          <path d="M4 10l8-6 8 6v10H4z" strokeLinejoin="round" />
+          <path d="M10 22v-6h4v6" strokeLinejoin="round" />
+        </svg>
+      );
+    case 'EDUCATION':
+      return (
+        <svg className={common} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden>
+          <path d="M4 8l8-4 8 4-8 4-8-4z" strokeLinejoin="round" />
+          <path d="M6 10v5.5c0 2 3.5 3.5 6 3.5s6-1.5 6-3.5V10" strokeLinejoin="round" />
+        </svg>
+      );
+    case 'SPORT':
+      return (
+        <svg className={common} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden>
+          <circle cx="12" cy="12" r="9" />
+          <path d="M7 12h10M12 7c2 2 2 8 0 10M12 7c-2 2-2 8 0 10" strokeLinecap="round" />
+        </svg>
+      );
+    case 'TECH':
+      return (
+        <svg className={common} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden>
+          <rect x="5" y="7" width="14" height="10" rx="2" />
+          <path d="M9 17h6" strokeLinecap="round" />
+        </svg>
+      );
+    default:
+      return null;
+  }
+}
 
-type SpaceKey = (typeof SPACE_SECTIONS)[number]['key'];
-
-type SpacesGroupsResponse = Record<string, GroupRow[]>;
-
-export default function SpacesPage() {
-  const [bySpace, setBySpace] = useState<SpacesGroupsResponse | null>(null);
-  const [selectedKey, setSelectedKey] = useState<SpaceKey>('PUBLIC_GENERAL');
+export default function SpacesOverviewPage() {
+  const [summary, setSummary] = useState<SpaceSummaryRow[] | null>(null);
   const [loading, setLoading] = useState(true);
-  const [joining, setJoining] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -40,11 +69,23 @@ export default function SpacesPage() {
       setError(null);
       try {
         const token = getAccessToken();
-        const data = await apiFetch<SpacesGroupsResponse>('discover/spaces/groups?limit=40', {
+        const data = await apiFetch<SummaryResponse>('discover/spaces/summary', {
           method: 'GET',
           ...(token ? { token } : {}),
         });
-        if (!cancelled) setBySpace(data && typeof data === 'object' ? data : {});
+        if (cancelled) return;
+        const rows = Array.isArray(data?.spaces) ? data.spaces : [];
+        const byCat = new Map(rows.map((r) => [r.category, r] as const));
+        const ordered = SPACE_KEYS.map(
+          (k) =>
+            byCat.get(k) ?? {
+              category: k,
+              groups: 0,
+              networks: 0,
+              channels: 0,
+            },
+        );
+        setSummary(ordered);
       } catch (e) {
         if (!cancelled) setError(e instanceof Error ? e.message : 'خطا');
       } finally {
@@ -56,42 +97,26 @@ export default function SpacesPage() {
     };
   }, []);
 
-  const selectedMeta = useMemo(
-    () => SPACE_SECTIONS.find((s) => s.key === selectedKey) ?? SPACE_SECTIONS[0],
-    [selectedKey],
-  );
-
-  const selectedGroups = useMemo(() => {
-    const list = bySpace?.[selectedKey];
-    return Array.isArray(list) ? list : [];
-  }, [bySpace, selectedKey]);
-
-  async function joinGroup(groupId: string) {
-    const token = getAccessToken();
-    if (!token) return;
-    setJoining(groupId);
-    setError(null);
-    try {
-      await apiFetch(`groups/${groupId}/join`, { method: 'POST', token });
-      window.location.href = `/groups/${groupId}`;
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'امکان پیوستن نیست (شبکه یا عضویت)');
-    } finally {
-      setJoining(null);
+  const rowsByKey = useMemo(() => {
+    const m = new Map<SpaceKey, SpaceSummaryRow>();
+    for (const r of summary ?? []) {
+      if (SPACE_KEYS.includes(r.category as SpaceKey)) m.set(r.category as SpaceKey, r);
     }
-  }
+    return m;
+  }, [summary]);
 
   return (
     <AuthGate>
-      <main className="mx-auto w-full max-w-md px-4 pb-6 pt-2" dir="rtl">
+      <main className="mx-auto w-full max-w-md px-4 pb-8 pt-2" dir="rtl">
         <div className="mb-3 flex items-center justify-between">
           <h1 className="text-lg font-extrabold text-slate-900">فضاها</h1>
           <Link href="/groups" className="text-xs font-bold text-sky-700 underline">
             گروه‌های من
           </Link>
         </div>
-        <p className="mb-3 text-sm leading-relaxed text-slate-600">
-          یک فضا را انتخاب کنید؛ فهرست گروه‌های همان دستهٔ موقت در پایین نمایش داده می‌شود.
+        <p className="mb-5 text-sm leading-relaxed text-slate-600">
+          پنج فضای اصلی را انتخاب کنید؛ در هر فضا گروه‌ها، شبکه‌ها و کانال‌های مرتبط (بر اساس دستهٔ موقت در
+          سرور) را می‌بینید.
         </p>
 
         {loading ? (
@@ -99,93 +124,47 @@ export default function SpacesPage() {
         ) : error ? (
           <p className="text-sm font-semibold text-red-700">{error}</p>
         ) : (
-          <>
-            <div
-              className="mb-4 flex gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-              role="tablist"
-              aria-label="انتخاب فضا"
-            >
-              {SPACE_SECTIONS.map((section) => {
-                const active = section.key === selectedKey;
-                const count = (bySpace?.[section.key] ?? []).length;
-                return (
-                  <button
-                    key={section.key}
-                    type="button"
-                    role="tab"
-                    aria-selected={active}
-                    onClick={() => setSelectedKey(section.key)}
+          <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            {SPACE_KEYS.map((key) => {
+              const meta = SPACE_CARD_META[key];
+              const counts = rowsByKey.get(key);
+              return (
+                <li key={key}>
+                  <Link
+                    href={`/spaces/${key}`}
                     className={[
-                      'flex min-w-[8.25rem] shrink-0 flex-col rounded-2xl border px-3 py-2.5 text-right transition',
-                      active
-                        ? 'border-sky-500 bg-sky-50 ring-2 ring-sky-400/50'
-                        : 'border-slate-200/90 bg-white hover:border-slate-300 hover:bg-slate-50',
+                      'group flex min-h-[9.5rem] flex-col overflow-hidden rounded-3xl bg-gradient-to-br p-4 text-white shadow-lg ring-2 ring-inset transition',
+                      'hover:scale-[1.01] hover:shadow-xl active:scale-[0.99]',
+                      meta.gradient,
+                      meta.ring,
                     ].join(' ')}
                   >
-                    <span className="text-xs font-extrabold text-slate-900">{section.title}</span>
-                    <span className="mt-0.5 text-[10px] font-medium text-slate-500">{count} گروه</span>
-                  </button>
-                );
-              })}
-            </div>
-
-            <section
-              className="overflow-hidden rounded-3xl border border-slate-200/90 bg-gradient-to-br from-white to-slate-50/90 shadow-sm ring-1 ring-slate-100/80"
-              aria-labelledby="space-detail-title"
-            >
-              <div className="border-b border-slate-100/90 bg-slate-50/80 px-4 py-3">
-                <h2 id="space-detail-title" className="text-base font-extrabold text-slate-900">
-                  {selectedMeta.title}
-                </h2>
-                <p className="mt-1 text-[11px] leading-relaxed text-slate-500">{selectedMeta.hint}</p>
-              </div>
-
-              <div className="border-b border-dashed border-slate-100 px-4 py-3">
-                <h3 className="text-[11px] font-bold uppercase tracking-wide text-slate-500">گروه‌ها</h3>
-                <p className="mt-1 text-[11px] leading-relaxed text-slate-400">
-                  شبکه و کانال هنوز برچسب «فضا» در بک‌اند ندارند؛ فقط گروه‌های دسته‌بندی‌شده نمایش داده می‌شوند.
-                </p>
-              </div>
-
-              <ul className="divide-y divide-slate-100 px-2 py-1">
-                {selectedGroups.length === 0 ? (
-                  <li className="px-2 py-8 text-center text-xs text-slate-400">
-                    در این فضا هنوز گروهی برای نمایش نیست
-                  </li>
-                ) : (
-                  selectedGroups.map((g) => (
-                    <li key={g.id} className="px-2 py-2">
-                      <div className="flex items-start justify-between gap-3 rounded-2xl px-2 py-2">
-                        <div className="min-w-0 flex-1">
-                          <div className="truncate text-sm font-bold text-slate-900">{g.name}</div>
-                          {g.description ? (
-                            <p className="mt-0.5 line-clamp-2 text-[11px] leading-relaxed text-slate-500">
-                              {g.description}
-                            </p>
-                          ) : null}
-                          {!g.joinable ? (
-                            <p className="mt-1 text-[10px] font-medium text-slate-400">
-                              گروه بدون شبکه — عضویت با دعوت
-                            </p>
-                          ) : null}
-                        </div>
-                        {g.joinable ? (
-                          <button
-                            type="button"
-                            disabled={joining === g.id}
-                            onClick={() => void joinGroup(g.id)}
-                            className="shrink-0 rounded-xl bg-emerald-600 px-3 py-2 text-[11px] font-bold text-white shadow-sm disabled:opacity-50"
-                          >
-                            {joining === g.id ? '…' : 'پیوستن'}
-                          </button>
-                        ) : null}
-                      </div>
-                    </li>
-                  ))
-                )}
-              </ul>
-            </section>
-          </>
+                    <div className="mb-3 flex items-start justify-between gap-2">
+                      <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/15 backdrop-blur-sm">
+                        <SpaceGlyph spaceKey={key} />
+                      </span>
+                      <span className="rounded-full bg-black/15 px-2 py-0.5 text-[10px] font-bold text-white/90">
+                        ورود ←
+                      </span>
+                    </div>
+                    <span className="text-lg font-extrabold leading-tight">{meta.title}</span>
+                    <span className="mt-1 text-xs font-medium text-white/85">{meta.subtitle}</span>
+                    <div className="mt-auto flex flex-wrap gap-1.5 pt-4">
+                      <span className="rounded-lg bg-black/20 px-2 py-1 text-[10px] font-bold text-white/95">
+                        {counts?.groups ?? 0} گروه
+                      </span>
+                      <span className="rounded-lg bg-black/20 px-2 py-1 text-[10px] font-bold text-white/95">
+                        {counts?.networks ?? 0} شبکه
+                      </span>
+                      <span className="rounded-lg bg-black/20 px-2 py-1 text-[10px] font-bold text-white/95">
+                        {counts?.channels ?? 0} کانال
+                      </span>
+                    </div>
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
         )}
       </main>
     </AuthGate>
