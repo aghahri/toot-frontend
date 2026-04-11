@@ -9,6 +9,16 @@ import { markDirectConversationRead } from '@/lib/mark-direct-read';
 import { clearDirectDraft, getDirectDraft, setDirectDraft } from '@/lib/direct-drafts';
 import { DIRECT_REACTION_EMOJIS, type DirectReactionSummary } from '@/lib/direct-reactions';
 import { Card } from '@/components/ui/Card';
+import { VoiceMessageBubble } from '@/components/chat/VoiceMessageBubble';
+import {
+  ReplyQuoteBlock,
+  directReplyToModel,
+  type ReplyToSummary,
+} from '@/components/chat/ReplyQuoteBlock';
+import { ForwardPickerSheet } from '@/components/chat/ForwardPickerSheet';
+import { loadForwardPickTargets, type ForwardPickTarget } from '@/lib/chat-forward';
+import { isVoiceMedia, formatVoiceClock } from '@/lib/chat-media';
+import { calendarDayKey, dayDividerLabelFa } from '@/lib/chat-dates';
 import { io } from 'socket.io-client';
 import {
   FormEvent,
@@ -31,25 +41,6 @@ type MessageMedia = {
   createdAt: string;
 };
 
-type ReplyToSummary = {
-  id: string;
-  text: string | null;
-  senderId: string;
-  mediaId: string | null;
-  messageType?: string;
-  metadata?: Record<string, unknown> | null;
-  media?: MessageMedia | { type?: string; mimeType?: string } | null;
-  isDeleted?: boolean;
-  deletedAt?: string | null;
-  editedAt?: string | null;
-  createdAt: string;
-  sender: {
-    id: string;
-    name: string;
-    avatar: string | null;
-  };
-};
-
 const DIRECT_OLDER_PAGE_SIZE = 30;
 
 function formatLastSeenFa(iso: string | null): string {
@@ -66,37 +57,6 @@ function formatLastSeenFa(iso: string | null): string {
   const day = Math.floor(hr / 24);
   if (day < 7) return `${day} روز پیش`;
   return d.toLocaleDateString('fa-IR', { dateStyle: 'medium' });
-}
-
-type ForwardPickConversation = {
-  id: string;
-  participants: Array<{
-    userId: string;
-    user: {
-      id: string;
-      name: string;
-      avatar: string | null;
-      username?: string;
-      phoneMasked?: string;
-    };
-  }>;
-};
-
-type ForwardPickTarget =
-  | {
-      kind: 'direct';
-      id: string;
-      peer: {
-        name: string;
-        avatar: string | null;
-        username?: string;
-        phoneMasked?: string;
-      };
-    }
-  | { kind: 'group'; id: string; name: string; memberCount: number };
-
-function forwardPickLabel(t: ForwardPickTarget): string {
-  return t.kind === 'direct' ? t.peer.name : t.name;
 }
 
 type Message = {
@@ -145,19 +105,6 @@ function wasPinnedToBottomSnapshot(
   return window.innerHeight + snap.scrollY >= snap.scrollHeight - thresholdPx;
 }
 
-function isVoiceMedia(m: { type?: string; mimeType?: string } | null | undefined): boolean {
-  if (!m) return false;
-  if (m.type === 'VOICE') return true;
-  return (m.mimeType ?? '').toLowerCase().startsWith('audio/');
-}
-
-function formatVoiceClock(ms: number): string {
-  const s = Math.max(0, Math.floor(ms / 1000));
-  const m = Math.floor(s / 60);
-  const r = s % 60;
-  return `${m}:${r.toString().padStart(2, '0')}`;
-}
-
 function replySnippetForMessage(msg: Message): string {
   if (msg.isDeleted) return 'این پیام حذف شده است';
   if (msg.messageType === 'LOCATION') return 'لوکیشن';
@@ -177,110 +124,6 @@ function isPureTextMessage(m: Message): boolean {
   const mt = m.messageType;
   if (mt && mt !== 'TEXT') return false;
   return !!(m.text?.trim());
-}
-
-function replyPreviewLabelFromReply(reply: ReplyToSummary): { body: string; thumbUrl: string | null } {
-  if (reply.isDeleted) return { body: 'این پیام حذف شده است', thumbUrl: null };
-  const mt = reply.messageType;
-  if (mt === 'LOCATION') return { body: '📍 موقعیت مکانی', thumbUrl: null };
-  if (mt === 'CONTACT') {
-    const name = reply.metadata && typeof reply.metadata.name === 'string' ? reply.metadata.name : 'مخاطب';
-    return { body: `👤 ${name}`, thumbUrl: null };
-  }
-  if (mt === 'POLL') {
-    const q = reply.metadata && typeof reply.metadata.question === 'string' ? reply.metadata.question : 'نظرسنجی';
-    return { body: `🗳️ ${q.length > 80 ? `${q.slice(0, 80)}…` : q}`, thumbUrl: null };
-  }
-  if (mt === 'EVENT') {
-    const t = reply.metadata && typeof reply.metadata.title === 'string' ? reply.metadata.title : 'رویداد';
-    return { body: `📅 ${t.length > 80 ? `${t.slice(0, 80)}…` : t}`, thumbUrl: null };
-  }
-  const safeText = reply.text ?? '';
-  if (safeText.trim()) {
-    const t = safeText.trim();
-    return {
-      body: t.length > 140 ? `${t.slice(0, 140)}…` : t,
-      thumbUrl: null,
-    };
-  }
-  if (reply.mediaId && reply.media) {
-    const m = reply.media as MessageMedia & { type?: string; mimeType?: string };
-    if (isVoiceMedia(m)) return { body: '🔊 پیام صوتی', thumbUrl: null };
-    if (m.type === 'FILE' || (m.mimeType && !m.mimeType.startsWith('image/') && !m.mimeType.startsWith('video/'))) {
-      const fn = m.originalName?.trim() || 'سند';
-      return { body: `📄 ${fn}`, thumbUrl: null };
-    }
-    if (m.mimeType?.startsWith('video/') || m.type === 'VIDEO') {
-      return { body: '🎬 ویدیو', thumbUrl: m.url ?? null };
-    }
-    if (m.mimeType?.startsWith('image/') || m.type === 'IMAGE') {
-      return { body: '🖼 عکس', thumbUrl: m.url ?? null };
-    }
-    return { body: 'رسانه', thumbUrl: m.url && m.mimeType?.startsWith('image/') ? m.url : null };
-  }
-  return { body: '—', thumbUrl: null };
-}
-
-function ReplyQuoteBlock({
-  reply,
-  mine,
-  onNavigate,
-}: {
-  reply: ReplyToSummary;
-  mine: boolean;
-  onNavigate?: (messageId: string) => void;
-}) {
-  const isDeleted = !!reply.isDeleted;
-  const { body, thumbUrl } = replyPreviewLabelFromReply(reply);
-
-  return (
-    <button
-      type="button"
-      disabled={isDeleted || !onNavigate}
-      onClick={(e) => {
-        e.stopPropagation();
-        if (!isDeleted && onNavigate) onNavigate(reply.id);
-      }}
-      className={`mb-2 w-full rounded-xl border-s-[3px] px-2.5 py-2 text-start text-[11px] leading-snug shadow-sm transition ${
-        isDeleted ? 'border-s-slate-400/80' : 'border-s-sky-500'
-      } ${mine ? 'bg-black/15 text-white/95' : 'bg-slate-100/90 text-slate-700 ring-1 ring-slate-200/60'} ${
-        isDeleted ? 'cursor-default opacity-75' : onNavigate ? 'cursor-pointer hover:opacity-95 active:scale-[0.99]' : ''
-      }`}
-      dir="auto"
-    >
-      <div className="truncate text-[10px] font-semibold opacity-80">{reply.sender.name}</div>
-      <div className="mt-0.5 flex items-start gap-2">
-        {thumbUrl ? (
-          <img
-            src={thumbUrl}
-            alt=""
-            className="h-10 w-10 shrink-0 rounded-lg object-cover ring-1 ring-black/10"
-          />
-        ) : null}
-        <div className="line-clamp-2 min-w-0 flex-1 opacity-90">{body}</div>
-      </div>
-    </button>
-  );
-}
-
-function calendarDayKey(iso: string): string {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return '';
-  return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
-}
-
-function dayDividerLabelFa(iso: string): string {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return '';
-  const now = new Date();
-  const todayK = `${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()}`;
-  const y = new Date(now);
-  y.setDate(y.getDate() - 1);
-  const yK = `${y.getFullYear()}-${y.getMonth() + 1}-${y.getDate()}`;
-  const k = calendarDayKey(iso);
-  if (k === todayK) return 'امروز';
-  if (k === yK) return 'دیروز';
-  return d.toLocaleDateString('fa-IR', { dateStyle: 'medium' });
 }
 
 const MAX_VOICE_RECORD_SEC = 120;
@@ -375,115 +218,6 @@ async function preprocessImageForUpload(input: File): Promise<File> {
   } finally {
     URL.revokeObjectURL(url);
   }
-}
-
-function DirectVoiceBubble({
-  media,
-  mine,
-  messageId,
-  playingMessageId,
-  setPlayingMessageId,
-}: {
-  media: MessageMedia;
-  mine: boolean;
-  messageId: string;
-  playingMessageId: string | null;
-  setPlayingMessageId: (id: string | null) => void;
-}) {
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-  const [progress, setProgress] = useState(0);
-  const [currentMs, setCurrentMs] = useState(0);
-  const [totalMs, setTotalMs] = useState(media.durationMs ?? 0);
-  const [localPlaying, setLocalPlaying] = useState(false);
-
-  useEffect(() => {
-    setTotalMs(media.durationMs ?? 0);
-  }, [media.durationMs, media.url, messageId]);
-
-  useEffect(() => {
-    const a = audioRef.current;
-    if (!a) return;
-    if (playingMessageId !== messageId && !a.paused) {
-      a.pause();
-    }
-  }, [playingMessageId, messageId]);
-
-  const barBg = mine ? 'bg-white/20' : 'bg-slate-200';
-  const barFill = mine ? 'bg-white' : 'bg-emerald-500';
-
-  const toggle = () => {
-    const a = audioRef.current;
-    if (!a) return;
-    if (localPlaying) {
-      a.pause();
-      setPlayingMessageId(null);
-      return;
-    }
-    setPlayingMessageId(messageId);
-    void a.play().catch(() => {
-      setPlayingMessageId(null);
-      setLocalPlaying(false);
-    });
-  };
-
-  return (
-    <div className="mt-2 w-full min-w-[11rem] max-w-[16rem]">
-      <audio
-        ref={audioRef}
-        src={media.url}
-        preload="metadata"
-        data-direct-voice=""
-        className="hidden"
-        onLoadedMetadata={(e) => {
-          const d = e.currentTarget.duration;
-          if (!(media.durationMs && media.durationMs > 0) && d && !Number.isNaN(d)) {
-            setTotalMs(Math.round(d * 1000));
-          }
-        }}
-        onPlay={() => setLocalPlaying(true)}
-        onPause={() => setLocalPlaying(false)}
-        onEnded={() => {
-          setLocalPlaying(false);
-          setProgress(0);
-          setCurrentMs(0);
-          setPlayingMessageId(null);
-        }}
-        onTimeUpdate={(e) => {
-          const el = e.currentTarget;
-          const d = el.duration;
-          if (d && !Number.isNaN(d) && d > 0) {
-            setProgress(el.currentTime / d);
-            setCurrentMs(Math.floor(el.currentTime * 1000));
-          }
-        }}
-      />
-      <div className="flex items-center gap-2" dir="ltr">
-        <button
-          type="button"
-          onClick={toggle}
-          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-bold transition active:scale-95 ${
-            mine ? 'bg-white/20 text-white hover:bg-white/30' : 'bg-slate-200 text-slate-800 hover:bg-slate-300'
-          }`}
-          aria-label={localPlaying ? 'توقف' : 'پخش'}
-        >
-          {localPlaying ? '❚❚' : '▶'}
-        </button>
-        <div className={`min-w-0 flex-1 overflow-hidden rounded-full ${barBg} py-1.5`}>
-          <div
-            className={`h-1 rounded-full ${barFill} transition-[width] duration-150 ease-linear`}
-            style={{ width: `${Math.min(100, progress * 100)}%` }}
-          />
-        </div>
-        <span
-          className={`shrink-0 tabular-nums text-[11px] font-medium ${
-            mine ? 'text-white/80' : 'text-slate-500'
-          }`}
-        >
-          {formatVoiceClock(currentMs)} / {formatVoiceClock(totalMs || 0)}
-        </span>
-      </div>
-    </div>
-  );
 }
 
 export default function DirectConversationPage() {
@@ -1796,42 +1530,7 @@ async function uploadSelectedFile(token: string): Promise<string | null> {
       return;
     }
     try {
-      const [convRows, groupRows] = await Promise.all([
-        apiFetch<ForwardPickConversation[]>('direct/conversations', {
-          method: 'GET',
-          token,
-        }).catch(() => []),
-        apiFetch<
-          Array<{ id: string; name: string; memberCount?: number }>
-        >('groups/conversations', { method: 'GET', token }).catch(() => []),
-      ]);
-      const targets: ForwardPickTarget[] = [];
-      for (const c of Array.isArray(convRows) ? convRows : []) {
-        if (c.id === conversationId) continue;
-        const peerUser =
-          c.participants.find((p) => p.userId !== myUserId)?.user ?? c.participants[0]?.user;
-        targets.push({
-          kind: 'direct',
-          id: c.id,
-          peer: {
-            name: peerUser?.name?.trim() || 'مخاطب',
-            avatar: peerUser?.avatar ?? null,
-            username: peerUser?.username,
-            phoneMasked: peerUser?.phoneMasked,
-          },
-        });
-      }
-      for (const g of Array.isArray(groupRows) ? groupRows : []) {
-        targets.push({
-          kind: 'group',
-          id: g.id,
-          name: g.name?.trim() || 'گروه',
-          memberCount: typeof g.memberCount === 'number' ? g.memberCount : 0,
-        });
-      }
-      targets.sort((a, b) =>
-        forwardPickLabel(a).localeCompare(forwardPickLabel(b), 'fa', { sensitivity: 'base' }),
-      );
+      const targets = await loadForwardPickTargets(token, myUserId, conversationId, null);
       setForwardPickItems(targets);
     } catch (e) {
       setForwardPickError(e instanceof Error ? e.message : 'خطا در دریافت گفتگوها');
@@ -2702,7 +2401,7 @@ async function uploadSelectedFile(token: string): Promise<string | null> {
 
                       {msg.replyToMessage ? (
                         <ReplyQuoteBlock
-                          reply={msg.replyToMessage}
+                          model={directReplyToModel(msg.replyToMessage)}
                           mine={mine}
                           onNavigate={scrollToMessageAndFlash}
                         />
@@ -2710,7 +2409,7 @@ async function uploadSelectedFile(token: string): Promise<string | null> {
 
                       {media ? (
                         isVoiceMedia(media) ? (
-                          <DirectVoiceBubble
+                          <VoiceMessageBubble
                             media={media}
                             mine={mine}
                             messageId={msg.id}
@@ -3277,120 +2976,15 @@ async function uploadSelectedFile(token: string): Promise<string | null> {
         </div>
         <div ref={threadEndRef} className="h-px w-full shrink-0" aria-hidden />
 
-        {forwardPickerOpen ? (
-          <div
-            className="fixed inset-0 z-[60] flex items-end justify-center bg-black/45 backdrop-blur-[1px] sm:items-center"
-            role="presentation"
-            onClick={() => dismissForwardPicker()}
-          >
-            <div
-              role="dialog"
-              aria-modal="true"
-              aria-labelledby="forward-picker-title"
-              className="max-h-[min(28rem,85dvh)] w-full max-w-md overflow-hidden rounded-t-2xl border border-stone-200/90 bg-[#fafafa] shadow-2xl sm:rounded-2xl"
-              dir="rtl"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="flex items-center justify-between border-b border-stone-200/80 px-4 py-3">
-                <h2 id="forward-picker-title" className="text-base font-bold text-stone-900">
-                  ارسال به
-                </h2>
-                <button
-                  type="button"
-                  onClick={() => dismissForwardPicker()}
-                  disabled={forwardPickSubmitting}
-                  className="rounded-full px-3 py-1.5 text-sm font-semibold text-slate-600 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40"
-                >
-                  بستن
-                </button>
-              </div>
-              <div className="max-h-[min(22rem,70dvh)] overflow-y-auto px-2 py-2">
-                {forwardPickSubmitting ? (
-                  <div className="flex flex-col items-center justify-center gap-3 py-14 text-sm font-semibold text-slate-700">
-                    <span
-                      className="h-6 w-6 animate-spin rounded-full border-2 border-slate-300 border-t-slate-800"
-                      aria-hidden
-                    />
-                    در حال ارسال…
-                  </div>
-                ) : forwardPickLoading ? (
-                  <div className="px-3 py-10 text-center text-sm text-slate-600">در حال بارگذاری…</div>
-                ) : forwardPickError ? (
-                  <div className="px-3 py-6 text-center text-sm font-semibold text-red-600">
-                    {forwardPickError}
-                  </div>
-                ) : forwardPickItems.length === 0 ? (
-                  <div className="px-3 py-8 text-center text-sm leading-relaxed text-slate-600">
-                    مقصد دیگری برای ارسال نیست. از چت‌ها گفتگوی خصوصی یا گروه جدید بسازید.
-                  </div>
-                ) : (
-                  forwardPickItems.map((t) => {
-                    if (t.kind === 'direct') {
-                      const label = t.peer.name;
-                      const sub =
-                        t.peer.username != null && t.peer.username.trim()
-                          ? `@${t.peer.username.trim()}`
-                          : t.peer.phoneMasked || '';
-                      const initial = label.slice(0, 1) || '?';
-                      return (
-                        <button
-                          key={`d-${t.id}`}
-                          type="button"
-                          onClick={() => void confirmForwardTo(t)}
-                          className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-right transition hover:bg-white active:bg-stone-100"
-                        >
-                          <div className="relative h-11 w-11 shrink-0 overflow-hidden rounded-full bg-stone-200 ring-2 ring-white">
-                            {t.peer.avatar ? (
-                              <img src={t.peer.avatar} alt="" className="h-full w-full object-cover" />
-                            ) : (
-                              <span className="flex h-full w-full items-center justify-center text-sm font-bold text-slate-600">
-                                {initial}
-                              </span>
-                            )}
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <div className="truncate font-semibold text-stone-900">{label}</div>
-                            {sub ? (
-                              <div className="mt-0.5 truncate text-[11px] text-slate-500">{sub}</div>
-                            ) : (
-                              <div className="mt-0.5 truncate text-[11px] text-slate-500">گفتگوی خصوصی</div>
-                            )}
-                          </div>
-                          <span className="shrink-0 text-slate-400" aria-hidden>
-                            ‹
-                          </span>
-                        </button>
-                      );
-                    }
-                    return (
-                      <button
-                        key={`g-${t.id}`}
-                        type="button"
-                        onClick={() => void confirmForwardTo(t)}
-                        className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-right transition hover:bg-white active:bg-stone-100"
-                      >
-                        <div className="relative flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full bg-sky-100 ring-2 ring-white">
-                          <span className="text-lg font-bold text-sky-800" aria-hidden>
-                            گ
-                          </span>
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <div className="truncate font-semibold text-stone-900">{t.name}</div>
-                          <div className="mt-0.5 truncate text-[11px] text-slate-500">
-                            گروه · {t.memberCount} عضو
-                          </div>
-                        </div>
-                        <span className="shrink-0 text-slate-400" aria-hidden>
-                          ‹
-                        </span>
-                      </button>
-                    );
-                  })
-                )}
-              </div>
-            </div>
-          </div>
-        ) : null}
+        <ForwardPickerSheet
+          open={forwardPickerOpen}
+          loading={forwardPickLoading}
+          error={forwardPickError}
+          submitting={forwardPickSubmitting}
+          items={forwardPickItems}
+          onDismiss={() => dismissForwardPicker()}
+          onPick={(t) => void confirmForwardTo(t)}
+        />
 
         {searchOpen ? (
           <div
