@@ -44,6 +44,8 @@ type FeedPostCardProps = {
   onRepostChanged?: () => void;
   /** Link avatar/name to `/profile/[userId]` (disable on a profile-only timeline if desired). */
   linkAuthorProfile?: boolean;
+  /** Brief visual emphasis (e.g. deep-link from search). */
+  emphasize?: boolean;
 };
 
 export function FeedPostCard({
@@ -52,6 +54,7 @@ export function FeedPostCard({
   onOpenReply,
   onRepostChanged,
   linkAuthorProfile = true,
+  emphasize = false,
 }: FeedPostCardProps) {
   const p = post;
   const handle = p.user?.username?.trim() || `@user_${p.userId.slice(0, 6)}`;
@@ -232,12 +235,14 @@ export function FeedPostCard({
   const isViewerRepostRow = p.feedEntry === 'viewer_repost';
   const authorProfileHref =
     linkAuthorProfile && p.user?.id ? `/profile/${p.user.id}` : null;
+  const anchorId = isViewerRepostRow ? `feed-post-${p.id}-vrepost` : `feed-post-${p.id}`;
 
   return (
     <article
+      id={anchorId}
       className={`border-b border-slate-100/90 bg-white px-4 py-3 transition hover:bg-slate-50/60 ${
         isViewerRepostRow ? 'bg-emerald-50/35 ring-1 ring-inset ring-emerald-200/60' : ''
-      }`}
+      } ${emphasize ? 'bg-sky-50/90 ring-2 ring-inset ring-sky-400/70' : ''}`}
       dir="rtl"
     >
       {isViewerRepostRow ? (

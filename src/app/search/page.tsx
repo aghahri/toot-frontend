@@ -190,7 +190,7 @@ export default function SearchPage() {
                         {result.posts.map((p) => (
                           <li key={p.id}>
                             <Link
-                              href="/home"
+                              href={`/home?postId=${encodeURIComponent(p.id)}`}
                               className="block rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm transition hover:border-slate-300"
                             >
                               <div className="flex items-center gap-2 text-xs text-slate-500">
@@ -253,7 +253,7 @@ export default function SearchPage() {
                     {result.posts.map((p) => (
                       <li key={p.id}>
                         <Link
-                          href="/home"
+                          href={`/home?postId=${encodeURIComponent(p.id)}`}
                           className="block rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm transition hover:border-slate-300"
                         >
                           <div className="flex items-center gap-2 text-xs text-slate-500">

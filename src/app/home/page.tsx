@@ -1,6 +1,7 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { Suspense, useCallback, useEffect, useRef, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { AuthGate } from '@/components/AuthGate';
 import { getAccessToken } from '@/lib/auth';
 import { apiFetch } from '@/lib/api';
@@ -30,7 +31,9 @@ function FeedSkeleton() {
   );
 }
 
-export default function HomePage() {
+function HomePageInner() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [posts, setPosts] = useState<FeedPost[]>([]);
   const [followingPosts, setFollowingPosts] = useState<FeedPost[]>([]);
   const [loadingFeed, setLoadingFeed] = useState(true);
@@ -40,7 +43,11 @@ export default function HomePage() {
   const [tab, setTab] = useState<FeedTabId>('for-you');
   const [composeOpen, setComposeOpen] = useState(false);
   const [replyPost, setReplyPost] = useState<FeedPost | null>(null);
+  const [emphasizePostId, setEmphasizePostId] = useState<string | null>(null);
+  const [postTargetMissed, setPostTargetMissed] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
+  const deepLinkFetchAttempted = useRef<Set<string>>(new Set());
+  const deepLinkScrollDone = useRef<string | null>(null);
 
   const loadFeed = useCallback(async (opts?: { silent?: boolean }) => {
     const t = getAccessToken();
@@ -103,6 +110,72 @@ export default function HomePage() {
     void loadFollowingFeed();
   }, [tab, loadFollowingFeed]);
 
+  const targetPostId = searchParams.get('postId');
+
+  useEffect(() => {
+    if (targetPostId) {
+      setTab('for-you');
+    }
+  }, [targetPostId]);
+
+  useEffect(() => {
+    if (!targetPostId || tab !== 'for-you' || loadingFeed) return;
+
+    const clearQuery = () => {
+      router.replace('/home', { scroll: false });
+    };
+
+    const scrollToTarget = (pid: string) => {
+      const el =
+        document.getElementById(`feed-post-${pid}`) ||
+        document.getElementById(`feed-post-${pid}-vrepost`);
+      if (!el) return false;
+      if (deepLinkScrollDone.current === pid) return true;
+      deepLinkScrollDone.current = pid;
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      setEmphasizePostId(pid);
+      window.setTimeout(() => {
+        setEmphasizePostId(null);
+        clearQuery();
+        deepLinkScrollDone.current = null;
+      }, 2600);
+      return true;
+    };
+
+    const inForYou = posts.some((p) => p.id === targetPostId);
+    if (inForYou) {
+      const run = () => {
+        if (!scrollToTarget(targetPostId)) {
+          window.requestAnimationFrame(() => scrollToTarget(targetPostId));
+        }
+      };
+      window.requestAnimationFrame(run);
+      return;
+    }
+
+    if (deepLinkFetchAttempted.current.has(targetPostId)) return;
+    deepLinkFetchAttempted.current.add(targetPostId);
+
+    const t = getAccessToken();
+    if (!t) return;
+
+    void (async () => {
+      try {
+        const one = await apiFetch<FeedPost>(`posts/${encodeURIComponent(targetPostId)}`, {
+          method: 'GET',
+          token: t,
+        });
+        setPosts((prev) =>
+          prev.some((x) => x.id === one.id) ? prev : [normalizeFeedPost(one), ...prev],
+        );
+      } catch {
+        deepLinkFetchAttempted.current.delete(targetPostId);
+        setPostTargetMissed(true);
+        clearQuery();
+      }
+    })();
+  }, [targetPostId, posts, loadingFeed, tab, router]);
+
   const onPostCreated = useCallback((created: FeedPost) => {
     setPosts((prev) => [normalizeFeedPost(created), ...prev]);
   }, []);
@@ -125,6 +198,18 @@ export default function HomePage() {
         </div>
 
         <main className="mx-auto min-h-[40dvh] w-full max-w-lg pb-28">
+          {postTargetMissed ? (
+            <div className="mx-3 mb-3 rounded-2xl border border-amber-200/90 bg-amber-50/95 px-4 py-3 text-sm text-amber-950">
+              <p className="font-bold">پست پیدا نشد یا دیگر در دسترس نیست.</p>
+              <button
+                type="button"
+                onClick={() => setPostTargetMissed(false)}
+                className="mt-2 text-xs font-bold text-amber-900 underline"
+              >
+                بستن
+              </button>
+            </div>
+          ) : null}
           {tab === 'for-you' ? (
             <>
               {loadingFeed ? (
@@ -159,6 +244,7 @@ export default function HomePage() {
                       onPatch={patchPost}
                       onOpenReply={setReplyPost}
                       onRepostChanged={() => void loadFeed({ silent: true })}
+                      emphasize={emphasizePostId === p.id}
                     />
                   ))}
                 </div>
@@ -206,6 +292,7 @@ export default function HomePage() {
                       onPatch={patchPost}
                       onOpenReply={setReplyPost}
                       onRepostChanged={() => void loadFollowingFeed({ silent: true })}
+                      emphasize={emphasizePostId === p.id}
                     />
                   ))}
                 </div>
@@ -261,5 +348,19 @@ export default function HomePage() {
         />
       </div>
     </AuthGate>
+  );
+}
+
+export default function HomePage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex min-h-[40dvh] items-center justify-center bg-[#f7f9f9] px-4 text-sm text-slate-600">
+          در حال بارگذاری…
+        </div>
+      }
+    >
+      <HomePageInner />
+    </Suspense>
   );
 }
