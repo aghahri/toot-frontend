@@ -124,7 +124,7 @@ export function PostReplySheet({ post, open, onClose, onReplied }: PostReplyShee
 
   const sheet = (
     <div
-      className="fixed inset-0 z-[100] flex w-full max-w-[100vw] items-end justify-center overflow-x-hidden overflow-y-auto overscroll-contain px-3 sm:items-center sm:px-4"
+      className="fixed inset-0 z-[100] flex min-w-0 items-end justify-center overflow-x-hidden overflow-y-auto overscroll-contain px-3 sm:items-center sm:px-4"
       role="presentation"
     >
       <button
@@ -133,16 +133,17 @@ export function PostReplySheet({ post, open, onClose, onReplied }: PostReplyShee
         aria-label="بستن"
         onClick={() => !submitting && onClose()}
       />
-      <div
-        className="relative z-[1] box-border flex min-h-0 min-w-0 w-full max-w-[min(42rem,calc(100vw-2rem))] max-h-[85vh] flex-col overflow-hidden rounded-t-2xl border border-slate-200/90 bg-white shadow-xl sm:rounded-2xl"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="reply-sheet-title"
-        dir="rtl"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex min-w-0 shrink-0 items-center justify-between gap-2 border-b border-slate-100 bg-white/95 px-4 py-3 backdrop-blur-sm">
-          <h2 id="reply-sheet-title" className="text-base font-bold text-slate-900">
+      <div className="relative z-[1] box-border flex w-full min-w-0 max-w-full justify-center">
+        <div
+          className="box-border flex min-h-0 w-full min-w-0 max-h-[85vh] max-w-[min(42rem,calc(100vw-2rem),100%)] flex-col overflow-hidden rounded-t-2xl border border-slate-200/90 bg-white shadow-xl sm:rounded-2xl"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="reply-sheet-title"
+          dir="rtl"
+          onClick={(e) => e.stopPropagation()}
+        >
+        <div className="flex min-w-0 shrink-0 items-center justify-between gap-2 overflow-x-hidden border-b border-slate-100 bg-white/95 px-4 py-3 backdrop-blur-sm">
+          <h2 id="reply-sheet-title" className="min-w-0 text-base font-bold text-slate-900">
             پاسخ به پست
           </h2>
           <button
@@ -155,19 +156,19 @@ export function PostReplySheet({ post, open, onClose, onReplied }: PostReplyShee
           </button>
         </div>
 
-        <div className="shrink-0 border-b border-slate-50 px-4 py-3 text-sm text-slate-600">
-          <p className="line-clamp-3 min-w-0 break-words whitespace-pre-wrap">
+        <div className="min-w-0 shrink-0 overflow-x-hidden border-b border-slate-50 px-4 py-3 text-sm text-slate-600">
+          <p className="line-clamp-3 min-w-0 break-words [overflow-wrap:anywhere] whitespace-pre-wrap">
             {post.text || '(بدون متن)'}
           </p>
         </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto px-2 py-2">
+        <div className="min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden px-2 py-2">
           {loadingList ? (
             <div className="space-y-3 px-2 py-4">
               {[0, 1].map((i) => (
-                <div key={i} className="flex gap-2">
+                <div key={i} className="flex min-w-0 gap-2">
                   <div className="h-9 w-9 shrink-0 animate-pulse rounded-full bg-slate-200" />
-                  <div className="flex-1 space-y-2">
+                  <div className="min-w-0 flex-1 space-y-2">
                     <div className="h-3 w-24 animate-pulse rounded bg-slate-100" />
                     <div className="h-3 w-full animate-pulse rounded bg-slate-100" />
                   </div>
@@ -179,18 +180,21 @@ export function PostReplySheet({ post, open, onClose, onReplied }: PostReplyShee
           ) : replies.length === 0 ? (
             <p className="px-3 py-8 text-center text-sm text-slate-500">هنوز پاسخی ثبت نشده.</p>
           ) : (
-            <ul className="space-y-3 px-2 pb-2">
+            <ul className="min-w-0 space-y-3 px-2 pb-2">
               {replies.map((r) => {
                 const name = r.user?.name?.trim() || 'کاربر';
                 const handle = r.user?.username?.trim() || `@user_${r.user.id.slice(0, 6)}`;
                 return (
-                  <li key={r.id} className="flex gap-2 rounded-2xl border border-slate-100 bg-slate-50/80 p-3">
+                  <li
+                    key={r.id}
+                    className="flex min-w-0 gap-2 overflow-x-hidden rounded-2xl border border-slate-100 bg-slate-50/80 p-3"
+                  >
                     <div className="shrink-0">
                       {r.user?.avatar ? (
                         <img
                           src={r.user.avatar}
                           alt=""
-                          className="h-9 w-9 rounded-full object-cover ring-1 ring-slate-200/80"
+                          className="h-9 w-9 max-w-full rounded-full object-cover ring-1 ring-slate-200/80"
                         />
                       ) : (
                         <div className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-300 text-xs font-bold text-white">
@@ -198,15 +202,15 @@ export function PostReplySheet({ post, open, onClose, onReplied }: PostReplyShee
                         </div>
                       )}
                     </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0 text-xs">
-                        <span className="font-bold text-slate-900">{name}</span>
+                    <div className="min-w-0 flex-1 overflow-x-hidden">
+                      <div className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-0 text-xs">
+                        <span className="min-w-0 break-words font-bold text-slate-900">{name}</span>
                         <span className="text-slate-500" dir="ltr">
                           {handle}
                         </span>
                         <span className="text-slate-400">{formatReplyTime(r.createdAt)}</span>
                       </div>
-                      <p className="mt-1 min-w-0 break-words whitespace-pre-wrap text-sm leading-relaxed text-slate-800">
+                      <p className="mt-1 min-w-0 break-words [overflow-wrap:anywhere] whitespace-pre-wrap text-sm leading-relaxed text-slate-800">
                         {r.text}
                       </p>
                     </div>
@@ -219,7 +223,7 @@ export function PostReplySheet({ post, open, onClose, onReplied }: PostReplyShee
 
         <form
           onSubmit={onSubmit}
-          className="min-w-0 shrink-0 border-t border-slate-100 bg-white p-4 pb-[max(1rem,env(safe-area-inset-bottom))]"
+          className="min-w-0 shrink-0 overflow-x-hidden border-t border-slate-100 bg-white p-4 pb-[max(1rem,env(safe-area-inset-bottom))]"
         >
           <textarea
             value={text}
@@ -227,25 +231,31 @@ export function PostReplySheet({ post, open, onClose, onReplied }: PostReplyShee
             placeholder="پاسخ خود را بنویسید…"
             disabled={submitting}
             rows={3}
-            className="mb-3 box-border max-w-full min-w-0 w-full resize-none rounded-2xl border border-slate-200 bg-slate-50/80 p-3 text-sm leading-relaxed text-slate-900 outline-none focus:border-sky-400/50 focus:bg-white"
+            className="mb-3 box-border max-w-full min-w-0 w-full resize-none rounded-2xl border border-slate-200 bg-slate-50/80 p-3 text-sm leading-relaxed text-slate-900 outline-none focus:border-sky-400/50 focus:bg-white [overflow-wrap:anywhere]"
           />
           {submitError ? (
-            <div className="mb-2 text-xs font-semibold text-red-600">{submitError}</div>
+            <div className="mb-2 min-w-0 break-words text-xs font-semibold text-red-600">{submitError}</div>
           ) : null}
-          <div className="flex gap-2">
-            <Button type="submit" loading={submitting} className="flex-1" disabled={!text.trim()}>
+          <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-stretch">
+            <Button
+              type="submit"
+              loading={submitting}
+              className="min-w-0 w-full shrink sm:flex-1"
+              disabled={!text.trim()}
+            >
               ارسال پاسخ
             </Button>
             <button
               type="button"
               disabled={submitting}
               onClick={onClose}
-              className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+              className="w-full shrink-0 rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 sm:w-auto"
             >
               انصراف
             </button>
           </div>
         </form>
+        </div>
       </div>
     </div>
   );
