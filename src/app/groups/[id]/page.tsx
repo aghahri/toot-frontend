@@ -131,8 +131,8 @@ export default function GroupThreadPage() {
   const [playingMessageId, setPlayingMessageId] = useState<string | null>(null);
 
   const socketRef = useRef<ReturnType<typeof io> | null>(null);
-  const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const draftTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const typingTimerRef = useRef<number | null>(null);
+  const draftTimerRef = useRef<number | null>(null);
   const bottomRef = useRef<HTMLDivElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const cameraInputRef = useRef<HTMLInputElement | null>(null);
@@ -142,14 +142,14 @@ export default function GroupThreadPage() {
   const mediaStreamRef = useRef<MediaStream | null>(null);
   const recordChunksRef = useRef<BlobPart[]>([]);
   const recordMimeRef = useRef('');
-  const recordTickRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const recordTickRef = useRef<number | null>(null);
   const recordStartedAtRef = useRef(0);
   const voiceCancelledRef = useRef(false);
   const messagesRef = useRef<GroupMessage[]>([]);
   messagesRef.current = messages;
   const forwardIdsOverrideRef = useRef<string[] | null>(null);
   const wasSelectionModeRef = useRef(false);
-  const holdTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const holdTimerRef = useRef<number | null>(null);
   const holdGestureRef = useRef<{ x: number; y: number } | null>(null);
   const skipNextRowClickRef = useRef(false);
 
@@ -365,10 +365,10 @@ export default function GroupThreadPage() {
 
     socket.on('group_typing', (p: { groupId: string; userId: string; isTyping: boolean }) => {
       if (p.groupId !== groupId || p.userId === myUserId) return;
-      if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
+      if (typingTimerRef.current != null) window.clearTimeout(typingTimerRef.current);
       if (p.isTyping) {
         setOtherTyping(true);
-        typingTimerRef.current = setTimeout(() => {
+        typingTimerRef.current = window.setTimeout(() => {
           setOtherTyping(false);
           typingTimerRef.current = null;
         }, 2000);
@@ -378,7 +378,7 @@ export default function GroupThreadPage() {
     });
 
     return () => {
-      if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
+      if (typingTimerRef.current != null) window.clearTimeout(typingTimerRef.current);
       socket.emit('leave_group', { groupId });
       socket.disconnect();
       socketRef.current = null;
@@ -524,8 +524,8 @@ export default function GroupThreadPage() {
   function clearVoiceDraft() {
     voiceCancelledRef.current = true;
     mediaRecorderRef.current?.stop();
-    if (recordTickRef.current) {
-      clearInterval(recordTickRef.current);
+    if (recordTickRef.current != null) {
+      window.clearInterval(recordTickRef.current);
       recordTickRef.current = null;
     }
     mediaStreamRef.current?.getTracks().forEach((t) => t.stop());
@@ -585,8 +585,8 @@ export default function GroupThreadPage() {
 
       rec.onstop = () => {
         mediaRecorderRef.current = null;
-        if (recordTickRef.current) {
-          clearInterval(recordTickRef.current);
+        if (recordTickRef.current != null) {
+          window.clearInterval(recordTickRef.current);
           recordTickRef.current = null;
         }
         stream.getTracks().forEach((t) => t.stop());
@@ -635,7 +635,7 @@ export default function GroupThreadPage() {
       setVoicePhase('recording');
       rec.start(250);
 
-      recordTickRef.current = setInterval(() => {
+      recordTickRef.current = window.setInterval(() => {
         const elapsed = Date.now() - recordStartedAtRef.current;
         setRecordElapsedMs(elapsed);
         if (elapsed >= MAX_VOICE_RECORD_SEC * 1000) {
@@ -651,8 +651,8 @@ export default function GroupThreadPage() {
   }
 
   function stopVoiceRecording() {
-    if (recordTickRef.current) {
-      clearInterval(recordTickRef.current);
+    if (recordTickRef.current != null) {
+      window.clearInterval(recordTickRef.current);
       recordTickRef.current = null;
     }
     try {
@@ -1849,8 +1849,8 @@ export default function GroupThreadPage() {
                   const value = e.target.value;
                   setText(value);
                   if (!editingId) {
-                    if (draftTimerRef.current) clearTimeout(draftTimerRef.current);
-                    draftTimerRef.current = setTimeout(() => {
+                    if (draftTimerRef.current != null) window.clearTimeout(draftTimerRef.current);
+                    draftTimerRef.current = window.setTimeout(() => {
                       setGroupDraft(groupId, value);
                       draftTimerRef.current = null;
                     }, 220);
@@ -1862,8 +1862,8 @@ export default function GroupThreadPage() {
                 }}
                 onBlur={(e) => {
                   if (!editingId) {
-                    if (draftTimerRef.current) {
-                      clearTimeout(draftTimerRef.current);
+                    if (draftTimerRef.current != null) {
+                      window.clearTimeout(draftTimerRef.current);
                       draftTimerRef.current = null;
                     }
                     setGroupDraft(groupId, e.target.value);
