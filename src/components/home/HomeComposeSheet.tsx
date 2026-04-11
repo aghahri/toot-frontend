@@ -2,6 +2,7 @@
 
 import type { FormEvent } from 'react';
 import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { getAccessToken } from '@/lib/auth';
 import { Button } from '@/components/ui/Button';
 import { apiFetch, getApiBaseUrl, getErrorMessageFromResponse } from '@/lib/api';
@@ -84,11 +85,16 @@ async function uploadSelectedMedia(
 }
 
 export function HomeComposeSheet({ open, onClose, onPostCreated }: HomeComposeSheetProps) {
+  const [mounted, setMounted] = useState(false);
   const [text, setText] = useState('');
   const [files, setFiles] = useState<File[]>([]);
   const [previews, setPreviews] = useState<SelectedPreview[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     if (!open) return;
@@ -109,6 +115,18 @@ export function HomeComposeSheet({ open, onClose, onPostCreated }: HomeComposeSh
       setFiles([]);
       setError(null);
     }
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    const prevBodyOverflow = document.body.style.overflow;
+    const prevHtmlOverflowX = document.documentElement.style.overflowX;
+    document.body.style.overflow = 'hidden';
+    document.documentElement.style.overflowX = 'hidden';
+    return () => {
+      document.body.style.overflow = prevBodyOverflow;
+      document.documentElement.style.overflowX = prevHtmlOverflowX;
+    };
   }, [open]);
 
   function removeSelectedFile(indexToRemove: number) {
@@ -149,112 +167,131 @@ export function HomeComposeSheet({ open, onClose, onPostCreated }: HomeComposeSh
     }
   }
 
-  if (!open) return null;
+  if (!open || !mounted) return null;
 
-  return (
-    <div className="fixed inset-0 z-[100] flex flex-col justify-end" role="presentation">
+  const sheet = (
+    <div
+      className="fixed inset-0 z-[100] flex min-w-0 items-end justify-center overflow-x-hidden overflow-y-auto overscroll-contain px-3 sm:items-center sm:px-4"
+      role="presentation"
+    >
       <button
         type="button"
         className="absolute inset-0 bg-black/40 backdrop-blur-[1px]"
         aria-label="بستن"
         onClick={() => !submitting && onClose()}
       />
-      <div
-        className="relative max-h-[min(92dvh,640px)] w-full overflow-y-auto rounded-t-3xl border border-slate-200/90 bg-white shadow-2xl"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="compose-sheet-title"
-        dir="rtl"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-slate-100 bg-white/95 px-4 py-3 backdrop-blur-sm">
-          <h2 id="compose-sheet-title" className="text-base font-bold text-slate-900">
-            پست جدید
-          </h2>
-          <button
-            type="button"
-            onClick={() => !submitting && onClose()}
-            className="rounded-full p-2 text-slate-500 transition hover:bg-slate-100"
-            aria-label="بستن"
-          >
-            ×
-          </button>
-        </div>
-        <form onSubmit={onCreatePost} className="space-y-4 p-4 pb-8">
-          <textarea
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            placeholder="چه خبر از محله و شبکهٔ توت؟"
-            disabled={submitting}
-            rows={4}
-            className="w-full resize-none rounded-2xl border border-slate-200 bg-slate-50/80 p-4 text-[15px] leading-relaxed text-slate-900 outline-none ring-0 transition focus:border-sky-400/50 focus:bg-white"
-          />
-
-          <label className="block">
-            <div className="mb-2 text-xs font-semibold text-slate-600">عکس یا ویدیو (اختیاری)</div>
-            <input
-              type="file"
-              accept="image/*,video/*"
-              multiple
-              disabled={submitting}
-              onChange={(e) => setFiles(Array.from(e.target.files ?? []))}
-              className="w-full rounded-xl border border-dashed border-slate-200 bg-white p-3 text-sm file:me-2 file:rounded-lg file:border-0 file:bg-slate-900 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-white"
-            />
-          </label>
-
-          {previews.length > 0 ? (
-            <div className="grid grid-cols-2 gap-3">
-              {previews.map((item, index) => {
-                const isVideo = item.file.type.startsWith('video/');
-                return (
-                  <div
-                    key={item.id}
-                    className="overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 p-2"
-                  >
-                    <div className="mb-2 truncate text-[11px] text-slate-600">{item.file.name}</div>
-                    {isVideo ? (
-                      <video
-                        src={item.previewUrl}
-                        controls
-                        className="h-36 w-full rounded-xl bg-black object-cover"
-                      />
-                    ) : (
-                      <img
-                        src={item.previewUrl}
-                        alt=""
-                        className="h-36 w-full rounded-xl object-cover"
-                      />
-                    )}
-                    <button
-                      type="button"
-                      onClick={() => removeSelectedFile(index)}
-                      className="mt-2 w-full rounded-xl border border-red-100 bg-red-50/80 px-3 py-2 text-xs font-semibold text-red-700"
-                    >
-                      حذف
-                    </button>
-                  </div>
-                );
-              })}
-            </div>
-          ) : null}
-
-          {error ? <div className="text-sm font-semibold text-red-600">{error}</div> : null}
-
-          <div className="flex gap-2 pt-2">
-            <Button type="submit" loading={submitting} className="flex-1">
-              {submitting ? 'در حال ارسال…' : 'انتشار'}
-            </Button>
+      <div className="relative z-[1] box-border flex w-full min-w-0 max-w-full justify-center">
+        <div
+          className="box-border flex min-h-0 w-full min-w-0 max-h-[85vh] max-w-[min(42rem,calc(100vw-2rem),100%)] flex-col overflow-hidden rounded-t-2xl border border-slate-200/90 bg-white shadow-xl sm:rounded-2xl"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="compose-sheet-title"
+          dir="rtl"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="flex min-w-0 shrink-0 items-center justify-between gap-2 overflow-x-hidden border-b border-slate-100 bg-white/95 px-4 py-3 backdrop-blur-sm">
+            <h2 id="compose-sheet-title" className="min-w-0 text-base font-bold text-slate-900">
+              پست جدید
+            </h2>
             <button
               type="button"
-              disabled={submitting}
-              onClick={onClose}
-              className="rounded-xl border border-slate-200 px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+              onClick={() => !submitting && onClose()}
+              className="shrink-0 rounded-full p-2 text-slate-500 transition hover:bg-slate-100"
+              aria-label="بستن"
             >
-              انصراف
+              ×
             </button>
           </div>
-        </form>
+
+          <div className="min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden">
+            <form
+              onSubmit={onCreatePost}
+              className="box-border min-w-0 space-y-4 p-4 pb-[max(2rem,env(safe-area-inset-bottom))]"
+            >
+              <textarea
+                value={text}
+                onChange={(e) => setText(e.target.value)}
+                placeholder="چه خبر از محله و شبکهٔ توت؟"
+                disabled={submitting}
+                rows={4}
+                className="box-border max-w-full min-w-0 w-full resize-none rounded-2xl border border-slate-200 bg-slate-50/80 p-4 text-[15px] leading-relaxed text-slate-900 outline-none ring-0 transition [overflow-wrap:anywhere] focus:border-sky-400/50 focus:bg-white"
+              />
+
+              <label className="block min-w-0">
+                <div className="mb-2 text-xs font-semibold text-slate-600">عکس یا ویدیو (اختیاری)</div>
+                <input
+                  type="file"
+                  accept="image/*,video/*"
+                  multiple
+                  disabled={submitting}
+                  onChange={(e) => setFiles(Array.from(e.target.files ?? []))}
+                  className="box-border w-full min-w-0 max-w-full rounded-xl border border-dashed border-slate-200 bg-white p-3 text-sm file:me-2 file:max-w-[min(12rem,40vw)] file:shrink-0 file:rounded-lg file:border-0 file:bg-slate-900 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-white"
+                />
+              </label>
+
+              {previews.length > 0 ? (
+                <div className="grid min-w-0 grid-cols-2 gap-3">
+                  {previews.map((item, index) => {
+                    const isVideo = item.file.type.startsWith('video/');
+                    return (
+                      <div
+                        key={item.id}
+                        className="min-w-0 overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 p-2"
+                      >
+                        <div className="mb-2 min-w-0 truncate text-[11px] text-slate-600">{item.file.name}</div>
+                        {isVideo ? (
+                          <video
+                            src={item.previewUrl}
+                            controls
+                            className="h-36 max-w-full w-full rounded-xl bg-black object-cover"
+                          />
+                        ) : (
+                          <img
+                            src={item.previewUrl}
+                            alt=""
+                            className="h-36 max-w-full w-full rounded-xl object-cover"
+                          />
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => removeSelectedFile(index)}
+                          className="mt-2 w-full min-w-0 rounded-xl border border-red-100 bg-red-50/80 px-3 py-2 text-xs font-semibold text-red-700"
+                        >
+                          حذف
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : null}
+
+              {error ? (
+                <div className="min-w-0 break-words text-sm font-semibold text-red-600">{error}</div>
+              ) : null}
+
+              <div className="flex min-w-0 flex-col gap-2 pt-2 sm:flex-row sm:items-stretch">
+                <Button
+                  type="submit"
+                  loading={submitting}
+                  className="min-w-0 w-full shrink sm:flex-1"
+                >
+                  {submitting ? 'در حال ارسال…' : 'انتشار'}
+                </Button>
+                <button
+                  type="button"
+                  disabled={submitting}
+                  onClick={onClose}
+                  className="w-full shrink-0 rounded-xl border border-slate-200 px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 sm:w-auto"
+                >
+                  انصراف
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
       </div>
     </div>
   );
+
+  return createPortal(sheet, document.body);
 }
