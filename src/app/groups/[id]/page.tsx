@@ -1406,7 +1406,9 @@ export default function GroupThreadPage() {
                             {openActionsMessageId === m.id ? (
                               <div
                                 role="menu"
-                                className="absolute end-0 top-full z-[45] mt-1 min-w-[11.5rem] max-w-[calc(100vw-1.5rem)] overflow-visible rounded-xl border border-slate-200/90 bg-white py-1 shadow-lg ring-1 ring-slate-900/5"
+                                className={`absolute top-full z-[45] mt-1 min-w-[11.5rem] max-w-[min(18rem,calc(100vw-1.5rem))] overflow-visible rounded-xl border border-slate-200/90 bg-white py-1 shadow-lg ring-1 ring-slate-900/5 ${
+                                  mine ? 'end-0' : 'start-0'
+                                }`}
                                 dir="rtl"
                               >
                                 <button
