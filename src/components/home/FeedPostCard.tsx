@@ -39,9 +39,11 @@ type FeedPostCardProps = {
   post: FeedPost;
   onPatch: (postId: string, patch: Partial<FeedPost>) => void;
   onOpenReply: (post: FeedPost) => void;
+  /** After repost toggle succeeds, refresh feed (e.g. silent) so repost strip/order matches server. */
+  onRepostChanged?: () => void;
 };
 
-export function FeedPostCard({ post, onPatch, onOpenReply }: FeedPostCardProps) {
+export function FeedPostCard({ post, onPatch, onOpenReply, onRepostChanged }: FeedPostCardProps) {
   const p = post;
   const handle = p.user?.username?.trim() || `@user_${p.userId.slice(0, 6)}`;
   const name = p.user?.name?.trim() || 'کاربر';
@@ -159,6 +161,7 @@ export function FeedPostCard({ post, onPatch, onOpenReply }: FeedPostCardProps) 
         setRepostFeedback(null);
         repostFeedbackTimerRef.current = null;
       }, 2800);
+      onRepostChanged?.();
     } catch {
       applySnapshot(prev);
     } finally {
@@ -175,6 +178,7 @@ export function FeedPostCard({ post, onPatch, onOpenReply }: FeedPostCardProps) 
     repostCount,
     reposted,
     replyCount,
+    onRepostChanged,
   ]);
 
   const toggleBookmark = useCallback(async () => {
@@ -216,11 +220,34 @@ export function FeedPostCard({ post, onPatch, onOpenReply }: FeedPostCardProps) 
     replyCount,
   ]);
 
+  const isViewerRepostRow = p.feedEntry === 'viewer_repost';
+
   return (
     <article
-      className="border-b border-slate-100/90 bg-white px-4 py-3 transition hover:bg-slate-50/60"
+      className={`border-b border-slate-100/90 bg-white px-4 py-3 transition hover:bg-slate-50/60 ${
+        isViewerRepostRow ? 'bg-emerald-50/35 ring-1 ring-inset ring-emerald-200/60' : ''
+      }`}
       dir="rtl"
     >
+      {isViewerRepostRow ? (
+        <div
+          className="mb-3 flex items-center gap-2 rounded-xl border border-emerald-200/90 bg-emerald-100/80 px-3 py-2 text-xs font-extrabold text-emerald-900"
+          role="status"
+        >
+          <span className="text-base" aria-hidden>
+            ↻
+          </span>
+          <span>شما این پست را بازنشر کردید</span>
+          {p.viewerRepostedAt ? (
+            <time
+              className="ms-auto font-mono text-[10px] font-semibold text-emerald-800/80"
+              dateTime={p.viewerRepostedAt}
+            >
+              {formatFeedTime(p.viewerRepostedAt)}
+            </time>
+          ) : null}
+        </div>
+      ) : null}
       <div className="flex gap-3">
         <div className="shrink-0">
           {p.user?.avatar ? (

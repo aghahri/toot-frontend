@@ -8,6 +8,8 @@ export type FeedMedia = {
   createdAt?: string;
 };
 
+export type FeedEntryKind = 'post' | 'viewer_repost';
+
 export type FeedPost = {
   id: string;
   userId: string;
@@ -22,6 +24,9 @@ export type FeedPost = {
   liked: boolean;
   reposted: boolean;
   bookmarked: boolean;
+  /** Row is the viewer’s repost surfaced at the top of the home feed (from API). */
+  feedEntry?: FeedEntryKind;
+  viewerRepostedAt?: string | null;
 };
 
 export type PostEngagementSnapshot = Pick<

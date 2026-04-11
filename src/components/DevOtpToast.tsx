@@ -13,16 +13,20 @@ export function isDevOtpPopupEnabled(): boolean {
 
 type DevOtpToastProps = {
   code: string | null | undefined;
-  /** Increment on each new OTP request so the toast resets even if the code string repeats. */
-  requestEpoch?: number;
 };
 
-export function DevOtpToast({ code, requestEpoch = 0 }: DevOtpToastProps) {
-  const [hidden, setHidden] = useState(true);
-  const [copied, setCopied] = useState(false);
-  const copyResetRef = useRef<number | null>(null);
-  const display = code?.trim() ?? '';
+/**
+ * Dev OTP toast — visibility must NOT depend on an initial `hidden: true` gate before effects run
+ * (that pattern returned null on the first paint whenever `hidden` was still true, so the portal
+ * never mounted in some real browsers/React timings). We only hide after dismiss timer or manual
+ * close, and `dismissed` resets whenever `display` changes so repeat requests reopen reliably.
+ */
+export function DevOtpToast({ code }: DevOtpToastProps) {
+  const display = (code ?? '').trim();
   const hasCode = display.length > 0;
+  const [dismissed, setDismissed] = useState(false);
+  const copyResetRef = useRef<number | null>(null);
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     return () => {
@@ -33,20 +37,20 @@ export function DevOtpToast({ code, requestEpoch = 0 }: DevOtpToastProps) {
     };
   }, []);
 
-  // useLayoutEffect: show in the same frame as the new code; drive visibility from code+epoch only (no "mounted" gate — that deferred the portal until after paint and caused flaky visibility).
+  // New code → show again; start / reset 15s auto-dismiss.
   useLayoutEffect(() => {
     if (!hasCode) {
-      setHidden(true);
+      setDismissed(true);
       return;
     }
-    setHidden(false);
+    setDismissed(false);
     setCopied(false);
-    const t = window.setTimeout(() => setHidden(true), AUTO_DISMISS_MS);
+    const t = window.setTimeout(() => setDismissed(true), AUTO_DISMISS_MS);
     return () => window.clearTimeout(t);
-  }, [code, requestEpoch, hasCode]);
+  }, [display, hasCode]);
 
   const dismiss = useCallback(() => {
-    setHidden(true);
+    setDismissed(true);
   }, []);
 
   const onCopyCode = useCallback(async () => {
@@ -66,7 +70,7 @@ export function DevOtpToast({ code, requestEpoch = 0 }: DevOtpToastProps) {
     }
   }, [display]);
 
-  if (!hasCode || hidden) return null;
+  if (!hasCode || dismissed) return null;
 
   if (typeof document === 'undefined' || !document.body) return null;
 
@@ -74,8 +78,10 @@ export function DevOtpToast({ code, requestEpoch = 0 }: DevOtpToastProps) {
 
   const node = (
     <div
-      className="pointer-events-auto fixed right-4 top-4 z-[10050] w-[min(18rem,calc(100vw-2rem))] rounded-xl bg-slate-900 px-4 py-3 text-white shadow-lg ring-1 ring-white/10"
+      className="pointer-events-auto fixed right-4 top-4 w-[min(18rem,calc(100vw-2rem))] rounded-xl bg-slate-900 px-4 py-3 text-white shadow-lg ring-1 ring-white/10"
+      style={{ zIndex: 2147483647 }}
       role="status"
+      aria-live="polite"
       dir="rtl"
     >
       <div className="flex items-start justify-between gap-2">

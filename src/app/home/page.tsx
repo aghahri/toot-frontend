@@ -21,6 +21,8 @@ function normalizeFeedPost(p: FeedPost): FeedPost {
     liked: p.liked ?? false,
     reposted: p.reposted ?? false,
     bookmarked: p.bookmarked ?? false,
+    feedEntry: p.feedEntry === 'viewer_repost' ? 'viewer_repost' : (p.feedEntry ?? 'post'),
+    viewerRepostedAt: p.viewerRepostedAt ?? undefined,
   };
 }
 
@@ -51,11 +53,13 @@ export default function HomePage() {
   const [searchHint, setSearchHint] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
 
-  const loadFeed = useCallback(async () => {
+  const loadFeed = useCallback(async (opts?: { silent?: boolean }) => {
     const t = getAccessToken();
     if (!t) return;
-    setLoadingFeed(true);
-    setFeedError(null);
+    if (!opts?.silent) {
+      setLoadingFeed(true);
+      setFeedError(null);
+    }
     try {
       const data = await apiFetch<FeedPost[]>('posts/feed', {
         method: 'GET',
@@ -63,9 +67,13 @@ export default function HomePage() {
       });
       setPosts(data.map(normalizeFeedPost));
     } catch (e) {
-      setFeedError(e instanceof Error ? e.message : 'خطا در دریافت فید');
+      if (!opts?.silent) {
+        setFeedError(e instanceof Error ? e.message : 'خطا در دریافت فید');
+      }
     } finally {
-      setLoadingFeed(false);
+      if (!opts?.silent) {
+        setLoadingFeed(false);
+      }
     }
   }, []);
 
@@ -136,10 +144,15 @@ export default function HomePage() {
                 <div className="overflow-hidden rounded-b-2xl bg-white shadow-sm ring-1 ring-slate-100/80">
                   {posts.map((p) => (
                     <FeedPostCard
-                      key={p.id}
+                      key={
+                        p.feedEntry === 'viewer_repost'
+                          ? `vrepost-${p.id}-${p.viewerRepostedAt ?? '0'}`
+                          : p.id
+                      }
                       post={p}
                       onPatch={patchPost}
                       onOpenReply={setReplyPost}
+                      onRepostChanged={() => void loadFeed({ silent: true })}
                     />
                   ))}
                 </div>

@@ -108,7 +108,8 @@ export default function LoginClient() {
 
   return (
     <>
-      <DevOtpToast code={devOtpCode} requestEpoch={devOtpToastEpoch} />
+      {/* key remounts toast per OTP request so internal state cannot stick hidden from a prior cycle */}
+      <DevOtpToast key={devOtpToastEpoch} code={devOtpCode} />
 
       <main className="mx-auto w-full max-w-md p-4">
       <div className="mb-5">
