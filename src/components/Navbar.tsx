@@ -1,6 +1,5 @@
 'use client';
 
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { clearAccessToken, getAccessToken } from '@/lib/auth';
@@ -22,43 +21,16 @@ export function Navbar() {
     <header className="sticky top-0 z-10 w-full border-b border-stone-200/90 bg-white/90 backdrop-blur-md">
       <div className="mx-auto flex max-w-md items-center justify-between gap-3 px-4 py-2.5">
         <div className="text-sm font-bold tracking-tight text-stone-900">توت</div>
-
-        <nav className="flex items-center gap-3">
-          {tokenPresent ? (
-            <>
-              <Link
-                href="/home"
-                className="text-sm font-semibold text-slate-900 underline-offset-4 hover:underline"
-              >
-                Home
-              </Link>
-              <Link
-                href="/profile"
-                className="text-sm font-semibold text-slate-900 underline-offset-4 hover:underline"
-              >
-                Profile
-              </Link>
-              <Link
-                href="/upload-test"
-                className="text-sm font-semibold text-slate-900 underline-offset-4 hover:underline"
-              >
-                Upload
-              </Link>
-            </>
-          ) : null}
-
+        {tokenPresent ? (
           <button
             type="button"
             onClick={onLogout}
-            className="rounded-xl bg-slate-900 px-3 py-2 text-xs font-semibold text-white disabled:opacity-60"
-            disabled={!tokenPresent}
-            aria-disabled={!tokenPresent}
+            className="rounded-xl border border-stone-200 bg-white px-3 py-2 text-xs font-semibold text-stone-800 transition hover:bg-stone-50"
           >
-            Logout
+            خروج
           </button>
-        </nav>
+        ) : null}
       </div>
     </header>
   );
 }
-

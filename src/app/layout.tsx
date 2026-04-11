@@ -5,8 +5,8 @@ import { Navbar } from '@/components/Navbar';
 import { AppShell } from '@/components/AppShell';
 
 export const metadata: Metadata = {
-  title: 'Toot',
-  description: 'Toot frontend MVP',
+  title: 'توت',
+  description: 'شبکهٔ اجتماعی محله و ارتباط نزدیک‌تر با اطرافیان.',
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
