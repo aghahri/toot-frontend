@@ -1,12 +1,14 @@
 'use client';
 
 import type { FormEvent } from 'react';
-import { useCallback, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { AuthGate } from '@/components/AuthGate';
 import { apiFetch } from '@/lib/api';
 import { getAccessToken } from '@/lib/auth';
+
+const SEARCH_DEBOUNCE_MS = 320;
 
 type SearchUser = { id: string; name: string; username: string; avatar: string | null };
 type SearchPost = {
@@ -40,35 +42,75 @@ export default function SearchPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<SearchAllResponse | null>(null);
+  const requestSeqRef = useRef(0);
 
-  const runSearch = useCallback(async (raw: string) => {
-    const term = raw.trim();
-    if (term.length < 2) {
-      setResult(null);
-      setError('حداقل دو نویسه وارد کنید.');
-      return;
-    }
+  useEffect(() => {
+    const term = q.trim();
+
+    const timer = window.setTimeout(() => {
+      if (term.length < 2) {
+        setResult(null);
+        setError(null);
+        setLoading(false);
+        return;
+      }
+
+      const seq = ++requestSeqRef.current;
+      setLoading(true);
+      setError(null);
+
+      const t = getAccessToken();
+      if (!t) {
+        if (seq === requestSeqRef.current) setLoading(false);
+        return;
+      }
+
+      void (async () => {
+        try {
+          const data = await apiFetch<SearchAllResponse>(
+            `search/all?q=${encodeURIComponent(term)}&limit=15`,
+            { method: 'GET', token: t },
+          );
+          if (seq !== requestSeqRef.current) return;
+          setResult(data);
+        } catch (e) {
+          if (seq !== requestSeqRef.current) return;
+          setResult(null);
+          setError(e instanceof Error ? e.message : 'خطا در جستجو');
+        } finally {
+          if (seq === requestSeqRef.current) setLoading(false);
+        }
+      })();
+    }, SEARCH_DEBOUNCE_MS);
+
+    return () => window.clearTimeout(timer);
+  }, [q]);
+
+  function onSubmit(e: FormEvent) {
+    e.preventDefault();
+    const term = q.trim();
+    if (term.length < 2) return;
+    const seq = ++requestSeqRef.current;
     const t = getAccessToken();
     if (!t) return;
     setLoading(true);
     setError(null);
-    try {
-      const data = await apiFetch<SearchAllResponse>(
-        `search/all?q=${encodeURIComponent(term)}&limit=15`,
-        { method: 'GET', token: t },
-      );
-      setResult(data);
-    } catch (e) {
-      setResult(null);
-      setError(e instanceof Error ? e.message : 'خطا در جستجو');
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  function onSubmit(e: FormEvent) {
-    e.preventDefault();
-    void runSearch(q);
+    void (async () => {
+      try {
+        const data = await apiFetch<SearchAllResponse>(
+          `search/all?q=${encodeURIComponent(term)}&limit=15`,
+          { method: 'GET', token: t },
+        );
+        if (seq !== requestSeqRef.current) return;
+        setResult(data);
+      } catch (err) {
+        if (seq !== requestSeqRef.current) return;
+        setResult(null);
+        setError(err instanceof Error ? err.message : 'خطا در جستجو');
+      } finally {
+        if (seq === requestSeqRef.current) setLoading(false);
+      }
+    })();
   }
 
   const empty =
@@ -78,6 +120,8 @@ export default function SearchPage() {
     result.networks.length === 0 &&
     result.groups.length === 0 &&
     result.channels.length === 0;
+
+  const hashtagFirst = q.trim().startsWith('#');
 
   return (
     <AuthGate>
@@ -98,29 +142,26 @@ export default function SearchPage() {
               <input
                 value={q}
                 onChange={(e) => setQ(e.target.value)}
-                placeholder="نام کاربر، متن پست، هشتگ…"
+                placeholder="نام کاربر، متن پست، یا #هشتگ"
                 className="min-w-0 flex-1 rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-900 outline-none focus:border-sky-400/50"
                 dir="rtl"
                 autoComplete="off"
+                enterKeyHint="search"
               />
-              <button
-                type="submit"
-                disabled={loading}
-                className="shrink-0 rounded-2xl bg-slate-900 px-4 py-2.5 text-sm font-bold text-white disabled:opacity-60"
-              >
-                {loading ? '…' : 'برو'}
-              </button>
             </form>
+            <p className="text-[11px] leading-relaxed text-slate-500">
+              نتایج با تایپ به‌روز می‌شوند؛ حداقل دو نویسه. برای هشتگ با # شروع کنید.
+            </p>
           </div>
         </header>
 
         <main className="mx-auto max-w-lg px-3 pt-4 sm:px-4">
           {error && !loading ? (
-            <p className="mb-4 text-center text-sm font-semibold text-amber-800">{error}</p>
+            <p className="mb-4 text-center text-sm font-semibold text-red-700">{error}</p>
           ) : null}
 
           {loading ? (
-            <div className="space-y-3">
+            <div className="space-y-3" aria-busy="true" aria-label="در حال جستجو">
               {[0, 1, 2, 3].map((i) => (
                 <div key={i} className="h-16 animate-pulse rounded-2xl bg-slate-200/50" />
               ))}
@@ -130,13 +171,48 @@ export default function SearchPage() {
           {!loading && result && empty ? (
             <div className="rounded-2xl border border-slate-200/90 bg-white px-6 py-10 text-center shadow-sm">
               <p className="text-sm font-bold text-slate-700">نتیجه‌ای پیدا نشد</p>
-              <p className="mt-2 text-xs text-slate-500">عبارت دیگری امتحان کنید یا هشتگ را با # بنویسید.</p>
+              <p className="mt-2 text-xs text-slate-500">
+                عبارت دیگری امتحان کنید؛ برای هشتگ حتماً با # شروع کنید (مثلاً #تهران).
+              </p>
             </div>
           ) : null}
 
           {!loading && result && !empty ? (
             <div className="space-y-8 pb-6">
-              {result.users.length > 0 ? (
+              {hashtagFirst ? (
+                <>
+                  {result.posts.length > 0 ? (
+                    <section aria-labelledby="sec-posts">
+                      <h2 id="sec-posts" className="mb-3 text-xs font-extrabold text-slate-500">
+                        پست‌های این هشتگ
+                      </h2>
+                      <ul className="space-y-2">
+                        {result.posts.map((p) => (
+                          <li key={p.id}>
+                            <Link
+                              href="/home"
+                              className="block rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm transition hover:border-slate-300"
+                            >
+                              <div className="flex items-center gap-2 text-xs text-slate-500">
+                                <span className="font-bold text-slate-800">{p.user.name}</span>
+                                <span dir="ltr">@{p.user.username}</span>
+                              </div>
+                              <p className="mt-2 text-sm leading-relaxed text-slate-700">
+                                {excerpt(p.text)}
+                              </p>
+                              <p className="mt-2 text-[11px] font-semibold text-sky-700">
+                                مشاهده در فید خانه ←
+                              </p>
+                            </Link>
+                          </li>
+                        ))}
+                      </ul>
+                    </section>
+                  ) : null}
+                </>
+              ) : null}
+
+              {!hashtagFirst && result.users.length > 0 ? (
                 <section aria-labelledby="sec-users">
                   <h2 id="sec-users" className="mb-3 text-xs font-extrabold text-slate-500">
                     کاربران
@@ -168,10 +244,10 @@ export default function SearchPage() {
                 </section>
               ) : null}
 
-              {result.posts.length > 0 ? (
-                <section aria-labelledby="sec-posts">
-                  <h2 id="sec-posts" className="mb-3 text-xs font-extrabold text-slate-500">
-                    پست‌ها و هشتگ
+              {!hashtagFirst && result.posts.length > 0 ? (
+                <section aria-labelledby="sec-posts-general">
+                  <h2 id="sec-posts-general" className="mb-3 text-xs font-extrabold text-slate-500">
+                    پست‌ها
                   </h2>
                   <ul className="space-y-2">
                     {result.posts.map((p) => (
@@ -187,7 +263,9 @@ export default function SearchPage() {
                           <p className="mt-2 text-sm leading-relaxed text-slate-700">
                             {excerpt(p.text)}
                           </p>
-                          <p className="mt-2 text-[11px] font-semibold text-sky-700">مشاهده در فید خانه ←</p>
+                          <p className="mt-2 text-[11px] font-semibold text-sky-700">
+                            مشاهده در فید خانه ←
+                          </p>
                         </Link>
                       </li>
                     ))}
@@ -195,7 +273,7 @@ export default function SearchPage() {
                 </section>
               ) : null}
 
-              {result.groups.length > 0 ? (
+              {!hashtagFirst && result.groups.length > 0 ? (
                 <section aria-labelledby="sec-groups">
                   <h2 id="sec-groups" className="mb-3 text-xs font-extrabold text-slate-500">
                     گروه‌ها
@@ -218,7 +296,7 @@ export default function SearchPage() {
                 </section>
               ) : null}
 
-              {result.channels.length > 0 ? (
+              {!hashtagFirst && result.channels.length > 0 ? (
                 <section aria-labelledby="sec-channels">
                   <h2 id="sec-channels" className="mb-3 text-xs font-extrabold text-slate-500">
                     کانال‌ها
@@ -236,7 +314,7 @@ export default function SearchPage() {
                 </section>
               ) : null}
 
-              {result.networks.length > 0 ? (
+              {!hashtagFirst && result.networks.length > 0 ? (
                 <section aria-labelledby="sec-networks">
                   <h2 id="sec-networks" className="mb-3 text-xs font-extrabold text-slate-500">
                     شبکه‌ها
