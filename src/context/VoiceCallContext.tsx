@@ -315,8 +315,11 @@ export function VoiceCallProvider({ children }: { children: ReactNode }) {
 
       pc.ontrack = (e) => {
         const el = remoteAudioRef.current;
-        if (el && e.streams[0]) {
-          el.srcObject = e.streams[0];
+        const track = e.track;
+        if (el && track && track.kind === 'audio') {
+          // Prefer a dedicated stream so the element does not share a MediaStream the PC may recycle.
+          const stream = e.streams[0] ?? new MediaStream([track]);
+          el.srcObject = stream;
           const tryPlay = () => {
             const p = el.play();
             if (p !== undefined) {
@@ -326,6 +329,7 @@ export function VoiceCallProvider({ children }: { children: ReactNode }) {
             }
           };
           tryPlay();
+          track.addEventListener('unmute', tryPlay, { once: true });
         }
         tryActivateFromPc(pc);
       };
@@ -778,7 +782,14 @@ export function VoiceCallProvider({ children }: { children: ReactNode }) {
   return (
     <VoiceCallContext.Provider value={value}>
       {children}
-      <audio ref={remoteAudioRef} className="hidden" playsInline autoPlay aria-hidden />
+      {/* Avoid display:none — browsers often block or mute playback for hidden <audio>. */}
+      <audio
+        ref={remoteAudioRef}
+        className="pointer-events-none fixed left-0 top-0 h-px w-px opacity-0"
+        playsInline
+        autoPlay
+        aria-hidden
+      />
       {showOverlay ? (
         <div
           className="fixed inset-0 z-[200] flex flex-col items-center justify-center bg-gradient-to-b from-slate-900 via-slate-900 to-slate-950 px-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-8 text-white"
