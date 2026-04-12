@@ -285,7 +285,10 @@ export function VoiceCallProvider({ children }: { children: ReactNode }) {
       const cs = pc.connectionState;
       const iceReady = ice === 'connected' || ice === 'completed';
       const connReady = cs === 'connected';
-      if (!iceReady && !connReady) return;
+      const hasLiveRemoteAudio = pc
+        .getReceivers()
+        .some((r) => r.track?.kind === 'audio' && r.track.readyState === 'live');
+      if (!iceReady && !connReady && !hasLiveRemoteAudio) return;
       callActivatedRef.current = true;
       clearConnectingTimer();
       setPhase('active');
@@ -309,7 +312,15 @@ export function VoiceCallProvider({ children }: { children: ReactNode }) {
         const el = remoteAudioRef.current;
         if (el && e.streams[0]) {
           el.srcObject = e.streams[0];
-          void el.play().catch(() => {});
+          const tryPlay = () => {
+            const p = el.play();
+            if (p !== undefined) {
+              void p.catch(() => {
+                window.setTimeout(() => void el.play().catch(() => {}), 300);
+              });
+            }
+          };
+          tryPlay();
         }
         tryActivateFromPc(pc);
       };
@@ -443,15 +454,16 @@ export function VoiceCallProvider({ children }: { children: ReactNode }) {
     phaseRef.current = 'connecting';
     startConnectingWatchdog();
     try {
+      // Mic before pcRef: if the offer is applied during getUserMedia, createAnswer runs without local tracks.
       const ice = await loadIceServers();
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+      localStreamRef.current = stream;
+
       const pc = new RTCPeerConnection({ iceServers: ice });
       callActivatedRef.current = false;
       pcRef.current = pc;
-      wirePc(pc);
-
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-      localStreamRef.current = stream;
       stream.getTracks().forEach((track) => pc.addTrack(track, stream));
+      wirePc(pc);
 
       if (pendingOfferSdpRef.current) {
         const sdp = pendingOfferSdpRef.current;
