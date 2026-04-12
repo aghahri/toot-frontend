@@ -218,7 +218,8 @@ export function VoiceCallProvider({ children }: { children: ReactNode }) {
 
       pc.onconnectionstatechange = () => {
         const st = pc.connectionState;
-        if (st === 'connected' || st === 'completed') {
+        // RTCPeerConnectionState has no 'completed'; ICE 'completed' maps to connectionState 'connected'.
+        if (st === 'connected') {
           setPhase('active');
           startElapsedTimer();
         }
