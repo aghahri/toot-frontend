@@ -591,7 +591,7 @@ export function VoiceCallProvider({ children }: { children: ReactNode }) {
       ensureAudioSendRecv(pc);
       queueMicrotask(() => playRemoteAudioElement(remoteAudioRef.current));
 
-      const offer = await pc.createOffer({ voiceActivityDetection: false });
+      const offer = await pc.createOffer();
       await pc.setLocalDescription(offer);
       ensureAudioSendRecv(pc);
       const sid = sessionIdRef.current;
