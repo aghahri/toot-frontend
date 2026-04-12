@@ -159,6 +159,53 @@ async function openMicStream(): Promise<MediaStream> {
   }
 }
 
+/** Desktop capture often starts with track.muted=true until the first frames; negotiating before unmute can break outbound RTP. */
+function waitForLocalMicFrames(stream: MediaStream, maxMs: number): Promise<void> {
+  const tracks = stream.getAudioTracks();
+  if (tracks.length === 0) return Promise.resolve();
+  const ready = () =>
+    tracks.some((t) => t.readyState === 'live' && !t.muted && t.enabled);
+  if (ready()) return Promise.resolve();
+  return new Promise((resolve) => {
+    let done = false;
+    const finish = () => {
+      if (done) return;
+      done = true;
+      window.clearTimeout(tid);
+      for (const t of tracks) {
+        t.removeEventListener('unmute', onChange);
+        t.removeEventListener('ended', onChange);
+      }
+      resolve();
+    };
+    const onChange = () => {
+      if (ready()) finish();
+    };
+    for (const t of tracks) {
+      t.addEventListener('unmute', onChange);
+      t.addEventListener('ended', finish);
+    }
+    const tid = window.setTimeout(finish, maxMs);
+  });
+}
+
+/** Bidirectional voice: force sendrecv + enabled sender tracks (fixes recvonly/sendonly drift on some desktops). */
+function ensureAudioSendRecv(pc: RTCPeerConnection) {
+  for (const tr of pc.getTransceivers()) {
+    const st = tr.sender?.track;
+    const rt = tr.receiver?.track;
+    if (st?.kind !== 'audio' && rt?.kind !== 'audio') continue;
+    if (st?.kind === 'audio') {
+      st.enabled = true;
+    }
+    try {
+      tr.direction = 'sendrecv';
+    } catch {
+      /* ignore */
+    }
+  }
+}
+
 async function loadIceServers(): Promise<RTCIceServer[]> {
   const t = getAccessToken();
   if (!t) return [];
@@ -449,6 +496,7 @@ export function VoiceCallProvider({ children }: { children: ReactNode }) {
       if (!pc || roleRef.current !== 'caller') return;
       await pc.setRemoteDescription({ type: 'answer', sdp });
       await flushPendingIce();
+      ensureAudioSendRecv(pc);
     },
     [flushPendingIce],
   );
@@ -463,8 +511,14 @@ export function VoiceCallProvider({ children }: { children: ReactNode }) {
       }
       await pc.setRemoteDescription({ type: 'offer', sdp });
       await flushPendingIce();
+      const loc = localStreamRef.current;
+      if (loc) {
+        await waitForLocalMicFrames(loc, 1200);
+      }
+      ensureAudioSendRecv(pc);
       const answer = await pc.createAnswer();
       await pc.setLocalDescription(answer);
+      ensureAudioSendRecv(pc);
       const sid = sessionIdRef.current;
       const s = socketRef.current;
       if (sid && s) {
@@ -526,10 +580,20 @@ export function VoiceCallProvider({ children }: { children: ReactNode }) {
         t.enabled = true;
       });
       stream.getTracks().forEach((track) => pc.addTrack(track, stream));
+      try {
+        stream.getAudioTracks().forEach((t) => {
+          t.contentHint = 'speech';
+        });
+      } catch {
+        /* ignore */
+      }
+      await waitForLocalMicFrames(stream, 1200);
+      ensureAudioSendRecv(pc);
       queueMicrotask(() => playRemoteAudioElement(remoteAudioRef.current));
 
-      const offer = await pc.createOffer();
+      const offer = await pc.createOffer({ voiceActivityDetection: false });
       await pc.setLocalDescription(offer);
+      ensureAudioSendRecv(pc);
       const sid = sessionIdRef.current;
       const s = socketRef.current;
       if (!sid || !s) return;
@@ -559,6 +623,13 @@ export function VoiceCallProvider({ children }: { children: ReactNode }) {
       callActivatedRef.current = false;
       pcRef.current = pc;
       stream.getTracks().forEach((track) => pc.addTrack(track, stream));
+      try {
+        stream.getAudioTracks().forEach((t) => {
+          t.contentHint = 'speech';
+        });
+      } catch {
+        /* ignore */
+      }
       wirePc(pc);
       queueMicrotask(() => playRemoteAudioElement(remoteAudioRef.current));
 
@@ -567,8 +638,11 @@ export function VoiceCallProvider({ children }: { children: ReactNode }) {
         pendingOfferSdpRef.current = null;
         await pc.setRemoteDescription({ type: 'offer', sdp });
         await flushPendingIce();
+        await waitForLocalMicFrames(stream, 1200);
+        ensureAudioSendRecv(pc);
         const answer = await pc.createAnswer();
         await pc.setLocalDescription(answer);
+        ensureAudioSendRecv(pc);
         const sid = sessionIdRef.current;
         const s = socketRef.current;
         if (sid && s) {
