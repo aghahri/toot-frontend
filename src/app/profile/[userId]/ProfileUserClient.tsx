@@ -61,6 +61,8 @@ export function ProfileUserClient({ userId }: ProfileUserClientProps) {
   const [postsLoading, setPostsLoading] = useState(true);
   const [postsError, setPostsError] = useState<string | null>(null);
   const [followBusy, setFollowBusy] = useState(false);
+  const [dmBusy, setDmBusy] = useState(false);
+  const [dmError, setDmError] = useState<string | null>(null);
   const [replyPost, setReplyPost] = useState<FeedPost | null>(null);
 
   const loadProfile = useCallback(async () => {
@@ -148,6 +150,28 @@ export function ProfileUserClient({ userId }: ProfileUserClientProps) {
       /* keep UI; user can retry */
     } finally {
       setFollowBusy(false);
+    }
+  }
+
+  async function onOpenDirectMessage() {
+    const t = getAccessToken();
+    if (!t) return;
+    setDmBusy(true);
+    setDmError(null);
+    try {
+      const conv = await apiFetch<{ id: string }>('direct/conversations', {
+        method: 'POST',
+        token: t,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ otherUserId: userId }),
+      });
+      const id = conv?.id?.trim();
+      if (!id) throw new Error('شناسهٔ گفتگو دریافت نشد');
+      router.push(`/direct/${encodeURIComponent(id)}`);
+    } catch (e) {
+      setDmError(e instanceof Error ? e.message : 'باز کردن گفتگو ناموفق بود');
+    } finally {
+      setDmBusy(false);
     }
   }
 
@@ -252,7 +276,7 @@ export function ProfileUserClient({ userId }: ProfileUserClientProps) {
                   </div>
                 </div>
 
-                <div className="border-t border-slate-100 px-4 pb-4 pt-3">
+                <div className="space-y-2 border-t border-slate-100 px-4 pb-4 pt-3">
                   {profile.isSelf ? (
                     <Link
                       href="/profile/edit"
@@ -261,29 +285,54 @@ export function ProfileUserClient({ userId }: ProfileUserClientProps) {
                       ویرایش پروفایل
                     </Link>
                   ) : (
-                    <button
-                      type="button"
-                      disabled={followBusy}
-                      onClick={() => void onToggleFollow()}
-                      className={`flex min-h-[46px] w-full items-center justify-center rounded-full text-sm font-extrabold transition disabled:opacity-60 ${
-                        profile.isFollowing
-                          ? 'border-2 border-slate-300 bg-white text-slate-900 hover:bg-slate-50'
-                          : 'bg-sky-600 text-white hover:bg-sky-700'
-                      }`}
-                    >
-                      {followBusy
-                        ? '…'
-                        : profile.isFollowing
-                          ? 'دنبال می‌کنید'
-                          : 'دنبال کردن'}
-                    </button>
+                    <>
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          disabled={followBusy}
+                          onClick={() => void onToggleFollow()}
+                          className={`flex min-h-[46px] min-w-0 flex-1 items-center justify-center rounded-full text-sm font-extrabold transition disabled:opacity-60 ${
+                            profile.isFollowing
+                              ? 'border-2 border-slate-300 bg-white text-slate-900 hover:bg-slate-50'
+                              : 'bg-sky-600 text-white hover:bg-sky-700'
+                          }`}
+                        >
+                          {followBusy
+                            ? '…'
+                            : profile.isFollowing
+                              ? 'دنبال می‌کنید'
+                              : 'دنبال کردن'}
+                        </button>
+                        <button
+                          type="button"
+                          disabled={dmBusy || followBusy}
+                          onClick={() => void onOpenDirectMessage()}
+                          className="flex min-h-[46px] min-w-0 flex-1 items-center justify-center rounded-full border-2 border-emerald-600 bg-white text-sm font-extrabold text-emerald-700 shadow-sm transition hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-55"
+                          aria-label={`پیام خصوصی به ${profile.name}`}
+                        >
+                          {dmBusy ? '…' : 'پیام'}
+                        </button>
+                      </div>
+                      {dmError ? (
+                        <p className="text-center text-[11px] font-semibold text-red-600">{dmError}</p>
+                      ) : null}
+                    </>
                   )}
                 </div>
               </section>
 
-              <div className="mb-2 mt-10 flex items-end justify-between border-b border-slate-200/90 px-1 pb-2">
-                <h2 className="text-base font-extrabold text-slate-900">پست‌ها</h2>
-                <span className="text-[12px] font-semibold tabular-nums text-slate-500">{profile.postCount}</span>
+              <div className="mb-2 mt-10 border-b border-slate-200/90 px-1 pb-2">
+                <div className="flex items-end justify-between gap-2">
+                  <div className="min-w-0">
+                    <h2 className="text-base font-extrabold text-slate-900">پست‌ها</h2>
+                    <p className="mt-0.5 text-[11px] leading-relaxed text-slate-500">
+                      نوشته‌های منتشرشدهٔ این کاربر در فید
+                    </p>
+                  </div>
+                  <span className="shrink-0 text-[12px] font-semibold tabular-nums text-slate-500">
+                    {profile.postCount}
+                  </span>
+                </div>
               </div>
 
               {postsLoading ? (
