@@ -59,6 +59,10 @@ const VoiceCallContext = createContext<VoiceCallContextValue | null>(null);
 
 const CONNECTING_TIMEOUT_MS = 55_000;
 
+/** Dev/staging: set NEXT_PUBLIC_VOICE_CALL_DEBUG=1 at build time to surface WebRTC state on the call overlay. */
+const VOICE_CALL_DEBUG =
+  process.env.NODE_ENV === 'development' || process.env.NEXT_PUBLIC_VOICE_CALL_DEBUG === '1';
+
 function mapStartError(code: string, message?: string): string {
   switch (code) {
     case 'PEER_BUSY':
@@ -106,6 +110,37 @@ function mapCallEndedMessage(
   return 'تماس پایان یافت.';
 }
 
+/** First audio m= line + direction attributes (no full SDP). */
+function extractAudioSdpHints(sdp: string | null | undefined): string[] {
+  if (!sdp) return [];
+  const lines = sdp.split(/\r?\n/);
+  const out: string[] = [];
+  let inAudio = false;
+  for (const line of lines) {
+    if (line.startsWith('m=')) {
+      if (line.startsWith('m=audio')) {
+        inAudio = true;
+        out.push(line.trim());
+      } else {
+        inAudio = false;
+      }
+      continue;
+    }
+    if (!inAudio) continue;
+    const t = line.trim();
+    if (
+      t.startsWith('a=sendonly') ||
+      t.startsWith('a=recvonly') ||
+      t.startsWith('a=sendrecv') ||
+      t.startsWith('a=inactive')
+    ) {
+      out.push(t);
+    }
+    if (out.length >= 5) break;
+  }
+  return out;
+}
+
 function getMediaErrorMessage(err: unknown): string {
   if (!(err instanceof Error)) return 'میکروفون در دسترس نیست یا خطایی رخ داد.';
   const n = err.name;
@@ -151,6 +186,7 @@ export function VoiceCallProvider({ children }: { children: ReactNode }) {
   const [muted, setMuted] = useState(false);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [endedReason, setEndedReason] = useState<string | null>(null);
+  const [voiceDbgTick, setVoiceDbgTick] = useState(0);
 
   const sessionIdRef = useRef<string | null>(null);
   const roleRef = useRef<'caller' | 'callee' | null>(null);
@@ -158,6 +194,7 @@ export function VoiceCallProvider({ children }: { children: ReactNode }) {
   const pcRef = useRef<RTCPeerConnection | null>(null);
   const localStreamRef = useRef<MediaStream | null>(null);
   const remoteAudioRef = useRef<HTMLAudioElement | null>(null);
+  const remotePlayDiagRef = useRef<string>('—');
   const pendingIceRef = useRef<RTCIceCandidateInit[]>([]);
   const pendingOfferSdpRef = useRef<string | null>(null);
   const callerMediaStartedRef = useRef(false);
@@ -216,6 +253,7 @@ export function VoiceCallProvider({ children }: { children: ReactNode }) {
     if (a) {
       a.srcObject = null;
     }
+    remotePlayDiagRef.current = '—';
     pendingIceRef.current = [];
     pendingOfferSdpRef.current = null;
     callerMediaStartedRef.current = false;
@@ -285,6 +323,60 @@ export function VoiceCallProvider({ children }: { children: ReactNode }) {
     }, 1000);
   }, []);
 
+  /** Re-bind local mic to audio senders and remote audio receivers to the playback element (idempotent). */
+  const syncVoiceMedia = useCallback((pc: RTCPeerConnection) => {
+    const el = remoteAudioRef.current;
+    const loc = localStreamRef.current;
+    const localAudio = loc?.getAudioTracks().find((t) => t.readyState !== 'ended') ?? null;
+
+    if (localAudio) {
+      for (const tr of pc.getTransceivers()) {
+        if (!tr.sender) continue;
+        const rk = tr.receiver.track?.kind;
+        const sk = tr.sender.track?.kind;
+        if (rk === 'audio' || sk === 'audio') {
+          if (tr.sender.track !== localAudio) void tr.sender.replaceTrack(localAudio);
+        }
+      }
+    }
+
+    const remoteTracks = pc
+      .getReceivers()
+      .map((r) => r.track)
+      .filter((t): t is MediaStreamTrack => !!t && t.kind === 'audio' && t.readyState !== 'ended');
+
+    if (!el || remoteTracks.length === 0) return;
+
+    el.srcObject = new MediaStream(remoteTracks);
+    el.muted = false;
+    const p = el.play();
+    if (p !== undefined) {
+      void p.then(
+        () => {
+          remotePlayDiagRef.current = 'ok';
+        },
+        (err: unknown) => {
+          remotePlayDiagRef.current = err instanceof Error ? err.message : String(err);
+          window.setTimeout(() => {
+            if (pcRef.current !== pc) return;
+            const audioEl = remoteAudioRef.current;
+            if (!audioEl?.srcObject) return;
+            void audioEl.play().then(
+              () => {
+                remotePlayDiagRef.current = 'ok (retry)';
+              },
+              (e: unknown) => {
+                remotePlayDiagRef.current = e instanceof Error ? `retry: ${e.message}` : 'retry failed';
+              },
+            );
+          }, 350);
+        },
+      );
+    } else {
+      remotePlayDiagRef.current = '— no promise';
+    }
+  }, []);
+
   const failConnection = useCallback(
     (message: string) => {
       if (iceFailTimerRef.current != null) {
@@ -320,8 +412,9 @@ export function VoiceCallProvider({ children }: { children: ReactNode }) {
       setPhase('active');
       phaseRef.current = 'active';
       startElapsedTimer();
+      syncVoiceMedia(pc);
     },
-    [clearConnectingTimer, startElapsedTimer],
+    [clearConnectingTimer, startElapsedTimer, syncVoiceMedia],
   );
 
   const wirePc = useCallback(
@@ -335,23 +428,12 @@ export function VoiceCallProvider({ children }: { children: ReactNode }) {
       };
 
       pc.ontrack = (e) => {
-        const el = remoteAudioRef.current;
         const track = e.track;
-        if (el && track && track.kind === 'audio') {
-          // Prefer a dedicated stream so the element does not share a MediaStream the PC may recycle.
-          const stream = e.streams[0] ?? new MediaStream([track]);
-          el.srcObject = stream;
-          const tryPlay = () => {
-            const p = el.play();
-            if (p !== undefined) {
-              void p.catch(() => {
-                window.setTimeout(() => void el.play().catch(() => {}), 300);
-              });
-            }
-          };
-          tryPlay();
-          track.addEventListener('unmute', tryPlay, { once: true });
+        if (track?.kind === 'audio') {
+          const tryAgain = () => syncVoiceMedia(pc);
+          track.addEventListener('unmute', tryAgain, { once: true });
         }
+        syncVoiceMedia(pc);
         tryActivateFromPc(pc);
       };
 
@@ -397,7 +479,7 @@ export function VoiceCallProvider({ children }: { children: ReactNode }) {
         tryActivateFromPc(pc);
       };
     },
-    [failConnection, tryActivateFromPc],
+    [failConnection, syncVoiceMedia, tryActivateFromPc],
   );
 
   const startConnectingWatchdog = useCallback(() => {
@@ -415,8 +497,9 @@ export function VoiceCallProvider({ children }: { children: ReactNode }) {
       if (!pc || roleRef.current !== 'caller') return;
       await pc.setRemoteDescription({ type: 'answer', sdp });
       await flushPendingIce();
+      syncVoiceMedia(pc);
     },
-    [flushPendingIce],
+    [flushPendingIce, syncVoiceMedia],
   );
 
   const applyOfferOrQueue = useCallback(
@@ -436,8 +519,9 @@ export function VoiceCallProvider({ children }: { children: ReactNode }) {
       if (sid && s) {
         s.emit('call_signal', { sessionId: sid, type: 'answer', sdp: answer.sdp });
       }
+      syncVoiceMedia(pc);
     },
-    [flushPendingIce],
+    [flushPendingIce, syncVoiceMedia],
   );
 
   const handleRemoteSignal = useCallback(
@@ -532,6 +616,7 @@ export function VoiceCallProvider({ children }: { children: ReactNode }) {
         if (sid && s) {
           s.emit('call_signal', { sessionId: sid, type: 'answer', sdp: answer.sdp });
         }
+        syncVoiceMedia(pc);
       }
     } catch (e) {
       goToEnded(getMediaErrorMessage(e), 5000);
@@ -541,10 +626,17 @@ export function VoiceCallProvider({ children }: { children: ReactNode }) {
         s.emit('call_reject', { sessionId: sid });
       }
     }
-  }, [flushPendingIce, goToEnded, startConnectingWatchdog, wirePc]);
+  }, [flushPendingIce, goToEnded, startConnectingWatchdog, syncVoiceMedia, wirePc]);
 
   useEffect(() => {
     phaseRef.current = phase;
+  }, [phase]);
+
+  useEffect(() => {
+    if (!VOICE_CALL_DEBUG) return;
+    if (phase !== 'connecting' && phase !== 'active') return;
+    const id = window.setInterval(() => setVoiceDbgTick((n) => n + 1), 500);
+    return () => clearInterval(id);
   }, [phase]);
 
   useEffect(() => {
@@ -767,6 +859,62 @@ export function VoiceCallProvider({ children }: { children: ReactNode }) {
 
   const canStartCall = phase === 'idle';
 
+  const voiceDebugText = useMemo(() => {
+    if (!VOICE_CALL_DEBUG) return '';
+    if (phase !== 'connecting' && phase !== 'active') return '';
+    void voiceDbgTick;
+    const pc = pcRef.current;
+    const loc = localStreamRef.current;
+    const el = remoteAudioRef.current;
+    const lines: string[] = [];
+    lines.push('[VOICE_DEBUG] tmp — NODE_ENV=dev or NEXT_PUBLIC_VOICE_CALL_DEBUG=1');
+    if (!pc) {
+      lines.push('pc: null');
+      return lines.join('\n');
+    }
+    lines.push(
+      `pc.connectionState=${pc.connectionState} ice=${pc.iceConnectionState} sig=${pc.signalingState}`,
+    );
+    const localAudioTracks = loc?.getAudioTracks() ?? [];
+    lines.push(`localAudioTracks count=${localAudioTracks.length}`);
+    localAudioTracks.forEach((t, i) => {
+      lines.push(`  L[${i}] readyState=${t.readyState} enabled=${t.enabled} muted=${t.muted}`);
+    });
+    const remoteAudioFromRx = pc
+      .getReceivers()
+      .map((r) => r.track)
+      .filter((t): t is MediaStreamTrack => t?.kind === 'audio');
+    lines.push(`remoteAudioTracks (via receivers)=${remoteAudioFromRx.length}`);
+    remoteAudioFromRx.forEach((t, i) => {
+      lines.push(`  R[${i}] readyState=${t.readyState} enabled=${t.enabled} muted=${t.muted}`);
+    });
+    lines.push('transceivers:');
+    pc.getTransceivers().forEach((tr, i) => {
+      const k = tr.receiver.track?.kind ?? tr.sender.track?.kind ?? '?';
+      lines.push(
+        `  T[${i}] kind=${k} dir=${tr.direction} cur=${String(tr.currentDirection)}`,
+      );
+    });
+    lines.push('senders:');
+    pc.getSenders().forEach((s, i) => {
+      const t = s.track;
+      lines.push(
+        `  S[${i}] hasTrack=${Boolean(t)}${t ? ` kind=${t.kind} state=${t.readyState}` : ''}`,
+      );
+    });
+    lines.push('receivers:');
+    pc.getReceivers().forEach((r, i) => {
+      const t = r.track;
+      lines.push(
+        `  Rx[${i}] hasTrack=${Boolean(t)}${t ? ` kind=${t.kind} state=${t.readyState}` : ''}`,
+      );
+    });
+    lines.push(`<audio> srcObject=${el?.srcObject ? 'set' : 'none'} lastPlay=${remotePlayDiagRef.current}`);
+    lines.push(`SDP local audio: ${extractAudioSdpHints(pc.localDescription?.sdp).join(' · ') || '—'}`);
+    lines.push(`SDP remote audio: ${extractAudioSdpHints(pc.remoteDescription?.sdp).join(' · ') || '—'}`);
+    return lines.join('\n');
+  }, [phase, voiceDbgTick]);
+
   const value = useMemo<VoiceCallContextValue>(
     () => ({
       phase,
@@ -862,6 +1010,11 @@ export function VoiceCallProvider({ children }: { children: ReactNode }) {
                 <p className="mt-2 max-w-[20rem] text-center text-[13px] leading-relaxed text-slate-400">
                   {phaseHint}
                 </p>
+              ) : null}
+              {VOICE_CALL_DEBUG && (phase === 'connecting' || phase === 'active') ? (
+                <pre className="mt-3 max-h-44 w-full max-w-[min(100%,24rem)] overflow-auto rounded border border-dashed border-amber-700/70 bg-black/55 p-2 text-left font-mono text-[9px] leading-tight text-amber-200/95">
+                  {voiceDebugText}
+                </pre>
               ) : null}
             </>
           ) : (
