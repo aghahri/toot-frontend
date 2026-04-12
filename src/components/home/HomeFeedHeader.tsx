@@ -5,7 +5,7 @@ import Link from 'next/link';
 export function HomeFeedHeader() {
   return (
     <header className="border-b border-slate-200/80 bg-white" dir="rtl">
-      <div className="mx-auto flex max-w-lg items-center gap-2 px-3 py-3">
+      <div className="flex w-full min-w-0 items-center gap-2 px-3 py-3">
         <div className="min-w-0 flex-1">
           <h1 className="truncate text-[1.25rem] font-extrabold tracking-tight text-slate-950">خانه</h1>
           <p className="mt-0.5 truncate text-[11px] font-semibold text-slate-500">آخرین‌ها از محله و شبکه</p>

@@ -192,9 +192,11 @@ function HomePageInner() {
   return (
     <AuthGate>
       <div className="relative min-h-[60dvh] bg-[#f7f9f9]" dir="rtl">
-        <div className="sticky top-14 z-[15] border-b border-slate-200/60 bg-white/95 shadow-[0_1px_0_rgba(15,23,42,0.06)] backdrop-blur-md">
-          <HomeFeedHeader />
-          <FeedTabs active={tab} onChange={setTab} />
+        <div className="sticky top-14 z-[15] w-full min-w-0 max-w-[100vw] overflow-x-hidden border-b border-slate-200/60 bg-white/95 shadow-[0_1px_0_rgba(15,23,42,0.06)] backdrop-blur-md">
+          <div className="mx-auto w-full min-w-0 max-w-lg">
+            <HomeFeedHeader />
+            <FeedTabs active={tab} onChange={setTab} />
+          </div>
         </div>
 
         <main className="mx-auto min-h-[40dvh] w-full max-w-lg pb-28">
