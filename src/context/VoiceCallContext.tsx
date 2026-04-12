@@ -167,6 +167,8 @@ export function VoiceCallProvider({ children }: { children: ReactNode }) {
   const endedTimerRef = useRef<number | null>(null);
   const connectingTimerRef = useRef<number | null>(null);
   const lastCallOptsRef = useRef<LastCallOpts | null>(null);
+  /** Ensures we only run connecting→active transition once per PC (both ICE and connection handlers may fire). */
+  const callActivatedRef = useRef(false);
 
   const clearTimers = useCallback(() => {
     if (timerRef.current != null) {
@@ -205,6 +207,7 @@ export function VoiceCallProvider({ children }: { children: ReactNode }) {
     pendingOfferSdpRef.current = null;
     callerMediaStartedRef.current = false;
     calleeMediaStartedRef.current = false;
+    callActivatedRef.current = false;
     setMuted(false);
     setElapsedSeconds(0);
   }, [clearConnectingTimer, clearTimers]);
@@ -274,6 +277,24 @@ export function VoiceCallProvider({ children }: { children: ReactNode }) {
     [goToEnded],
   );
 
+  const tryActivateFromPc = useCallback(
+    (pc: RTCPeerConnection) => {
+      if (pc !== pcRef.current || callActivatedRef.current) return;
+      if (phaseRef.current !== 'connecting') return;
+      const ice = pc.iceConnectionState;
+      const cs = pc.connectionState;
+      const iceReady = ice === 'connected' || ice === 'completed';
+      const connReady = cs === 'connected';
+      if (!iceReady && !connReady) return;
+      callActivatedRef.current = true;
+      clearConnectingTimer();
+      setPhase('active');
+      phaseRef.current = 'active';
+      startElapsedTimer();
+    },
+    [clearConnectingTimer, startElapsedTimer],
+  );
+
   const wirePc = useCallback(
     (pc: RTCPeerConnection) => {
       pc.onicecandidate = (e) => {
@@ -290,29 +311,28 @@ export function VoiceCallProvider({ children }: { children: ReactNode }) {
           el.srcObject = e.streams[0];
           void el.play().catch(() => {});
         }
+        tryActivateFromPc(pc);
       };
 
       pc.oniceconnectionstatechange = () => {
         const ice = pc.iceConnectionState;
         if (ice === 'failed') {
           failConnection('ارتباط شبکه برای تماس صوتی قطع شد.');
+          return;
         }
+        tryActivateFromPc(pc);
       };
 
       pc.onconnectionstatechange = () => {
         const st = pc.connectionState;
-        if (st === 'connected') {
-          clearConnectingTimer();
-          setPhase('active');
-          phaseRef.current = 'active';
-          startElapsedTimer();
-        }
         if (st === 'failed') {
           failConnection('اتصال تماس برقرار نشد یا قطع شد.');
+          return;
         }
+        tryActivateFromPc(pc);
       };
     },
-    [clearConnectingTimer, failConnection, startElapsedTimer],
+    [failConnection, tryActivateFromPc],
   );
 
   const startConnectingWatchdog = useCallback(() => {
@@ -396,6 +416,7 @@ export function VoiceCallProvider({ children }: { children: ReactNode }) {
     try {
       const ice = await loadIceServers();
       const pc = new RTCPeerConnection({ iceServers: ice });
+      callActivatedRef.current = false;
       pcRef.current = pc;
       wirePc(pc);
 
@@ -424,6 +445,7 @@ export function VoiceCallProvider({ children }: { children: ReactNode }) {
     try {
       const ice = await loadIceServers();
       const pc = new RTCPeerConnection({ iceServers: ice });
+      callActivatedRef.current = false;
       pcRef.current = pc;
       wirePc(pc);
 
