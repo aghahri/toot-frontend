@@ -20,7 +20,9 @@ import { loadForwardPickTargets, type ForwardPickTarget } from '@/lib/chat-forwa
 import { isVoiceMedia, formatVoiceClock } from '@/lib/chat-media';
 import { calendarDayKey, dayDividerLabelFa } from '@/lib/chat-dates';
 import { formatFileSize } from '@/lib/format-file-size';
-import { io } from 'socket.io-client';
+import type { Socket } from 'socket.io-client';
+import { useAppRealtime } from '@/context/AppRealtimeSocketContext';
+import { useVoiceCall } from '@/context/VoiceCallContext';
 import {
   FormEvent,
   Fragment,
@@ -224,6 +226,8 @@ async function preprocessImageForUpload(input: File): Promise<File> {
 export default function DirectConversationPage() {
   const params = useParams();
   const router = useRouter();
+  const { socket: appSocket } = useAppRealtime();
+  const { startCall: startVoiceCall } = useVoiceCall();
   const conversationId = Array.isArray(params?.id) ? params.id[0] : params?.id ?? '';
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -290,7 +294,7 @@ export default function DirectConversationPage() {
   const forwardIdsOverrideRef = useRef<string[] | null>(null);
   /** Tracks previous `isSelectionMode` so we only auto-close the forward sheet when leaving bulk selection, not when opening it from the ⋮ menu. */
   const wasSelectionModeRef = useRef(false);
-  const socketRef = useRef<ReturnType<typeof io> | null>(null);
+  const socketRef = useRef<Socket | null>(null);
   const isComposingRef = useRef(false);
   const draftPersistTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -1128,15 +1132,11 @@ await apiFetch(`direct/conversations/${conversationId}/seen`, {
 
 useEffect(() => {
   const token = getAccessToken();
-  if (!token || !conversationId) return;
+  if (!token || !conversationId || !appSocket) return;
 
   setPeerPresence({ online: false, lastSeenAt: null });
 
-  const socket = io(getApiBaseUrl().replace(/\/+$/, ''), {
-    transports: ['websocket'],
-    auth: { token },
-  });
-
+  const socket = appSocket;
   socketRef.current = socket;
 
   const onDirectPresence = (payload: {
@@ -1155,9 +1155,13 @@ useEffect(() => {
 
   socket.on('direct_presence', onDirectPresence);
 
-  socket.on('connect', () => {
+  const onSocketConnect = () => {
     socket.emit('join_direct', { conversationId });
-  });
+  };
+  socket.on('connect', onSocketConnect);
+  if (socket.connected) {
+    onSocketConnect();
+  }
 
 socket.on('direct_message', async (message: Message) => {
   if (message.conversationId !== conversationId) return;
@@ -1383,6 +1387,7 @@ socket.on(
       typingTimeoutRef.current = null;
     }
 
+    socket.off('connect', onSocketConnect);
     socket.off('direct_presence', onDirectPresence);
     socket.off('direct_message_reactions', onDirectReactions);
     socket.off('direct_message_edited');
@@ -1391,15 +1396,14 @@ socket.on(
     socket.off('direct_pinned_message_updated', onDirectPinnedMessageUpdated);
 
     socket.emit('leave_direct', { conversationId });
-socket.emit('direct_typing', {
-  conversationId,
-  isTyping: false,
-});
+    socket.emit('direct_typing', {
+      conversationId,
+      isTyping: false,
+    });
 
-    socket.disconnect();
     socketRef.current = null;
   };
-}, [conversationId, myUserId]);
+}, [appSocket, conversationId, myUserId]);
 async function uploadSelectedFile(token: string): Promise<string | null> {
   if (!file) return null;
 
@@ -2011,6 +2015,17 @@ async function uploadSelectedFile(token: string): Promise<string | null> {
                 </p>
               </div>
 
+              <button
+                type="button"
+                title="تماس صوتی"
+                aria-label="تماس صوتی"
+                onClick={() => startVoiceCall({ conversationId })}
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-slate-600 transition hover:bg-slate-100"
+              >
+                <span className="text-lg" aria-hidden>
+                  📞
+                </span>
+              </button>
               <button
                 type="button"
                 title="جستجو در گفتگو"

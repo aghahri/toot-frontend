@@ -2,6 +2,11 @@ import { apiFetch } from './api';
 
 const TOKEN_KEY = 'toot_access_token';
 
+function notifyAuthTokenChanged() {
+  if (typeof window === 'undefined') return;
+  window.dispatchEvent(new Event('toot-auth-token-changed'));
+}
+
 export function getAccessToken(): string | null {
   if (typeof window === 'undefined') return null;
   try {
@@ -14,11 +19,13 @@ export function getAccessToken(): string | null {
 export function setAccessToken(token: string) {
   if (typeof window === 'undefined') return;
   window.localStorage.setItem(TOKEN_KEY, token);
+  notifyAuthTokenChanged();
 }
 
 export function clearAccessToken() {
   if (typeof window === 'undefined') return;
   window.localStorage.removeItem(TOKEN_KEY);
+  notifyAuthTokenChanged();
 }
 
 export async function login(email: string, password: string): Promise<{

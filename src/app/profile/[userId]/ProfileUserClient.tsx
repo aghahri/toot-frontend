@@ -11,6 +11,7 @@ import { FeedEmptyState } from '@/components/home/FeedEmptyState';
 import { PostReplySheet } from '@/components/home/PostReplySheet';
 import type { FeedPost } from '@/components/home/feed-types';
 import { normalizeFeedPost } from '@/lib/feed-normalize';
+import { useVoiceCall } from '@/context/VoiceCallContext';
 
 export type PublicUserProfile = {
   id: string;
@@ -55,6 +56,7 @@ type ProfileUserClientProps = {
 
 export function ProfileUserClient({ userId }: ProfileUserClientProps) {
   const router = useRouter();
+  const { startCall: startVoiceCall } = useVoiceCall();
   const [profile, setProfile] = useState<PublicUserProfile | null>(null);
   const [profileError, setProfileError] = useState<string | null>(null);
   const [posts, setPosts] = useState<FeedPost[]>([]);
@@ -286,12 +288,12 @@ export function ProfileUserClient({ userId }: ProfileUserClientProps) {
                     </Link>
                   ) : (
                     <>
-                      <div className="flex gap-2">
+                      <div className="flex flex-wrap gap-2">
                         <button
                           type="button"
                           disabled={followBusy}
                           onClick={() => void onToggleFollow()}
-                          className={`flex min-h-[46px] min-w-0 flex-1 items-center justify-center rounded-full text-sm font-extrabold transition disabled:opacity-60 ${
+                          className={`flex min-h-[46px] min-w-0 w-full shrink-0 items-center justify-center rounded-full text-sm font-extrabold transition disabled:opacity-60 sm:flex-1 ${
                             profile.isFollowing
                               ? 'border-2 border-slate-300 bg-white text-slate-900 hover:bg-slate-50'
                               : 'bg-sky-600 text-white hover:bg-sky-700'
@@ -307,10 +309,19 @@ export function ProfileUserClient({ userId }: ProfileUserClientProps) {
                           type="button"
                           disabled={dmBusy || followBusy}
                           onClick={() => void onOpenDirectMessage()}
-                          className="flex min-h-[46px] min-w-0 flex-1 items-center justify-center rounded-full border-2 border-emerald-600 bg-white text-sm font-extrabold text-emerald-700 shadow-sm transition hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-55"
+                          className="flex min-h-[46px] min-w-0 flex-1 basis-[calc(50%-0.25rem)] items-center justify-center rounded-full border-2 border-emerald-600 bg-white text-sm font-extrabold text-emerald-700 shadow-sm transition hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-55"
                           aria-label={`پیام خصوصی به ${profile.name}`}
                         >
                           {dmBusy ? '…' : 'پیام'}
+                        </button>
+                        <button
+                          type="button"
+                          disabled={dmBusy || followBusy}
+                          onClick={() => startVoiceCall({ targetUserId: profile.id })}
+                          className="flex min-h-[46px] min-w-0 flex-1 basis-[calc(50%-0.25rem)] items-center justify-center rounded-full border-2 border-sky-500 bg-white text-sm font-extrabold text-sky-800 shadow-sm transition hover:bg-sky-50 disabled:cursor-not-allowed disabled:opacity-55"
+                          aria-label={`تماس صوتی با ${profile.name}`}
+                        >
+                          تماس
                         </button>
                       </div>
                       {dmError ? (
