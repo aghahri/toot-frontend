@@ -31,7 +31,7 @@ export function FeedTabs({ active, onChange }: FeedTabsProps) {
               role="tab"
               aria-selected={selected}
               onClick={() => onChange(t.id)}
-              className={`relative min-h-[48px] min-w-0 flex-1 px-1.5 py-3 text-center text-[13px] font-extrabold transition sm:px-1 ${
+              className={`relative min-h-[48px] min-w-0 flex-1 px-1.5 py-3 text-center text-[13px] font-extrabold tracking-tight transition sm:px-1 ${
                 selected ? 'text-slate-950' : 'text-slate-500 hover:text-slate-800'
               }`}
             >

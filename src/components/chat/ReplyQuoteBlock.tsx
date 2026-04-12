@@ -135,23 +135,25 @@ export function ReplyQuoteBlock({
         e.stopPropagation();
         if (!isDeleted && onNavigate) onNavigate(model.id);
       }}
-      className={`mb-2 w-full rounded-xl border-s-[3px] px-2.5 py-2 text-start text-[11px] leading-snug shadow-sm transition ${
+      className={`mb-1.5 w-full rounded-lg border-s-[3px] px-2 py-1.5 text-start text-[12px] leading-snug shadow-sm transition ${
         isDeleted ? 'border-s-slate-400/80' : 'border-s-sky-500'
-      } ${mine ? 'bg-black/15 text-white/95' : 'bg-slate-100/90 text-slate-700 ring-1 ring-slate-200/60'} ${
+      } ${mine ? 'bg-black/18 text-white/95' : 'bg-white/95 text-slate-700 ring-1 ring-slate-200/70'} ${
         isDeleted ? 'cursor-default opacity-75' : onNavigate ? 'cursor-pointer hover:opacity-95 active:scale-[0.99]' : ''
       }`}
       dir="auto"
     >
-      <div className="truncate text-[10px] font-semibold opacity-80">{model.senderName}</div>
-      <div className="mt-0.5 flex items-start gap-2">
+      <div className="truncate text-[9px] font-extrabold tracking-wide opacity-75">
+        {model.senderName}
+      </div>
+      <div className="mt-0.5 flex items-start gap-1.5">
         {model.thumbUrl ? (
           <img
             src={model.thumbUrl}
             alt=""
-            className="h-10 w-10 shrink-0 rounded-lg object-cover ring-1 ring-black/10"
+            className="h-9 w-9 shrink-0 rounded-md object-cover ring-1 ring-black/10"
           />
         ) : null}
-        <div className="line-clamp-2 min-w-0 flex-1 opacity-90">{model.body}</div>
+        <div className="line-clamp-2 min-w-0 flex-1 font-medium opacity-90">{model.body}</div>
       </div>
     </button>
   );

@@ -1,11 +1,12 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { AuthGate } from '@/components/AuthGate';
 import { apiFetch } from '@/lib/api';
 import { getAccessToken } from '@/lib/auth';
+import { calendarDayKey, dayDividerLabelFa } from '@/lib/chat-dates';
 
 export type NotificationRow = {
   id: string;
@@ -92,6 +93,8 @@ export default function NotificationsPage() {
     void load();
   }, [load]);
 
+  const unreadCount = useMemo(() => items.filter((n) => !n.readAt).length, [items]);
+
   async function markRead(n: NotificationRow) {
     if (n.readAt) {
       navigateFromNotification(n, router);
@@ -129,6 +132,14 @@ export default function NotificationsPage() {
               </span>
             </button>
             <h1 className="min-w-0 flex-1 truncate text-[1.1rem] font-extrabold text-slate-950">اعلان‌ها</h1>
+            {!loading && !error && items.length > 0 && unreadCount > 0 ? (
+              <span
+                className="shrink-0 rounded-full bg-sky-600 px-2.5 py-1 text-[11px] font-extrabold tabular-nums text-white shadow-sm"
+                aria-live="polite"
+              >
+                {unreadCount} جدید
+              </span>
+            ) : null}
           </div>
         </header>
 
@@ -154,11 +165,11 @@ export default function NotificationsPage() {
               </button>
             </div>
           ) : items.length === 0 ? (
-            <div className="rounded-2xl border border-slate-200/90 bg-white px-6 py-12 text-center shadow-sm ring-1 ring-slate-100/80">
+            <div className="rounded-2xl border border-slate-200/90 bg-gradient-to-b from-white to-slate-50/50 px-6 py-12 text-center shadow-sm ring-1 ring-slate-100/80">
               <p className="text-base font-extrabold text-slate-900">هنوز اعلانی نیست</p>
               <p className="mt-2 text-[13px] leading-relaxed text-slate-600">
                 وقتی کسی پست شما را بپسندد، به آن پاسخ دهد، بازنشر کند یا شما را دنبال کند، اینجا
-                نمایش داده می‌شود.
+                نمایش داده می‌شود. برای دیدن اعلان‌های تازه، گاهی به این صفحه سر بزنید.
               </p>
               <Link
                 href="/home"
@@ -168,27 +179,40 @@ export default function NotificationsPage() {
               </Link>
             </div>
           ) : (
-            <ul className="space-y-2.5 pb-6">
-              {items.map((n) => {
+            <ul className="space-y-2 pb-6">
+              {items.map((n, i) => {
+                const prev = i > 0 ? items[i - 1] : null;
+                const showDayDivider =
+                  !prev || calendarDayKey(prev.createdAt) !== calendarDayKey(n.createdAt);
                 const unread = !n.readAt;
                 const cat = categoryLabel(n);
                 return (
                   <li key={n.id}>
+                    {showDayDivider ? (
+                      <div
+                        className={`pb-1 ${i === 0 ? 'pt-0' : 'pt-4'}`}
+                        role="presentation"
+                      >
+                        <div className="text-center text-[11px] font-extrabold tracking-wide text-slate-400">
+                          {dayDividerLabelFa(n.createdAt)}
+                        </div>
+                      </div>
+                    ) : null}
                     <button
                       type="button"
                       onClick={() => void markRead(n)}
                       className={[
                         'w-full rounded-2xl border px-3.5 py-3 text-start shadow-sm transition active:scale-[0.99]',
                         unread
-                          ? 'border-sky-300/70 bg-sky-50/80 ring-2 ring-sky-200/50'
+                          ? 'border-sky-400/80 bg-gradient-to-br from-sky-50/95 to-white ring-2 ring-sky-200/60'
                           : 'border-slate-200/90 bg-white/95 ring-1 ring-slate-100/80 hover:bg-slate-50/90',
                       ].join(' ')}
                     >
                       <div className="flex items-center justify-between gap-2">
                         <span
-                          className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-extrabold ${
+                          className={`shrink-0 rounded-full px-2.5 py-0.5 text-[10px] font-extrabold ${
                             unread
-                              ? 'bg-sky-600 text-white'
+                              ? 'bg-sky-600 text-white shadow-sm'
                               : 'bg-slate-100 text-slate-600 ring-1 ring-slate-200/80'
                           }`}
                         >
@@ -205,13 +229,15 @@ export default function NotificationsPage() {
                       {n.body ? (
                         <p className="mt-1 text-[13px] leading-relaxed text-slate-600">{n.body}</p>
                       ) : null}
-                      <div className="mt-2 flex items-center justify-between gap-2 border-t border-slate-100/90 pt-2">
-                        <span className="text-[10px] font-bold text-sky-700">
-                          {unread ? 'مشاهده و علامت‌گذاری به‌عنوان خوانده‌شده' : 'مشاهدهٔ مرتبط'}
+                      <div className="mt-2.5 flex items-center justify-between gap-2 border-t border-slate-100/90 pt-2">
+                        <span
+                          className={`text-[10px] font-bold ${unread ? 'text-sky-800' : 'text-slate-500'}`}
+                        >
+                          {unread ? 'ضربه برای باز کردن و علامت خوانده‌شده' : 'ضربه برای رفتن به محتوای مرتبط'}
                         </span>
                         {unread ? (
                           <span
-                            className="h-2 w-2 shrink-0 rounded-full bg-sky-500 shadow-sm"
+                            className="h-2.5 w-2.5 shrink-0 rounded-full bg-sky-500 shadow-sm ring-2 ring-sky-200/80"
                             aria-hidden
                           />
                         ) : null}

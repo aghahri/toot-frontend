@@ -38,9 +38,14 @@ export function ForwardPickerSheet({
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between border-b border-stone-200/80 px-4 py-3">
-          <h2 id="forward-picker-title" className="text-base font-bold text-stone-900">
-            ارسال به
-          </h2>
+          <div className="min-w-0">
+            <h2 id="forward-picker-title" className="text-base font-bold text-stone-900">
+              ارسال به
+            </h2>
+            <p className="mt-0.5 text-[11px] font-semibold text-stone-500">
+              فوروارد پیام به گفتگوی دیگر
+            </p>
+          </div>
           <button
             type="button"
             onClick={() => onDismiss()}

@@ -138,6 +138,7 @@ export default function GroupThreadPage() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const cameraInputRef = useRef<HTMLInputElement | null>(null);
   const documentInputRef = useRef<HTMLInputElement | null>(null);
+  const groupComposeTextareaRef = useRef<HTMLTextAreaElement | null>(null);
   const isComposingRef = useRef(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const mediaStreamRef = useRef<MediaStream | null>(null);
@@ -277,6 +278,14 @@ export default function GroupThreadPage() {
     setPreviewUrl(url);
     return () => URL.revokeObjectURL(url);
   }, [file]);
+
+  useEffect(() => {
+    if (!replyTo) return;
+    const id = requestAnimationFrame(() => {
+      groupComposeTextareaRef.current?.focus();
+    });
+    return () => cancelAnimationFrame(id);
+  }, [replyTo]);
 
   useEffect(() => {
     if (isSelectionMode) setAttachmentSheetOpen(false);
@@ -1407,7 +1416,7 @@ export default function GroupThreadPage() {
                             {openActionsMessageId === m.id ? (
                               <div
                                 role="menu"
-                                className={`absolute top-full z-[45] mt-1 min-w-[11.5rem] max-w-[min(18rem,calc(100vw-1.5rem))] overflow-visible rounded-xl border border-slate-200/90 bg-white py-1 shadow-lg ring-1 ring-slate-900/5 ${
+                                className={`absolute top-full z-[45] mt-1 min-w-[11.5rem] max-w-[min(18rem,calc(100vw-1.5rem))] overflow-visible rounded-2xl border border-slate-200/90 bg-white py-2 shadow-2xl ring-1 ring-slate-900/[0.06] ${
                                   mine ? 'end-0' : 'start-0'
                                 }`}
                                 dir="rtl"
@@ -1415,7 +1424,7 @@ export default function GroupThreadPage() {
                                 <button
                                   type="button"
                                   role="menuitem"
-                                  className="flex w-full px-4 py-3 text-right text-sm font-medium text-slate-800 transition hover:bg-slate-100 active:bg-slate-200"
+                                  className="flex w-full min-h-[44px] items-center px-4 py-2.5 text-right text-[13px] font-semibold text-slate-800 transition hover:bg-slate-50 active:bg-slate-100"
                                   onClick={() => {
                                     setReplyTo(m);
                                     setOpenActionsMessageId(null);
@@ -1426,7 +1435,7 @@ export default function GroupThreadPage() {
                                 <button
                                   type="button"
                                   role="menuitem"
-                                  className="flex w-full px-4 py-3 text-right text-sm font-medium text-slate-800 transition hover:bg-slate-100 active:bg-slate-200"
+                                  className="flex w-full min-h-[44px] items-center px-4 py-2.5 text-right text-[13px] font-semibold text-slate-800 transition hover:bg-slate-50 active:bg-slate-100"
                                   onClick={() => {
                                     setOpenActionsMessageId(null);
                                     void openForwardPicker(new Set([m.id]));
@@ -1438,7 +1447,7 @@ export default function GroupThreadPage() {
                                   <button
                                     type="button"
                                     role="menuitem"
-                                    className="flex w-full px-4 py-3 text-right text-sm font-medium text-slate-800 transition hover:bg-slate-100 active:bg-slate-200"
+                                    className="flex w-full min-h-[44px] items-center px-4 py-2.5 text-right text-[13px] font-semibold text-slate-800 transition hover:bg-slate-50 active:bg-slate-100"
                                     onClick={() => {
                                       setOpenActionsMessageId(null);
                                       void navigator.clipboard.writeText((m.content ?? '').trim());
@@ -1452,7 +1461,7 @@ export default function GroupThreadPage() {
                                   type="button"
                                   role="menuitem"
                                   disabled={pinSubmitting}
-                                  className="flex w-full items-center gap-2 px-4 py-3 text-right text-sm font-medium text-slate-800 transition hover:bg-slate-100 active:bg-slate-200 disabled:opacity-50"
+                                  className="flex w-full min-h-[44px] items-center gap-2 px-4 py-2.5 text-right text-[13px] font-semibold text-slate-800 transition hover:bg-slate-50 active:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
                                   onClick={() =>
                                     void pinMessageOnServer(pinned?.id === m.id ? null : m.id)
                                   }
@@ -1490,7 +1499,7 @@ export default function GroupThreadPage() {
                                     <button
                                       type="button"
                                       role="menuitem"
-                                      className="flex w-full px-4 py-3 text-right text-sm font-medium text-slate-800 transition hover:bg-slate-100 active:bg-slate-200"
+                                      className="flex w-full min-h-[44px] items-center px-4 py-2.5 text-right text-[13px] font-semibold text-slate-800 transition hover:bg-slate-50 active:bg-slate-100"
                                       onClick={() => {
                                         setEditingId(m.id);
                                         setText(m.content ?? '');
@@ -1506,7 +1515,7 @@ export default function GroupThreadPage() {
                                       <button
                                         type="button"
                                         role="menuitem"
-                                        className="flex w-full px-4 py-3 text-right text-sm font-medium text-red-600 transition hover:bg-red-50 active:bg-red-100"
+                                        className="flex w-full min-h-[44px] items-center px-4 py-2.5 text-right text-[13px] font-semibold text-red-600 transition hover:bg-red-50 active:bg-red-100"
                                         onClick={() => {
                                           setOpenActionsMessageId(null);
                                           void softDeleteGroupMessageClient(m.id);
@@ -1520,7 +1529,7 @@ export default function GroupThreadPage() {
                                 <button
                                   type="button"
                                   role="menuitem"
-                                  className="flex w-full px-4 py-3 text-right text-sm font-medium text-slate-800 transition hover:bg-slate-100 active:bg-slate-200"
+                                  className="flex w-full min-h-[44px] items-center px-4 py-2.5 text-right text-[13px] font-semibold text-slate-800 transition hover:bg-slate-50 active:bg-slate-100"
                                   onClick={() => {
                                     setOpenActionsMessageId(null);
                                     setSelectedMessageIds(new Set([m.id]));
@@ -1645,7 +1654,7 @@ export default function GroupThreadPage() {
             isSelectionMode ? 'pointer-events-none opacity-50' : ''
           }`}
         >
-          <form onSubmit={onSubmit} className="w-full min-w-0 space-y-2.5" dir="rtl">
+          <form onSubmit={onSubmit} className="w-full min-w-0 space-y-2" dir="rtl">
             <input
               ref={fileInputRef}
               type="file"
@@ -1702,15 +1711,19 @@ export default function GroupThreadPage() {
                 </button>
               </div>
             ) : replyTo ? (
-              <div className="flex items-start gap-2 rounded-2xl border border-slate-200/90 bg-slate-50 px-3 py-2.5 shadow-sm ring-1 ring-slate-200/60">
+              <div className="flex items-start gap-2 rounded-xl border-s-4 border-s-sky-500 border-y border-e border-slate-200/90 bg-white px-2.5 py-2 shadow-sm ring-1 ring-slate-200/50">
                 <div className="min-w-0 flex-1 text-right">
-                  <div className="text-[10px] font-bold text-sky-600">پاسخ به {replyTo.sender.name}</div>
-                  <div className="mt-0.5 truncate text-sm text-slate-800">{replySnippetGroup(replyTo)}</div>
+                  <div className="text-[9px] font-extrabold tracking-wide text-sky-700">
+                    پاسخ به {replyTo.sender.name}
+                  </div>
+                  <div className="mt-0.5 truncate text-[13px] font-medium text-slate-800">
+                    {replySnippetGroup(replyTo)}
+                  </div>
                 </div>
                 <button
                   type="button"
                   onClick={() => setReplyTo(null)}
-                  className="shrink-0 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 shadow-sm transition hover:bg-slate-50"
+                  className="shrink-0 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-[11px] font-bold text-slate-600 transition hover:bg-slate-100"
                 >
                   لغو
                 </button>
@@ -1760,7 +1773,7 @@ export default function GroupThreadPage() {
               </div>
             ) : null}
 
-            <div className="flex items-end gap-2">
+            <div className="flex items-end gap-1.5 sm:gap-2">
               <button
                 type="button"
                 disabled={sending || !!editingId || isSelectionMode}
@@ -1768,7 +1781,7 @@ export default function GroupThreadPage() {
                 aria-label="پیوست"
                 aria-expanded={attachmentSheetOpen}
                 onClick={() => setAttachmentSheetOpen((v) => !v)}
-                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-slate-200/90 bg-white text-slate-600 shadow-sm transition hover:bg-slate-50 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40"
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-slate-200/90 bg-white text-slate-600 shadow-sm transition hover:bg-slate-50 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40 sm:h-11 sm:w-11 sm:rounded-2xl"
               >
                 <span className="text-xl font-bold leading-none">+</span>
               </button>
@@ -1819,7 +1832,7 @@ export default function GroupThreadPage() {
                   disabled={sending || !!file || voicePhase !== 'idle' || isSelectionMode}
                   title="پیام صوتی"
                   onClick={() => void startVoiceRecording()}
-                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-slate-200/90 bg-white text-slate-600 shadow-sm transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-slate-200/90 bg-white text-slate-600 shadow-sm transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40 sm:h-11 sm:w-11 sm:rounded-2xl"
                 >
                   <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
                     <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.91-3c-.49 0-.9.36-.98.85C16.52 14.2 14.47 16 12 16s-4.52-1.8-4.93-4.15c-.08-.49-.49-.85-.98-.85-.61 0-1.09.54-1 1.14.49 3 2.89 5.35 5.91 5.78V20c0 .55.45 1 1 1s1-.45 1-1v-2.08c3.02-.43 5.42-2.78 5.91-5.78.1-.6-.39-1.14-1-1.14z" />
@@ -1832,7 +1845,7 @@ export default function GroupThreadPage() {
                 disabled={sending || !!editingId || voicePhase !== 'idle' || isSelectionMode}
                 title="دوربین"
                 onClick={() => cameraInputRef.current?.click()}
-                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-slate-200/90 bg-white text-slate-600 shadow-sm transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-slate-200/90 bg-white text-slate-600 shadow-sm transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40 sm:h-11 sm:w-11 sm:rounded-2xl"
               >
                 <span className="text-lg" aria-hidden>
                   📷
@@ -1840,6 +1853,7 @@ export default function GroupThreadPage() {
               </button>
 
               <textarea
+                ref={groupComposeTextareaRef}
                 value={text}
                 onCompositionStart={() => {
                   isComposingRef.current = true;
@@ -1896,7 +1910,7 @@ export default function GroupThreadPage() {
                 placeholder="پیام…"
                 rows={1}
                 disabled={sending || voicePhase === 'recording' || isSelectionMode}
-                className="min-h-[2.75rem] max-h-32 min-w-0 flex-1 resize-none rounded-2xl border border-slate-200/90 bg-white px-3.5 py-2.5 text-[15px] leading-normal text-slate-900 shadow-sm outline-none ring-0 transition placeholder:text-slate-400 focus:border-sky-400/60 focus:ring-2 focus:ring-sky-100"
+                className="min-h-[2.625rem] max-h-32 min-w-0 flex-1 resize-none rounded-xl border border-slate-200/90 bg-white px-3 py-2 text-[15px] leading-normal text-slate-900 shadow-sm outline-none ring-0 transition placeholder:text-slate-400 focus:border-sky-400/60 focus:ring-2 focus:ring-sky-100 sm:min-h-[2.75rem] sm:rounded-2xl sm:px-3.5 sm:py-2.5"
               />
 
               <button
@@ -1904,7 +1918,8 @@ export default function GroupThreadPage() {
                 disabled={
                   sending || voicePhase === 'recording' || voicePhase === 'sending' || isSelectionMode
                 }
-                className="inline-flex h-11 min-w-[4.5rem] shrink-0 items-center justify-center rounded-2xl bg-slate-900 px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
+                aria-busy={sending}
+                className="inline-flex h-10 min-w-[4.25rem] shrink-0 items-center justify-center rounded-xl bg-slate-900 px-3.5 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50 sm:h-11 sm:min-w-[4.5rem] sm:rounded-2xl sm:px-4"
               >
                 {sending ? (
                   <span

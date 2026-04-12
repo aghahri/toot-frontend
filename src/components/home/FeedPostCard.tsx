@@ -240,7 +240,7 @@ export function FeedPostCard({
   return (
     <article
       id={anchorId}
-      className={`border-b border-slate-100 bg-white px-4 py-3.5 transition hover:bg-slate-50/70 ${
+      className={`border-b border-slate-100/90 bg-white px-4 py-4 transition hover:bg-slate-50/80 ${
         isViewerRepostRow ? 'bg-emerald-50/40 ring-1 ring-inset ring-emerald-200/55' : ''
       } ${emphasize ? 'bg-sky-50/90 ring-2 ring-inset ring-sky-400/70' : ''}`}
       dir="rtl"
@@ -300,30 +300,30 @@ export function FeedPostCard({
         )}
 
         <div className="min-w-0 flex-1">
-          <div className="flex items-start justify-between gap-2">
+          <div className="flex items-start justify-between gap-2 border-b border-slate-100/80 pb-2.5">
             <div className="min-w-0">
-              <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0">
+              <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
                 {authorProfileHref ? (
                   <Link
                     href={authorProfileHref}
-                    className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-0 hover:opacity-90"
+                    className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-0.5 hover:opacity-90"
                   >
-                    <span className="truncate text-[15px] font-bold text-slate-900">{name}</span>
-                    <span className="truncate text-sm text-slate-500" dir="ltr">
+                    <span className="truncate text-[15px] font-extrabold text-slate-900">{name}</span>
+                    <span className="truncate text-[13px] font-semibold text-slate-500" dir="ltr">
                       {handle}
                     </span>
                   </Link>
                 ) : (
                   <>
-                    <span className="truncate text-[15px] font-bold text-slate-900">{name}</span>
-                    <span className="truncate text-sm text-slate-500" dir="ltr">
+                    <span className="truncate text-[15px] font-extrabold text-slate-900">{name}</span>
+                    <span className="truncate text-[13px] font-semibold text-slate-500" dir="ltr">
                       {handle}
                     </span>
                   </>
                 )}
                 <span className="text-slate-300">·</span>
                 <time
-                  className="shrink-0 text-sm text-slate-400"
+                  className="shrink-0 text-xs font-semibold tabular-nums text-slate-400"
                   dateTime={p.createdAt}
                   title={new Date(p.createdAt).toLocaleString('fa-IR')}
                 >
@@ -342,13 +342,13 @@ export function FeedPostCard({
           </div>
 
           {p.text ? (
-            <div className="mt-2 whitespace-pre-wrap text-[15px] leading-[1.55] text-slate-800">
+            <div className="mt-2.5 whitespace-pre-wrap text-[15px] leading-[1.58] text-slate-800">
               {p.text}
             </div>
           ) : null}
 
           {p.media && p.media.length > 0 ? (
-            <div className="mt-3 overflow-hidden rounded-2xl border border-slate-200/80 bg-slate-50">
+            <div className="mt-3 overflow-hidden rounded-2xl border border-slate-200/80 bg-slate-50 shadow-sm">
               {p.media.map((m) =>
                 m.type === 'VIDEO' || m.mimeType?.startsWith('video/') ? (
                   <video
@@ -368,7 +368,7 @@ export function FeedPostCard({
               )}
             </div>
           ) : p.mediaUrl ? (
-            <div className="mt-3 overflow-hidden rounded-2xl border border-slate-200/80">
+            <div className="mt-3 overflow-hidden rounded-2xl border border-slate-200/80 shadow-sm">
               <img
                 src={p.mediaUrl}
                 alt=""
@@ -378,13 +378,13 @@ export function FeedPostCard({
           ) : null}
 
           <div
-            className="mt-3.5 flex max-w-md items-center justify-between gap-1 text-slate-500"
+            className="mt-4 flex max-w-md min-h-[44px] items-stretch justify-between gap-1.5 text-slate-500 sm:gap-2"
             dir="ltr"
           >
             <button
               type="button"
               onClick={() => onOpenReply(p)}
-              className="flex h-9 min-w-0 flex-1 items-center justify-center gap-1 rounded-full text-sm transition hover:bg-sky-50 hover:text-sky-700"
+              className="flex min-h-[44px] min-w-0 flex-1 items-center justify-center gap-1 rounded-xl text-sm font-semibold transition hover:bg-sky-50 hover:text-sky-700"
               aria-label="پاسخ"
             >
               <span className="text-base" aria-hidden>
@@ -398,7 +398,7 @@ export function FeedPostCard({
               type="button"
               onClick={() => void toggleRepost()}
               disabled={repostBusy}
-              className={`flex min-h-9 min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-full px-0.5 py-1 text-sm transition disabled:opacity-60 ${
+              className={`flex min-h-[44px] min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-xl px-0.5 py-1 text-sm font-semibold transition disabled:opacity-60 ${
                 reposted
                   ? 'bg-emerald-50 text-emerald-700 ring-2 ring-emerald-500/45 hover:bg-emerald-100'
                   : 'text-slate-500 hover:bg-emerald-50 hover:text-emerald-700'
@@ -426,7 +426,7 @@ export function FeedPostCard({
               type="button"
               onClick={() => void toggleLike()}
               disabled={likeBusy}
-              className={`flex h-9 min-w-0 flex-1 items-center justify-center gap-1 rounded-full text-sm transition disabled:opacity-60 ${
+              className={`flex min-h-[44px] min-w-0 flex-1 items-center justify-center gap-1 rounded-xl text-sm font-semibold transition disabled:opacity-60 ${
                 liked ? 'text-rose-600 hover:bg-rose-50' : 'hover:bg-rose-50 hover:text-rose-600'
               }`}
               aria-label={liked ? 'لغو پسند' : 'پسند'}
@@ -442,7 +442,7 @@ export function FeedPostCard({
               type="button"
               onClick={() => void toggleBookmark()}
               disabled={bookmarkBusy}
-              className={`flex h-9 min-w-0 flex-1 items-center justify-center rounded-full text-sm transition disabled:opacity-60 ${
+              className={`flex min-h-[44px] min-w-0 flex-1 items-center justify-center rounded-xl text-sm font-semibold transition disabled:opacity-60 ${
                 bookmarked
                   ? 'text-amber-700 hover:bg-amber-50'
                   : 'hover:bg-amber-50 hover:text-amber-700'

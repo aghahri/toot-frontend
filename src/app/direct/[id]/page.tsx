@@ -296,6 +296,7 @@ export default function DirectConversationPage() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const cameraInputRef = useRef<HTMLInputElement | null>(null);
   const documentInputRef = useRef<HTMLInputElement | null>(null);
+  const composeTextareaRef = useRef<HTMLTextAreaElement | null>(null);
   const [attachmentSheetOpen, setAttachmentSheetOpen] = useState(false);
 
   type VoicePhase = 'idle' | 'recording' | 'sending' | 'failed';
@@ -371,26 +372,56 @@ useEffect(() => {
   };
 }, [file]);
 
+useEffect(() => {
+  if (!replyDraft) return;
+  const id = requestAnimationFrame(() => {
+    composeTextareaRef.current?.focus();
+  });
+  return () => cancelAnimationFrame(id);
+}, [replyDraft]);
+
 function renderMessageStatus(msg: Message, mine: boolean) {
   if (!mine) return null;
+  const base =
+    'inline-flex h-4 min-w-[1.25rem] items-center justify-center gap-px text-[11px] font-bold tabular-nums leading-none';
 
   if (msg.pending) {
     return (
-      <span className="text-slate-400 tabular-nums" title="در حال ارسال" aria-label="در حال ارسال">
-        🕐
+      <span className={`${base} text-slate-400`} title="در حال ارسال" aria-label="در حال ارسال">
+        <span className="opacity-80" aria-hidden>
+          🕐
+        </span>
       </span>
     );
   }
 
   if (msg.seenAt) {
-    return <span className="text-sky-400">✓✓</span>;
+    return (
+      <span className={`${base} text-sky-500`} title="مشاهده شده" aria-label="مشاهده شده">
+        <span aria-hidden>✓</span>
+        <span className="-ms-px opacity-90" aria-hidden>
+          ✓
+        </span>
+      </span>
+    );
   }
 
   if (msg.deliveredAt) {
-    return <span className="text-slate-400">✓✓</span>;
+    return (
+      <span className={`${base} text-slate-400`} title="تحویل داده شده" aria-label="تحویل داده شده">
+        <span aria-hidden>✓</span>
+        <span className="-ms-px opacity-80" aria-hidden>
+          ✓
+        </span>
+      </span>
+    );
   }
 
-  return <span className="text-slate-400">✓</span>;
+  return (
+    <span className={`${base} text-slate-400`} title="ارسال شده" aria-label="ارسال شده">
+      <span aria-hidden>✓</span>
+    </span>
+  );
 }
 function clearSelectedFile() {
   setFile(null);
@@ -2227,7 +2258,7 @@ async function uploadSelectedFile(token: string): Promise<string | null> {
                             {openActionsMessageId === msg.id ? (
                               <div
                                 role="menu"
-                                className={`absolute top-full z-[45] mt-1 min-w-[11.5rem] max-w-[min(18rem,calc(100vw-1.5rem))] overflow-visible rounded-xl border border-slate-200/90 bg-white py-1 shadow-lg ring-1 ring-slate-900/5 ${
+                                className={`absolute top-full z-[45] mt-1 min-w-[11.5rem] max-w-[min(18rem,calc(100vw-1.5rem))] overflow-visible rounded-2xl border border-slate-200/90 bg-white py-2 shadow-2xl ring-1 ring-slate-900/[0.06] ${
                                   mine ? 'end-0' : 'start-0'
                                 }`}
                                 dir="rtl"
@@ -2235,7 +2266,7 @@ async function uploadSelectedFile(token: string): Promise<string | null> {
                                 <button
                                   type="button"
                                   role="menuitem"
-                                  className="flex w-full px-4 py-3 text-right text-sm font-medium text-slate-800 transition hover:bg-slate-100 active:bg-slate-200"
+                                  className="flex w-full min-h-[44px] items-center px-4 py-2.5 text-right text-[13px] font-semibold text-slate-800 transition hover:bg-slate-50 active:bg-slate-100"
                                   onClick={() => {
                                     setReplyDraft({
                                       id: msg.id,
@@ -2250,7 +2281,7 @@ async function uploadSelectedFile(token: string): Promise<string | null> {
                                 <button
                                   type="button"
                                   role="menuitem"
-                                  className="flex w-full px-4 py-3 text-right text-sm font-medium text-slate-800 transition hover:bg-slate-100 active:bg-slate-200"
+                                  className="flex w-full min-h-[44px] items-center px-4 py-2.5 text-right text-[13px] font-semibold text-slate-800 transition hover:bg-slate-50 active:bg-slate-100"
                                   onClick={() => {
                                     setOpenActionsMessageId(null);
                                     void openForwardPicker(new Set([msg.id]));
@@ -2262,7 +2293,7 @@ async function uploadSelectedFile(token: string): Promise<string | null> {
                                   <button
                                     type="button"
                                     role="menuitem"
-                                    className="flex w-full px-4 py-3 text-right text-sm font-medium text-slate-800 transition hover:bg-slate-100 active:bg-slate-200"
+                                    className="flex w-full min-h-[44px] items-center px-4 py-2.5 text-right text-[13px] font-semibold text-slate-800 transition hover:bg-slate-50 active:bg-slate-100"
                                     onClick={() => {
                                       setOpenActionsMessageId(null);
                                       void navigator.clipboard.writeText((msg.text ?? '').trim());
@@ -2283,7 +2314,7 @@ async function uploadSelectedFile(token: string): Promise<string | null> {
                                       role="menuitem"
                                       disabled={starPinSubmitting}
                                       title={msg.starredByMe ? 'حذف ستاره از پیام' : 'ستاره‌دار کردن پیام'}
-                                      className="flex w-full items-center gap-2 px-4 py-3 text-right text-sm font-medium text-slate-800 transition hover:bg-slate-100 active:bg-slate-200 disabled:cursor-not-allowed disabled:opacity-50"
+                                      className="flex w-full min-h-[44px] items-center gap-2 px-4 py-2.5 text-right text-[13px] font-semibold text-slate-800 transition hover:bg-slate-50 active:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
                                       onClick={() => void toggleStarOnServer(msg.id)}
                                     >
                                       <span className="shrink-0 text-base" aria-hidden>
@@ -2304,7 +2335,7 @@ async function uploadSelectedFile(token: string): Promise<string | null> {
                                             ? 'جایگزینی سنجاق فعلی'
                                             : 'سنجاق در بالای گفتگو'
                                       }
-                                      className="flex w-full items-center gap-2 px-4 py-3 text-right text-sm font-medium text-slate-800 transition hover:bg-slate-100 active:bg-slate-200 disabled:cursor-not-allowed disabled:opacity-50"
+                                      className="flex w-full min-h-[44px] items-center gap-2 px-4 py-2.5 text-right text-[13px] font-semibold text-slate-800 transition hover:bg-slate-50 active:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
                                       onClick={() =>
                                         void pinMessageOnServer(
                                           pinnedPreview?.id === msg.id ? null : msg.id,
@@ -2325,7 +2356,7 @@ async function uploadSelectedFile(token: string): Promise<string | null> {
                                 <button
                                   type="button"
                                   role="menuitem"
-                                  className="flex w-full px-4 py-3 text-right text-sm font-medium text-slate-800 transition hover:bg-slate-100 active:bg-slate-200"
+                                  className="flex w-full min-h-[44px] items-center px-4 py-2.5 text-right text-[13px] font-semibold text-slate-800 transition hover:bg-slate-50 active:bg-slate-100"
                                   onClick={() => {
                                     setOpenActionsMessageId(null);
                                     setInfoMessage(msg);
@@ -2356,7 +2387,7 @@ async function uploadSelectedFile(token: string): Promise<string | null> {
                                     <button
                                       type="button"
                                       role="menuitem"
-                                      className="flex w-full px-4 py-3 text-right text-sm font-medium text-slate-800 transition hover:bg-slate-100 active:bg-slate-200"
+                                      className="flex w-full min-h-[44px] items-center px-4 py-2.5 text-right text-[13px] font-semibold text-slate-800 transition hover:bg-slate-50 active:bg-slate-100"
                                       onClick={() => {
                                         setEditMode(true);
                                         setEditingMessageId(msg.id);
@@ -2374,7 +2405,7 @@ async function uploadSelectedFile(token: string): Promise<string | null> {
                                       <button
                                         type="button"
                                         role="menuitem"
-                                        className="flex w-full px-4 py-3 text-right text-sm font-medium text-red-600 transition hover:bg-red-50 active:bg-red-100"
+                                        className="flex w-full min-h-[44px] items-center px-4 py-2.5 text-right text-[13px] font-semibold text-red-600 transition hover:bg-red-50 active:bg-red-100"
                                         onClick={() => {
                                           setOpenActionsMessageId(null);
                                           void onDeleteMessage(msg.id);
@@ -2388,7 +2419,7 @@ async function uploadSelectedFile(token: string): Promise<string | null> {
                                 <button
                                   type="button"
                                   role="menuitem"
-                                  className="flex w-full px-4 py-3 text-right text-sm font-medium text-slate-800 transition hover:bg-slate-100 active:bg-slate-200"
+                                  className="flex w-full min-h-[44px] items-center px-4 py-2.5 text-right text-[13px] font-semibold text-slate-800 transition hover:bg-slate-50 active:bg-slate-100"
                                   onClick={() => {
                                     setOpenActionsMessageId(null);
                                     setSelectedMessageIds(new Set([msg.id]));
@@ -2584,7 +2615,7 @@ async function uploadSelectedFile(token: string): Promise<string | null> {
         </div>
 
         <div className="sticky bottom-0 z-20 border-t border-stone-200/90 bg-[#f6f6f6]/98 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2 shadow-[0_-2px_12px_rgba(0,0,0,0.05)] backdrop-blur-md">
-          <form onSubmit={onSend} className="w-full min-w-0 space-y-2.5" dir="rtl">
+          <form onSubmit={onSend} className="w-full min-w-0 space-y-2" dir="rtl">
             <input
               ref={fileInputRef}
               type="file"
@@ -2637,15 +2668,19 @@ async function uploadSelectedFile(token: string): Promise<string | null> {
                 </button>
               </div>
             ) : replyDraft ? (
-              <div className="flex items-start gap-2 rounded-2xl border border-slate-200/90 bg-slate-50 px-3 py-2.5 shadow-sm ring-1 ring-slate-200/60">
+              <div className="flex items-start gap-2 rounded-xl border-s-4 border-s-sky-500 border-y border-e border-slate-200/90 bg-white px-2.5 py-2 shadow-sm ring-1 ring-slate-200/50">
                 <div className="min-w-0 flex-1 text-right">
-                  <div className="text-[10px] font-bold text-sky-600">پاسخ به {replyDraft.senderName}</div>
-                  <div className="mt-0.5 truncate text-sm text-slate-800">{replyDraft.preview}</div>
+                  <div className="text-[9px] font-extrabold tracking-wide text-sky-700">
+                    پاسخ به {replyDraft.senderName}
+                  </div>
+                  <div className="mt-0.5 truncate text-[13px] font-medium text-slate-800">
+                    {replyDraft.preview}
+                  </div>
                 </div>
                 <button
                   type="button"
                   onClick={() => setReplyDraft(null)}
-                  className="shrink-0 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 shadow-sm transition hover:bg-slate-50"
+                  className="shrink-0 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-[11px] font-bold text-slate-600 transition hover:bg-slate-100"
                 >
                   لغو
                 </button>
@@ -2747,7 +2782,7 @@ async function uploadSelectedFile(token: string): Promise<string | null> {
               </div>
             ) : null}
 
-            <div className="flex items-end gap-2">
+            <div className="flex items-end gap-1.5 sm:gap-2">
               <button
                 type="button"
                 disabled={sending || editMode || isSelectionMode}
@@ -2755,7 +2790,7 @@ async function uploadSelectedFile(token: string): Promise<string | null> {
                 aria-label="پیوست"
                 aria-expanded={attachmentSheetOpen}
                 onClick={() => setAttachmentSheetOpen((v) => !v)}
-                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-slate-200/90 bg-white text-slate-600 shadow-sm transition hover:bg-slate-50 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40"
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-slate-200/90 bg-white text-slate-600 shadow-sm transition hover:bg-slate-50 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40 sm:h-11 sm:w-11 sm:rounded-2xl"
               >
                 <span className="text-xl font-bold leading-none">+</span>
               </button>
@@ -2806,7 +2841,7 @@ async function uploadSelectedFile(token: string): Promise<string | null> {
                   disabled={sending || !!file || voicePhase !== 'idle' || isSelectionMode}
                   title="پیام صوتی"
                   onClick={() => void startVoiceRecording()}
-                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-slate-200/90 bg-white text-slate-600 shadow-sm transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-slate-200/90 bg-white text-slate-600 shadow-sm transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40 sm:h-11 sm:w-11 sm:rounded-2xl"
                 >
                   <svg
                     className="h-5 w-5"
@@ -2824,7 +2859,7 @@ async function uploadSelectedFile(token: string): Promise<string | null> {
                 disabled={sending || editMode || voicePhase !== 'idle' || isSelectionMode}
                 title="Camera"
                 onClick={() => cameraInputRef.current?.click()}
-                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-slate-200/90 bg-white text-slate-600 shadow-sm transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-slate-200/90 bg-white text-slate-600 shadow-sm transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40 sm:h-11 sm:w-11 sm:rounded-2xl"
               >
                 <span className="text-lg" aria-hidden>
                   📷
@@ -2832,6 +2867,7 @@ async function uploadSelectedFile(token: string): Promise<string | null> {
               </button>
 
               <textarea
+                ref={composeTextareaRef}
                 value={text}
                 onCompositionStart={() => {
                   isComposingRef.current = true;
@@ -2896,7 +2932,7 @@ async function uploadSelectedFile(token: string): Promise<string | null> {
                 placeholder="پیام…"
                 rows={1}
                 disabled={sending || voicePhase === 'recording' || isSelectionMode}
-                className="min-h-[2.75rem] max-h-32 min-w-0 flex-1 resize-none rounded-2xl border border-slate-200/90 bg-white px-3.5 py-2.5 text-[15px] leading-normal text-slate-900 shadow-sm outline-none ring-0 transition placeholder:text-slate-400 focus:border-sky-400/60 focus:ring-2 focus:ring-sky-100"
+                className="min-h-[2.625rem] max-h-32 min-w-0 flex-1 resize-none rounded-xl border border-slate-200/90 bg-white px-3 py-2 text-[15px] leading-normal text-slate-900 shadow-sm outline-none ring-0 transition placeholder:text-slate-400 focus:border-sky-400/60 focus:ring-2 focus:ring-sky-100 sm:min-h-[2.75rem] sm:rounded-2xl sm:px-3.5 sm:py-2.5"
               />
 
               <button
@@ -2904,7 +2940,8 @@ async function uploadSelectedFile(token: string): Promise<string | null> {
                 disabled={
                   sending || voicePhase === 'recording' || voicePhase === 'sending' || isSelectionMode
                 }
-                className="inline-flex h-11 min-w-[4.5rem] shrink-0 items-center justify-center rounded-2xl bg-slate-900 px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
+                aria-busy={sending}
+                className="inline-flex h-10 min-w-[4.25rem] shrink-0 items-center justify-center rounded-xl bg-slate-900 px-3.5 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50 sm:h-11 sm:min-w-[4.5rem] sm:rounded-2xl sm:px-4"
               >
                 {sending ? (
                   <span

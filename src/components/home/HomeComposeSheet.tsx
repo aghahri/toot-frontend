@@ -190,9 +190,14 @@ export function HomeComposeSheet({ open, onClose, onPostCreated }: HomeComposeSh
           onClick={(e) => e.stopPropagation()}
         >
           <div className="flex min-w-0 shrink-0 items-center justify-between gap-2 overflow-x-hidden border-b border-slate-100 bg-white/95 px-4 py-3 backdrop-blur-sm">
-            <h2 id="compose-sheet-title" className="min-w-0 text-base font-bold text-slate-900">
-              پست جدید
-            </h2>
+            <div className="min-w-0">
+              <h2 id="compose-sheet-title" className="text-base font-bold text-slate-900">
+                پست جدید
+              </h2>
+              <p className="mt-0.5 text-[11px] font-semibold text-slate-500">
+                با محله و فید به اشتراک بگذارید
+              </p>
+            </div>
             <button
               type="button"
               onClick={() => !submitting && onClose()}
@@ -213,8 +218,8 @@ export function HomeComposeSheet({ open, onClose, onPostCreated }: HomeComposeSh
                 onChange={(e) => setText(e.target.value)}
                 placeholder="چه خبر از محله و شبکهٔ توت؟"
                 disabled={submitting}
-                rows={4}
-                className="box-border max-w-full min-w-0 w-full resize-none rounded-2xl border border-slate-200 bg-slate-50/80 p-4 text-[15px] leading-relaxed text-slate-900 outline-none ring-0 transition [overflow-wrap:anywhere] focus:border-sky-400/50 focus:bg-white"
+                rows={5}
+                className="box-border max-w-full min-w-0 w-full resize-none rounded-2xl border border-slate-200 bg-slate-50/80 p-3.5 text-[15px] leading-relaxed text-slate-900 outline-none ring-0 transition [overflow-wrap:anywhere] focus:border-sky-400/50 focus:bg-white focus:ring-2 focus:ring-sky-100"
               />
 
               <label className="block min-w-0">
