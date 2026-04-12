@@ -19,6 +19,7 @@ import { ForwardPickerSheet } from '@/components/chat/ForwardPickerSheet';
 import { loadForwardPickTargets, type ForwardPickTarget } from '@/lib/chat-forward';
 import { isVoiceMedia, formatVoiceClock } from '@/lib/chat-media';
 import { calendarDayKey, dayDividerLabelFa } from '@/lib/chat-dates';
+import { formatFileSize } from '@/lib/format-file-size';
 import { io } from 'socket.io-client';
 import {
   FormEvent,
@@ -2435,9 +2436,15 @@ async function uploadSelectedFile(token: string): Promise<string | null> {
                             href={media.url}
                             target="_blank"
                             rel="noreferrer"
-                            className="mb-2 block rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700"
+                            className="mb-2 flex min-h-[44px] items-center gap-2 rounded-xl border border-slate-200/90 bg-slate-50 px-3 py-2.5 text-xs font-semibold text-slate-800 shadow-sm transition hover:bg-slate-100"
                           >
-                            📄 {media.originalName || 'Document'}
+                            <span className="text-lg" aria-hidden>
+                              📄
+                            </span>
+                            <span className="min-w-0 flex-1 truncate">
+                              {media.originalName || 'فایل پیوست'}
+                            </span>
+                            <span className="shrink-0 text-[10px] font-bold text-sky-700">باز کردن</span>
                           </a>
                         )
                       ) : null}
@@ -2577,7 +2584,7 @@ async function uploadSelectedFile(token: string): Promise<string | null> {
         </div>
 
         <div className="sticky bottom-0 z-20 border-t border-stone-200/90 bg-[#f6f6f6]/98 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2 shadow-[0_-2px_12px_rgba(0,0,0,0.05)] backdrop-blur-md">
-          <form onSubmit={onSend} className="space-y-2.5" dir="rtl">
+          <form onSubmit={onSend} className="w-full min-w-0 space-y-2.5" dir="rtl">
             <input
               ref={fileInputRef}
               type="file"
@@ -2646,21 +2653,32 @@ async function uploadSelectedFile(token: string): Promise<string | null> {
             ) : null}
 
             {attachmentSheetOpen ? (
-              <div className="grid grid-cols-4 gap-2 rounded-2xl border border-slate-200/90 bg-white p-2 shadow-sm">
+              <div className="overflow-hidden rounded-2xl border border-slate-200/90 bg-white p-3 shadow-sm ring-1 ring-slate-100/80">
+                <div className="mb-2 flex items-center justify-between gap-2">
+                  <span className="text-[11px] font-extrabold text-slate-500">نوع پیوست</span>
+                  <button
+                    type="button"
+                    className="text-[11px] font-bold text-sky-700 hover:underline"
+                    onClick={() => setAttachmentSheetOpen(false)}
+                  >
+                    بستن
+                  </button>
+                </div>
+                <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
                 {[
-                  { key: 'photos', label: 'Photos' },
-                  { key: 'camera', label: 'Camera' },
-                  { key: 'location', label: 'Location' },
-                  { key: 'contact', label: 'Contact' },
-                  { key: 'document', label: 'Document' },
-                  { key: 'poll', label: 'Poll' },
-                  { key: 'event', label: 'Event' },
+                  { key: 'photos', label: 'گالری' },
+                  { key: 'camera', label: 'دوربین' },
+                  { key: 'location', label: 'مکان' },
+                  { key: 'contact', label: 'مخاطب' },
+                  { key: 'document', label: 'سند' },
+                  { key: 'poll', label: 'نظرسنجی' },
+                  { key: 'event', label: 'رویداد' },
                 ].map((item) => (
                   <button
                     key={item.key}
                     type="button"
                     disabled={sending || editMode || isSelectionMode}
-                    className="rounded-xl border border-slate-200 px-2 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-40"
+                    className="flex min-h-[48px] items-center justify-center rounded-xl border border-slate-200/90 bg-slate-50/50 px-1.5 py-2 text-center text-[11px] font-extrabold leading-snug text-slate-800 transition hover:bg-emerald-50 hover:border-emerald-200/80 disabled:cursor-not-allowed disabled:opacity-40"
                     onClick={async () => {
                       setAttachmentSheetOpen(false);
                       if (item.key === 'photos') {
@@ -2725,6 +2743,7 @@ async function uploadSelectedFile(token: string): Promise<string | null> {
                     {item.label}
                   </button>
                 ))}
+                </div>
               </div>
             ) : null}
 
@@ -2732,9 +2751,11 @@ async function uploadSelectedFile(token: string): Promise<string | null> {
               <button
                 type="button"
                 disabled={sending || editMode || isSelectionMode}
-                title="Attachment"
+                title="پیوست"
+                aria-label="پیوست"
+                aria-expanded={attachmentSheetOpen}
                 onClick={() => setAttachmentSheetOpen((v) => !v)}
-                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-slate-200/90 bg-white text-slate-600 shadow-sm transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-slate-200/90 bg-white text-slate-600 shadow-sm transition hover:bg-slate-50 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40"
               >
                 <span className="text-xl font-bold leading-none">+</span>
               </button>
@@ -2929,45 +2950,53 @@ async function uploadSelectedFile(token: string): Promise<string | null> {
             ) : null}
 
             {file ? (
-              <div className="space-y-3">
-                <div className="text-xs text-slate-600">
-                  فایل انتخاب شده: <span className="font-semibold">{file.name}</span>
+              <div className="space-y-3 rounded-2xl border border-slate-200/90 bg-slate-50/90 p-3 shadow-sm ring-1 ring-slate-100/80">
+                <div className="flex items-start justify-between gap-2">
+                  <span className="text-[11px] font-extrabold uppercase tracking-wide text-slate-500">
+                    پیش‌نمایش قبل از ارسال
+                  </span>
+                  <button
+                    type="button"
+                    onClick={clearSelectedFile}
+                    className="shrink-0 rounded-lg px-2 py-1 text-[11px] font-extrabold text-red-700 transition hover:bg-red-50"
+                  >
+                    حذف
+                  </button>
                 </div>
-
-                {previewUrl ? (
-                  file.type.startsWith('video/') ? (
-                    <video
-                      src={previewUrl}
-                      controls
-                      className="max-h-72 w-full rounded-2xl border border-slate-200 bg-black"
-                    />
-                  ) : (
-                    <img
-                      src={previewUrl}
-                      alt={file.name}
-                      className="max-h-72 w-full rounded-2xl border border-slate-200 bg-white object-contain"
-                    />
-                  )
-                ) : null}
-
-                <button
-                  type="button"
-                  onClick={clearSelectedFile}
-                  className="rounded-xl border border-red-200 px-3 py-2 text-xs font-semibold text-red-600"
-                >
-                  حذف فایل انتخاب‌شده
-                </button>
+                {file.type.startsWith('image/') && previewUrl ? (
+                  <img
+                    src={previewUrl}
+                    alt={file.name}
+                    className="max-h-72 w-full rounded-xl border border-slate-200/90 bg-white object-contain shadow-inner"
+                  />
+                ) : file.type.startsWith('video/') && previewUrl ? (
+                  <video
+                    src={previewUrl}
+                    controls
+                    className="max-h-72 w-full rounded-xl border border-slate-200/90 bg-black object-contain shadow-inner"
+                  />
+                ) : (
+                  <div className="flex items-center gap-3 rounded-xl border border-slate-200/90 bg-white px-3 py-3 shadow-sm">
+                    <span className="text-2xl opacity-90" aria-hidden>
+                      📎
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate text-sm font-bold text-slate-900">{file.name}</div>
+                      <div className="mt-0.5 text-[11px] font-medium text-slate-500">
+                        {formatFileSize(file.size)}
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             ) : null}
 
 {uploadProgress !== null ? (
-  <div className="space-y-2">
-    <div className="text-xs font-semibold text-slate-700">
-      در حال آپلود: {uploadProgress}%
-    </div>
-    <div className="h-2 w-full overflow-hidden rounded-full bg-slate-200">
+  <div className="space-y-2 rounded-2xl border border-emerald-200/80 bg-emerald-50/90 px-3 py-3 ring-1 ring-emerald-100/60">
+    <div className="text-[12px] font-extrabold text-emerald-950">در حال آپلود… {uploadProgress}٪</div>
+    <div className="h-2 w-full overflow-hidden rounded-full bg-emerald-200/60">
       <div
-        className="h-full rounded-full bg-slate-900 transition-all"
+        className="h-full rounded-full bg-emerald-600 transition-[width] duration-150"
         style={{ width: `${uploadProgress}%` }}
       />
     </div>
