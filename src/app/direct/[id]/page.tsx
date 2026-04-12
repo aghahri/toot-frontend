@@ -227,7 +227,7 @@ export default function DirectConversationPage() {
   const params = useParams();
   const router = useRouter();
   const { socket: appSocket } = useAppRealtime();
-  const { startCall: startVoiceCall } = useVoiceCall();
+  const { startCall: startVoiceCall, canStartCall: canStartVoiceCall } = useVoiceCall();
   const conversationId = Array.isArray(params?.id) ? params.id[0] : params?.id ?? '';
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -2017,10 +2017,15 @@ async function uploadSelectedFile(token: string): Promise<string | null> {
 
               <button
                 type="button"
-                title="تماس صوتی"
+                title={
+                  canStartVoiceCall
+                    ? 'تماس صوتی'
+                    : 'تماس در جریان است یا پنجرهٔ پایان تماس باز است؛ ابتدا آن را ببندید.'
+                }
                 aria-label="تماس صوتی"
+                disabled={!canStartVoiceCall}
                 onClick={() => startVoiceCall({ conversationId })}
-                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-slate-600 transition hover:bg-slate-100"
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-slate-600 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40"
               >
                 <span className="text-lg" aria-hidden>
                   📞

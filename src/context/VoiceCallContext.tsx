@@ -24,6 +24,8 @@ export type VoicePeer = {
 
 type CallPhase = 'idle' | 'outgoing' | 'incoming' | 'connecting' | 'active' | 'ended';
 
+type LastCallOpts = { conversationId?: string; targetUserId?: string };
+
 type CallStartAck =
   | {
       ok: true;
@@ -34,56 +36,95 @@ type CallStartAck =
     }
   | { ok: false; code: string; message?: string };
 
-type VoiceCallContextValue = {
+export type VoiceCallContextValue = {
   phase: CallPhase;
   peer: VoicePeer | null;
   muted: boolean;
   elapsedSeconds: number;
   endedReason: string | null;
-  startCall: (opts: { conversationId?: string; targetUserId?: string }) => void;
+  /** Only when idle can a new call be started from entry points (avoids stacking calls). */
+  canStartCall: boolean;
+  startCall: (opts: LastCallOpts) => void;
   acceptIncoming: () => void;
   rejectIncoming: () => void;
   hangup: () => void;
   toggleMute: () => void;
+  /** Close the ended overlay without waiting for auto-dismiss. */
+  dismissEnded: () => void;
+  /** Redial using the last conversation or profile target (if any). */
+  retryLastCall: () => void;
 };
 
 const VoiceCallContext = createContext<VoiceCallContextValue | null>(null);
 
+const CONNECTING_TIMEOUT_MS = 55_000;
+
 function mapStartError(code: string, message?: string): string {
   switch (code) {
     case 'PEER_BUSY':
-      return 'طرف مقابل در تماس دیگری است.';
+      return 'طرف مقابل الان سر خط دیگری است. کمی بعد دوباره امتحان کنید.';
     case 'UNAVAILABLE':
-      return 'کاربر آنلاین نیست.';
+      return 'این کاربر الان آنلاین نیست؛ وقتی برخط بود دوباره تماس بگیرید.';
     case 'BUSY':
-      return 'شما هم‌اکنون در تماس هستید.';
+      return 'شما هم‌اکنون در یک تماس یا فرآیند تماس هستید. ابتدا تماس جاری را تمام کنید.';
     case 'FORBIDDEN':
-      return 'اجازهٔ شروع تماس را ندارید.';
+      return 'اجازهٔ شروع این تماس را ندارید.';
     case 'CONVERSATION_FAILED':
-      return 'گفتگوی خصوصی باز نشد.';
+      return 'گفتگوی خصوصی باز نشد. صفحه را تازه کنید و دوباره تلاش کنید.';
     case 'INVALID_PAYLOAD':
     case 'NO_PEER':
     case 'INVALID_PEER':
       return message || 'درخواست تماس نامعتبر است.';
     default:
-      return message || 'تماس برقرار نشد.';
+      return message || 'تماس برقرار نشد. دوباره تلاش کنید.';
   }
 }
 
-function mapEndedReason(reason: string | undefined): string {
-  switch (reason) {
-    case 'rejected':
-      return 'تماس رد شد.';
-    case 'cancelled':
-      return 'تماس لغو شد.';
-    case 'missed':
-      return 'تماس از دست رفت.';
-    case 'failed':
-    case 'hangup':
-      return 'تماس پایان یافت.';
-    default:
-      return 'تماس پایان یافت.';
+function mapCallEndedMessage(
+  reason: string | undefined,
+  status: string | undefined,
+  role: 'caller' | 'callee' | null,
+): string {
+  const r = reason ?? '';
+  const st = status ?? '';
+
+  if (r === 'rejected' || st === 'REJECTED') {
+    return role === 'caller' ? 'طرف مقابل تماس را نپذیرفت.' : 'تماس رد شد.';
   }
+  if (r === 'cancelled') {
+    return role === 'caller' ? 'تماس را لغو کردید.' : 'تماس توسط طرف مقابل لغو شد.';
+  }
+  if (r === 'missed' || st === 'MISSED') {
+    return role === 'caller' ? 'تماس بدون پاسخ ماند.' : 'تماس ورودی پاسخ داده نشد.';
+  }
+  if (r === 'failed' || st === 'FAILED') {
+    return 'ارتباط صوتی برقرار نشد یا قطع شد.';
+  }
+  if (r === 'hangup' || st === 'ENDED') {
+    return 'تماس به پایان رسید.';
+  }
+  return 'تماس پایان یافت.';
+}
+
+function getMediaErrorMessage(err: unknown): string {
+  if (!(err instanceof Error)) return 'میکروفون در دسترس نیست یا خطایی رخ داد.';
+  const n = err.name;
+  if (n === 'NotAllowedError' || n === 'PermissionDeniedError') {
+    return 'دسترسی به میکروفون داده نشد. در نوار آدرس مرورگر اجازهٔ ضبط صدا را بدهید و دوباره تلاش کنید.';
+  }
+  if (n === 'NotFoundError' || n === 'DevicesNotFoundError') {
+    return 'میکروفونی روی این دستگاه پیدا نشد.';
+  }
+  if (n === 'NotReadableError' || n === 'TrackStartError') {
+    return 'میکروفون توسط برنامهٔ دیگری اشغال است یا در دسترس نیست.';
+  }
+  if (n === 'OverconstrainedError') {
+    return 'تنظیمات دستگاه با درخواست تماس سازگار نیست.';
+  }
+  if (n === 'AbortError') {
+    return 'باز کردن میکروفون متوقف شد.';
+  }
+  return 'خطا در دسترسی به میکروفون. مرورگر یا دستگاه را بررسی کنید.';
 }
 
 async function loadIceServers(): Promise<RTCIceServer[]> {
@@ -124,6 +165,8 @@ export function VoiceCallProvider({ children }: { children: ReactNode }) {
   const phaseRef = useRef<CallPhase>('idle');
   const timerRef = useRef<number | null>(null);
   const endedTimerRef = useRef<number | null>(null);
+  const connectingTimerRef = useRef<number | null>(null);
+  const lastCallOptsRef = useRef<LastCallOpts | null>(null);
 
   const clearTimers = useCallback(() => {
     if (timerRef.current != null) {
@@ -134,9 +177,21 @@ export function VoiceCallProvider({ children }: { children: ReactNode }) {
       window.clearTimeout(endedTimerRef.current);
       endedTimerRef.current = null;
     }
+    if (connectingTimerRef.current != null) {
+      window.clearTimeout(connectingTimerRef.current);
+      connectingTimerRef.current = null;
+    }
+  }, []);
+
+  const clearConnectingTimer = useCallback(() => {
+    if (connectingTimerRef.current != null) {
+      window.clearTimeout(connectingTimerRef.current);
+      connectingTimerRef.current = null;
+    }
   }, []);
 
   const teardownMedia = useCallback(() => {
+    clearConnectingTimer();
     clearTimers();
     localStreamRef.current?.getTracks().forEach((t) => t.stop());
     localStreamRef.current = null;
@@ -152,7 +207,7 @@ export function VoiceCallProvider({ children }: { children: ReactNode }) {
     calleeMediaStartedRef.current = false;
     setMuted(false);
     setElapsedSeconds(0);
-  }, [clearTimers]);
+  }, [clearConnectingTimer, clearTimers]);
 
   const resetToIdle = useCallback(() => {
     teardownMedia();
@@ -174,6 +229,17 @@ export function VoiceCallProvider({ children }: { children: ReactNode }) {
       }, delayMs);
     },
     [resetToIdle],
+  );
+
+  const goToEnded = useCallback(
+    (message: string, autoDismissMs: number) => {
+      setPhase('ended');
+      phaseRef.current = 'ended';
+      setEndedReason(message);
+      teardownMedia();
+      scheduleIdle(autoDismissMs);
+    },
+    [scheduleIdle, teardownMedia],
   );
 
   const flushPendingIce = useCallback(async () => {
@@ -198,6 +264,16 @@ export function VoiceCallProvider({ children }: { children: ReactNode }) {
     }, 1000);
   }, []);
 
+  const failConnection = useCallback(
+    (message: string) => {
+      const sid = sessionIdRef.current;
+      const s = socketRef.current;
+      if (sid && s) s.emit('call_end', { sessionId: sid });
+      goToEnded(message, 4200);
+    },
+    [goToEnded],
+  );
+
   const wirePc = useCallback(
     (pc: RTCPeerConnection) => {
       pc.onicecandidate = (e) => {
@@ -216,26 +292,37 @@ export function VoiceCallProvider({ children }: { children: ReactNode }) {
         }
       };
 
+      pc.oniceconnectionstatechange = () => {
+        const ice = pc.iceConnectionState;
+        if (ice === 'failed') {
+          failConnection('ارتباط شبکه برای تماس صوتی قطع شد.');
+        }
+      };
+
       pc.onconnectionstatechange = () => {
         const st = pc.connectionState;
-        // RTCPeerConnectionState has no 'completed'; ICE 'completed' maps to connectionState 'connected'.
         if (st === 'connected') {
+          clearConnectingTimer();
           setPhase('active');
+          phaseRef.current = 'active';
           startElapsedTimer();
         }
-        if (st === 'failed' || st === 'disconnected') {
-          setPhase('ended');
-          setEndedReason('اتصال قطع شد یا برقرار نشد.');
-          teardownMedia();
-          const sid = sessionIdRef.current;
-          const s = socketRef.current;
-          if (sid && s) s.emit('call_end', { sessionId: sid });
-          scheduleIdle(2800);
+        if (st === 'failed') {
+          failConnection('اتصال تماس برقرار نشد یا قطع شد.');
         }
       };
     },
-    [scheduleIdle, startElapsedTimer, teardownMedia],
+    [clearConnectingTimer, failConnection, startElapsedTimer],
   );
+
+  const startConnectingWatchdog = useCallback(() => {
+    clearConnectingTimer();
+    connectingTimerRef.current = window.setTimeout(() => {
+      connectingTimerRef.current = null;
+      if (phaseRef.current !== 'connecting') return;
+      failConnection('اتصال بیش از حد طول کشید. شبکه یا سرور TURN را بررسی کنید.');
+    }, CONNECTING_TIMEOUT_MS);
+  }, [clearConnectingTimer, failConnection]);
 
   const applyAnswer = useCallback(
     async (sdp: string) => {
@@ -304,6 +391,8 @@ export function VoiceCallProvider({ children }: { children: ReactNode }) {
 
   const runCallerMedia = useCallback(async () => {
     setPhase('connecting');
+    phaseRef.current = 'connecting';
+    startConnectingWatchdog();
     try {
       const ice = await loadIceServers();
       const pc = new RTCPeerConnection({ iceServers: ice });
@@ -321,22 +410,17 @@ export function VoiceCallProvider({ children }: { children: ReactNode }) {
       if (!sid || !s) return;
       s.emit('call_signal', { sessionId: sid, type: 'offer', sdp: offer.sdp });
     } catch (e) {
-      setPhase('ended');
-      setEndedReason(
-        e instanceof Error && e.name === 'NotAllowedError'
-          ? 'دسترسی به میکروفون داده نشد.'
-          : 'خطا در آماده‌سازی تماس صوتی.',
-      );
-      teardownMedia();
+      goToEnded(getMediaErrorMessage(e), 5000);
       const sid = sessionIdRef.current;
       const s = socketRef.current;
       if (sid && s) s.emit('call_end', { sessionId: sid });
-      scheduleIdle(3200);
     }
-  }, [scheduleIdle, teardownMedia, wirePc]);
+  }, [goToEnded, startConnectingWatchdog, wirePc]);
 
   const runCalleeMedia = useCallback(async () => {
     setPhase('connecting');
+    phaseRef.current = 'connecting';
+    startConnectingWatchdog();
     try {
       const ice = await loadIceServers();
       const pc = new RTCPeerConnection({ iceServers: ice });
@@ -361,21 +445,14 @@ export function VoiceCallProvider({ children }: { children: ReactNode }) {
         }
       }
     } catch (e) {
-      setPhase('ended');
-      setEndedReason(
-        e instanceof Error && e.name === 'NotAllowedError'
-          ? 'دسترسی به میکروفون داده نشد.'
-          : 'خطا در آماده‌سازی تماس صوتی.',
-      );
-      teardownMedia();
+      goToEnded(getMediaErrorMessage(e), 5000);
       const sid = sessionIdRef.current;
       const s = socketRef.current;
       if (sid && s) {
         s.emit('call_reject', { sessionId: sid });
       }
-      scheduleIdle(3200);
     }
-  }, [flushPendingIce, scheduleIdle, teardownMedia, wirePc]);
+  }, [flushPendingIce, goToEnded, startConnectingWatchdog, wirePc]);
 
   useEffect(() => {
     phaseRef.current = phase;
@@ -391,6 +468,7 @@ export function VoiceCallProvider({ children }: { children: ReactNode }) {
       caller: VoicePeer;
     }) => {
       if (phaseRef.current !== 'idle') return;
+      lastCallOptsRef.current = { conversationId: payload.conversationId };
       sessionIdRef.current = payload.sessionId;
       conversationIdRef.current = payload.conversationId;
       roleRef.current = 'callee';
@@ -400,6 +478,7 @@ export function VoiceCallProvider({ children }: { children: ReactNode }) {
       setPhase('incoming');
       phaseRef.current = 'incoming';
       pendingOfferSdpRef.current = null;
+      setEndedReason(null);
     };
 
     const onAcceptedPayload = (payload: { sessionId: string }) => {
@@ -417,12 +496,14 @@ export function VoiceCallProvider({ children }: { children: ReactNode }) {
       }
     };
 
-    const onEnded = (payload: { sessionId: string; status: string; reason?: string }) => {
+    const onEnded = (payload: { sessionId: string; status?: string; reason?: string }) => {
       if (payload.sessionId !== sessionIdRef.current) return;
+      const msg = mapCallEndedMessage(payload.reason, payload.status, roleRef.current);
       setPhase('ended');
-      setEndedReason(mapEndedReason(payload.reason));
+      phaseRef.current = 'ended';
+      setEndedReason(msg);
       teardownMedia();
-      scheduleIdle(2800);
+      scheduleIdle(3800);
     };
 
     const onSignal = (payload: {
@@ -435,28 +516,51 @@ export function VoiceCallProvider({ children }: { children: ReactNode }) {
       void handleRemoteSignal(payload);
     };
 
+    const onPeerBusy = () => {
+      if (phaseRef.current !== 'outgoing') return;
+      setPhase('ended');
+      phaseRef.current = 'ended';
+      setEndedReason(mapStartError('PEER_BUSY'));
+      sessionIdRef.current = null;
+      teardownMedia();
+      scheduleIdle(4200);
+    };
+
     socket.on('call_invite', onInvite);
     socket.on('call_accepted', onAcceptedPayload);
     socket.on('call_ended', onEnded);
     socket.on('call_signal', onSignal);
+    socket.on('call_peer_busy', onPeerBusy);
 
     return () => {
       socket.off('call_invite', onInvite);
       socket.off('call_accepted', onAcceptedPayload);
       socket.off('call_ended', onEnded);
       socket.off('call_signal', onSignal);
+      socket.off('call_peer_busy', onPeerBusy);
     };
   }, [handleRemoteSignal, runCalleeMedia, runCallerMedia, scheduleIdle, socket, teardownMedia]);
 
+  const dismissEnded = useCallback(() => {
+    if (endedTimerRef.current != null) {
+      window.clearTimeout(endedTimerRef.current);
+      endedTimerRef.current = null;
+    }
+    resetToIdle();
+  }, [resetToIdle]);
+
   const startCall = useCallback(
-    (opts: { conversationId?: string; targetUserId?: string }) => {
+    (opts: LastCallOpts) => {
       const s = socketRef.current;
       if (!s?.connected) {
-        setPhase('ended');
-        setEndedReason('اتصال زنده برقرار نیست. صفحه را تازه کنید.');
-        scheduleIdle(3000);
+        lastCallOptsRef.current = opts;
+        goToEnded('اتصال زنده با سرور برقرار نیست. اینترنت را چک کنید یا صفحه را تازه کنید.', 4500);
         return;
       }
+      lastCallOptsRef.current = {
+        conversationId: opts.conversationId?.trim() || undefined,
+        targetUserId: opts.targetUserId?.trim() || undefined,
+      };
       setEndedReason(null);
       setPhase('outgoing');
       phaseRef.current = 'outgoing';
@@ -468,24 +572,44 @@ export function VoiceCallProvider({ children }: { children: ReactNode }) {
       s.emit(
         'call_start',
         {
-          conversationId: opts.conversationId?.trim() || undefined,
-          targetUserId: opts.targetUserId?.trim() || undefined,
+          conversationId: lastCallOptsRef.current.conversationId,
+          targetUserId: lastCallOptsRef.current.targetUserId,
         },
         (ack: CallStartAck) => {
           if (!ack?.ok) {
-            setPhase('ended');
-            setEndedReason(mapStartError(ack?.code ?? 'UNKNOWN', ack?.message));
-            scheduleIdle(3200);
+            goToEnded(mapStartError(ack?.code ?? 'UNKNOWN', ack?.message), 4500);
             return;
           }
           sessionIdRef.current = ack.sessionId;
           conversationIdRef.current = ack.conversationId;
+          lastCallOptsRef.current = {
+            conversationId: ack.conversationId,
+            targetUserId: lastCallOptsRef.current?.targetUserId,
+          };
           setPeer(ack.peer);
         },
       );
     },
-    [scheduleIdle],
+    [goToEnded],
   );
+
+  const retryLastCall = useCallback(() => {
+    const o = lastCallOptsRef.current;
+    if (endedTimerRef.current != null) {
+      window.clearTimeout(endedTimerRef.current);
+      endedTimerRef.current = null;
+    }
+    teardownMedia();
+    setEndedReason(null);
+    setPhase('idle');
+    phaseRef.current = 'idle';
+    sessionIdRef.current = null;
+    roleRef.current = null;
+    if (!o?.conversationId && !o?.targetUserId) {
+      return;
+    }
+    window.setTimeout(() => startCall(o), 0);
+  }, [startCall, teardownMedia]);
 
   const acceptIncoming = useCallback(() => {
     const sid = sessionIdRef.current;
@@ -493,12 +617,10 @@ export function VoiceCallProvider({ children }: { children: ReactNode }) {
     if (!sid || !s) return;
     s.emit('call_accept', { sessionId: sid }, (res: { ok?: boolean; code?: string }) => {
       if (res?.ok === false) {
-        setPhase('ended');
-        setEndedReason('پذیرش تماس ممکن نشد.');
-        scheduleIdle(2800);
+        goToEnded('پذیرش تماس ممکن نشد. دوباره تلاش کنید.', 4000);
       }
     });
-  }, [scheduleIdle]);
+  }, [goToEnded]);
 
   const rejectIncoming = useCallback(() => {
     const sid = sessionIdRef.current;
@@ -511,18 +633,36 @@ export function VoiceCallProvider({ children }: { children: ReactNode }) {
   const hangup = useCallback(() => {
     const sid = sessionIdRef.current;
     const s = socketRef.current;
+    const r = roleRef.current;
+    const ph = phaseRef.current;
+
+    let localHint: string | null = null;
+    if (ph === 'outgoing') {
+      localHint = r === 'caller' ? 'در حال لغو تماس…' : null;
+    } else if (ph === 'active') {
+      localHint = 'در حال پایان تماس…';
+    }
+
+    if (localHint) {
+      setEndedReason(localHint);
+    }
+
     if (sid && s) {
       s.emit('call_end', { sessionId: sid });
     }
     teardownMedia();
-    if (phase === 'outgoing' || phase === 'incoming' || phase === 'connecting' || phase === 'active') {
+
+    if (ph === 'outgoing' || ph === 'incoming' || ph === 'connecting' || ph === 'active') {
       setPhase('ended');
-      setEndedReason('تماس پایان یافت.');
-      scheduleIdle(1800);
+      phaseRef.current = 'ended';
+      if (!localHint) {
+        setEndedReason('تماس پایان یافت.');
+      }
+      scheduleIdle(2200);
     } else {
       resetToIdle();
     }
-  }, [phase, resetToIdle, scheduleIdle, teardownMedia]);
+  }, [resetToIdle, scheduleIdle, teardownMedia]);
 
   const toggleMute = useCallback(() => {
     const stream = localStreamRef.current;
@@ -534,6 +674,8 @@ export function VoiceCallProvider({ children }: { children: ReactNode }) {
     setMuted(nextMuted);
   }, [muted]);
 
+  const canStartCall = phase === 'idle';
+
   const value = useMemo<VoiceCallContextValue>(
     () => ({
       phase,
@@ -541,14 +683,19 @@ export function VoiceCallProvider({ children }: { children: ReactNode }) {
       muted,
       elapsedSeconds,
       endedReason,
+      canStartCall,
       startCall,
       acceptIncoming,
       rejectIncoming,
       hangup,
       toggleMute,
+      dismissEnded,
+      retryLastCall,
     }),
     [
       acceptIncoming,
+      canStartCall,
+      dismissEnded,
       elapsedSeconds,
       endedReason,
       hangup,
@@ -556,6 +703,7 @@ export function VoiceCallProvider({ children }: { children: ReactNode }) {
       peer,
       phase,
       rejectIncoming,
+      retryLastCall,
       startCall,
       toggleMute,
     ],
@@ -563,94 +711,146 @@ export function VoiceCallProvider({ children }: { children: ReactNode }) {
 
   const showOverlay = phase !== 'idle';
 
+  const phaseHeadline =
+    phase === 'incoming'
+      ? 'تماس ورودی'
+      : phase === 'outgoing'
+        ? 'در حال زنگ زدن…'
+        : phase === 'connecting'
+          ? 'در حال برقراری ارتباط صوتی…'
+          : phase === 'active'
+            ? 'در تماس'
+            : phase === 'ended'
+              ? 'پایان تماس'
+              : '';
+
+  const phaseHint =
+    phase === 'incoming'
+      ? 'برای پاسخ، سبز را بزنید؛ برای رد، قرمز.'
+      : phase === 'outgoing'
+        ? 'منتظر پاسخ طرف مقابل هستید.'
+        : phase === 'connecting'
+          ? 'در حال آماده‌سازی صدا و شبکه…'
+          : phase === 'active'
+            ? `مدت تماس ${formatClock(elapsedSeconds)}`
+            : '';
+
   return (
     <VoiceCallContext.Provider value={value}>
       {children}
       <audio ref={remoteAudioRef} className="hidden" playsInline autoPlay aria-hidden />
       {showOverlay ? (
         <div
-          className="fixed inset-0 z-[200] flex flex-col items-center justify-center bg-gradient-to-b from-slate-900 via-slate-900 to-slate-950 px-6 text-white"
+          className="fixed inset-0 z-[200] flex flex-col items-center justify-center bg-gradient-to-b from-slate-900 via-slate-900 to-slate-950 px-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-8 text-white"
           dir="rtl"
           role="dialog"
           aria-modal="true"
           aria-label="تماس صوتی"
         >
-          <div className="mb-8 flex h-28 w-28 shrink-0 items-center justify-center overflow-hidden rounded-full bg-slate-800 ring-4 ring-slate-700/80 shadow-2xl">
+          <div className="mb-6 flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-full bg-slate-800 ring-4 ring-slate-700/80 shadow-2xl sm:h-28 sm:w-28">
             {peer?.avatar ? (
               <img src={peer.avatar} alt="" className="h-full w-full object-cover" />
             ) : (
-              <span className="text-4xl font-extrabold text-slate-300">
+              <span className="text-3xl font-extrabold text-slate-300 sm:text-4xl">
                 {(peer?.name ?? '?').trim().slice(0, 1) || '?'}
               </span>
             )}
           </div>
-          <h2 className="text-center text-xl font-extrabold tracking-tight">{peer?.name ?? 'تماس'}</h2>
-          <p className="mt-2 text-center text-sm font-medium text-slate-400">
-            {phase === 'incoming' ? 'تماس ورودی' : null}
-            {phase === 'outgoing' ? 'در حال برقراری تماس…' : null}
-            {phase === 'connecting' ? 'در حال اتصال…' : null}
-            {phase === 'active' ? `در تماس — ${formatClock(elapsedSeconds)}` : null}
-            {phase === 'ended' ? endedReason ?? 'پایان' : null}
-          </p>
+          <h2 className="text-center text-lg font-extrabold tracking-tight sm:text-xl">{peer?.name ?? 'تماس'}</h2>
+          {phase !== 'ended' ? (
+            <>
+              <p className="mt-1 text-center text-[15px] font-bold text-sky-300/95">{phaseHeadline}</p>
+              {phaseHint ? (
+                <p className="mt-2 max-w-[20rem] text-center text-[13px] leading-relaxed text-slate-400">
+                  {phaseHint}
+                </p>
+              ) : null}
+            </>
+          ) : (
+            <p className="mt-3 max-w-[22rem] text-center text-[15px] font-semibold leading-relaxed text-slate-100">
+              {endedReason ?? 'تماس پایان یافت.'}
+            </p>
+          )}
 
-          <div className="mt-12 flex w-full max-w-xs flex-wrap items-center justify-center gap-4">
-            {phase === 'incoming' ? (
-              <>
-                <button
-                  type="button"
-                  onClick={() => rejectIncoming()}
-                  className="flex h-16 w-16 items-center justify-center rounded-full bg-red-600 text-2xl shadow-lg transition hover:bg-red-700"
-                  aria-label="رد تماس"
-                >
-                  ✕
-                </button>
-                <button
-                  type="button"
-                  onClick={() => acceptIncoming()}
-                  className="flex h-16 w-16 items-center justify-center rounded-full bg-emerald-500 text-2xl shadow-lg transition hover:bg-emerald-600"
-                  aria-label="پاسخ به تماس"
-                >
-                  ✓
-                </button>
-              </>
-            ) : null}
+          <div className="mt-10 flex w-full max-w-sm flex-col items-stretch gap-3 sm:mt-12">
+            <div className="flex flex-wrap items-center justify-center gap-4">
+              {phase === 'incoming' ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => rejectIncoming()}
+                    className="flex h-16 w-16 items-center justify-center rounded-full bg-red-600 text-2xl shadow-lg transition hover:bg-red-700 active:scale-[0.98]"
+                    aria-label="رد تماس"
+                  >
+                    ✕
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => acceptIncoming()}
+                    className="flex h-16 w-16 items-center justify-center rounded-full bg-emerald-500 text-2xl shadow-lg transition hover:bg-emerald-600 active:scale-[0.98]"
+                    aria-label="پاسخ به تماس"
+                  >
+                    ✓
+                  </button>
+                </>
+              ) : null}
 
-            {phase === 'outgoing' || phase === 'connecting' ? (
-              <button
-                type="button"
-                onClick={() => hangup()}
-                className="flex h-16 w-16 items-center justify-center rounded-full bg-red-600 text-xl font-bold shadow-lg transition hover:bg-red-700"
-                aria-label="لغو تماس"
-              >
-                لغو
-              </button>
-            ) : null}
-
-            {phase === 'active' ? (
-              <>
-                <button
-                  type="button"
-                  onClick={() => toggleMute()}
-                  className={`flex h-14 w-14 items-center justify-center rounded-full text-lg shadow-lg transition ${
-                    muted ? 'bg-amber-600 hover:bg-amber-700' : 'bg-slate-700 hover:bg-slate-600'
-                  }`}
-                  aria-label={muted ? 'روشن کردن میکروفون' : 'بی‌صدا'}
-                >
-                  {muted ? '🔇' : '🎤'}
-                </button>
+              {phase === 'outgoing' || phase === 'connecting' ? (
                 <button
                   type="button"
                   onClick={() => hangup()}
-                  className="flex h-16 w-16 items-center justify-center rounded-full bg-red-600 text-xl font-bold shadow-lg transition hover:bg-red-700"
-                  aria-label="پایان تماس"
+                  className="flex h-16 min-w-[5.5rem] items-center justify-center rounded-full bg-red-600 px-5 text-sm font-extrabold shadow-lg transition hover:bg-red-700 active:scale-[0.98]"
+                  aria-label="لغو تماس"
                 >
-                  پایان
+                  لغو تماس
                 </button>
-              </>
+              ) : null}
+
+              {phase === 'active' ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => toggleMute()}
+                    className={`flex h-14 w-14 items-center justify-center rounded-full text-lg shadow-lg transition active:scale-[0.98] ${
+                      muted ? 'bg-amber-600 hover:bg-amber-700' : 'bg-slate-700 hover:bg-slate-600'
+                    }`}
+                    aria-label={muted ? 'روشن کردن میکروفون' : 'بی‌صدا کردن میکروفون'}
+                  >
+                    {muted ? '🔇' : '🎤'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => hangup()}
+                    className="flex h-16 min-w-[5.5rem] items-center justify-center rounded-full bg-red-600 px-5 text-sm font-extrabold shadow-lg transition hover:bg-red-700 active:scale-[0.98]"
+                    aria-label="پایان تماس"
+                  >
+                    پایان تماس
+                  </button>
+                </>
+              ) : null}
+            </div>
+
+            {phase === 'ended' ? (
+              <div className="mt-2 flex w-full flex-col gap-2 sm:flex-row sm:justify-center">
+                <button
+                  type="button"
+                  onClick={() => retryLastCall()}
+                  className="min-h-[48px] flex-1 rounded-xl bg-sky-600 py-3 text-sm font-extrabold text-white shadow-md transition hover:bg-sky-500 active:scale-[0.99] sm:flex-initial sm:px-8"
+                >
+                  تماس دوباره
+                </button>
+                <button
+                  type="button"
+                  onClick={() => dismissEnded()}
+                  className="min-h-[48px] flex-1 rounded-xl border border-slate-600 bg-slate-800/80 py-3 text-sm font-extrabold text-slate-100 transition hover:bg-slate-800 active:scale-[0.99] sm:flex-initial sm:px-8"
+                >
+                  بستن
+                </button>
+              </div>
             ) : null}
 
             {phase === 'ended' ? (
-              <p className="w-full text-center text-xs text-slate-500">در حال بستن…</p>
+              <p className="text-center text-[11px] text-slate-500">می‌توانید به گفتگو برگردید یا دوباره تماس بگیرید.</p>
             ) : null}
           </div>
         </div>

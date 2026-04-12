@@ -56,7 +56,7 @@ type ProfileUserClientProps = {
 
 export function ProfileUserClient({ userId }: ProfileUserClientProps) {
   const router = useRouter();
-  const { startCall: startVoiceCall } = useVoiceCall();
+  const { startCall: startVoiceCall, canStartCall: canStartVoiceCall } = useVoiceCall();
   const [profile, setProfile] = useState<PublicUserProfile | null>(null);
   const [profileError, setProfileError] = useState<string | null>(null);
   const [posts, setPosts] = useState<FeedPost[]>([]);
@@ -316,7 +316,12 @@ export function ProfileUserClient({ userId }: ProfileUserClientProps) {
                         </button>
                         <button
                           type="button"
-                          disabled={dmBusy || followBusy}
+                          disabled={dmBusy || followBusy || !canStartVoiceCall}
+                          title={
+                            !canStartVoiceCall
+                              ? 'تماس در جریان است؛ ابتدا تماس جاری را تمام کنید.'
+                              : undefined
+                          }
                           onClick={() => startVoiceCall({ targetUserId: profile.id })}
                           className="flex min-h-[46px] min-w-0 flex-1 basis-[calc(50%-0.25rem)] items-center justify-center rounded-full border-2 border-sky-500 bg-white text-sm font-extrabold text-sky-800 shadow-sm transition hover:bg-sky-50 disabled:cursor-not-allowed disabled:opacity-55"
                           aria-label={`تماس صوتی با ${profile.name}`}
