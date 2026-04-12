@@ -169,6 +169,10 @@ export function VoiceCallProvider({ children }: { children: ReactNode }) {
   const lastCallOptsRef = useRef<LastCallOpts | null>(null);
   /** Ensures we only run connecting→active transition once per PC (both ICE and connection handlers may fire). */
   const callActivatedRef = useRef(false);
+  /** Serializes call_signal handling so SDP steps and ICE adds cannot interleave across parallel async tasks. */
+  const signalChainRef = useRef<Promise<void>>(Promise.resolve());
+  const iceFailTimerRef = useRef<number | null>(null);
+  const connFailTimerRef = useRef<number | null>(null);
 
   const clearTimers = useCallback(() => {
     if (timerRef.current != null) {
@@ -193,6 +197,15 @@ export function VoiceCallProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const teardownMedia = useCallback(() => {
+    signalChainRef.current = Promise.resolve();
+    if (iceFailTimerRef.current != null) {
+      window.clearTimeout(iceFailTimerRef.current);
+      iceFailTimerRef.current = null;
+    }
+    if (connFailTimerRef.current != null) {
+      window.clearTimeout(connFailTimerRef.current);
+      connFailTimerRef.current = null;
+    }
     clearConnectingTimer();
     clearTimers();
     localStreamRef.current?.getTracks().forEach((t) => t.stop());
@@ -274,6 +287,14 @@ export function VoiceCallProvider({ children }: { children: ReactNode }) {
 
   const failConnection = useCallback(
     (message: string) => {
+      if (iceFailTimerRef.current != null) {
+        window.clearTimeout(iceFailTimerRef.current);
+        iceFailTimerRef.current = null;
+      }
+      if (connFailTimerRef.current != null) {
+        window.clearTimeout(connFailTimerRef.current);
+        connFailTimerRef.current = null;
+      }
       const sid = sessionIdRef.current;
       const s = socketRef.current;
       if (sid && s) s.emit('call_end', { sessionId: sid });
@@ -299,6 +320,12 @@ export function VoiceCallProvider({ children }: { children: ReactNode }) {
       setPhase('active');
       phaseRef.current = 'active';
       startElapsedTimer();
+      const a = remoteAudioRef.current;
+      if (a?.srcObject) {
+        void a.play().catch(() => {
+          window.setTimeout(() => void a.play().catch(() => {}), 200);
+        });
+      }
     },
     [clearConnectingTimer, startElapsedTimer],
   );
@@ -336,8 +363,20 @@ export function VoiceCallProvider({ children }: { children: ReactNode }) {
 
       pc.oniceconnectionstatechange = () => {
         const ice = pc.iceConnectionState;
+        if (ice !== 'failed') {
+          if (iceFailTimerRef.current != null) {
+            window.clearTimeout(iceFailTimerRef.current);
+            iceFailTimerRef.current = null;
+          }
+        }
         if (ice === 'failed') {
-          failConnection('ارتباط شبکه برای تماس صوتی قطع شد.');
+          const snapshot = pc;
+          if (iceFailTimerRef.current != null) window.clearTimeout(iceFailTimerRef.current);
+          iceFailTimerRef.current = window.setTimeout(() => {
+            iceFailTimerRef.current = null;
+            if (snapshot !== pcRef.current || snapshot.iceConnectionState !== 'failed') return;
+            failConnection('ارتباط شبکه برای تماس صوتی قطع شد.');
+          }, 3200);
           return;
         }
         tryActivateFromPc(pc);
@@ -345,8 +384,20 @@ export function VoiceCallProvider({ children }: { children: ReactNode }) {
 
       pc.onconnectionstatechange = () => {
         const st = pc.connectionState;
+        if (st !== 'failed') {
+          if (connFailTimerRef.current != null) {
+            window.clearTimeout(connFailTimerRef.current);
+            connFailTimerRef.current = null;
+          }
+        }
         if (st === 'failed') {
-          failConnection('اتصال تماس برقرار نشد یا قطع شد.');
+          const snapshot = pc;
+          if (connFailTimerRef.current != null) window.clearTimeout(connFailTimerRef.current);
+          connFailTimerRef.current = window.setTimeout(() => {
+            connFailTimerRef.current = null;
+            if (snapshot !== pcRef.current || snapshot.connectionState !== 'failed') return;
+            failConnection('اتصال تماس برقرار نشد یا قطع شد.');
+          }, 3200);
           return;
         }
         tryActivateFromPc(pc);
@@ -557,7 +608,9 @@ export function VoiceCallProvider({ children }: { children: ReactNode }) {
       sdp?: string;
       candidate?: RTCIceCandidateInit;
     }) => {
-      void handleRemoteSignal(payload);
+      signalChainRef.current = signalChainRef.current
+        .then(() => handleRemoteSignal(payload))
+        .catch(() => {});
     };
 
     const onPeerBusy = () => {
