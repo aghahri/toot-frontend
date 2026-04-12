@@ -127,85 +127,6 @@ function getMediaErrorMessage(err: unknown): string {
   return 'خطا در دسترسی به میکروفون. مرورگر یا دستگاه را بررسی کنید.';
 }
 
-/** Desktop browsers often need explicit processing + standard constraints; mobile is more permissive. */
-const MIC_AUDIO_CONSTRAINTS: MediaTrackConstraints = {
-  echoCancellation: true,
-  noiseSuppression: true,
-  autoGainControl: true,
-};
-
-function playRemoteAudioElement(el: HTMLAudioElement | null): void {
-  if (!el?.srcObject) return;
-  el.defaultMuted = false;
-  el.muted = false;
-  el.volume = 1;
-  (el as HTMLAudioElement & { playsInline?: boolean }).playsInline = true;
-  const p = el.play();
-  if (p !== undefined) {
-    void p.catch(() => {
-      window.setTimeout(() => void el.play().catch(() => {}), 400);
-    });
-  }
-}
-
-async function openMicStream(): Promise<MediaStream> {
-  try {
-    return await navigator.mediaDevices.getUserMedia({
-      audio: MIC_AUDIO_CONSTRAINTS,
-      video: false,
-    });
-  } catch {
-    return await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-  }
-}
-
-/** Desktop capture often starts with track.muted=true until the first frames; negotiating before unmute can break outbound RTP. */
-function waitForLocalMicFrames(stream: MediaStream, maxMs: number): Promise<void> {
-  const tracks = stream.getAudioTracks();
-  if (tracks.length === 0) return Promise.resolve();
-  const ready = () =>
-    tracks.some((t) => t.readyState === 'live' && !t.muted && t.enabled);
-  if (ready()) return Promise.resolve();
-  return new Promise((resolve) => {
-    let done = false;
-    const finish = () => {
-      if (done) return;
-      done = true;
-      window.clearTimeout(tid);
-      for (const t of tracks) {
-        t.removeEventListener('unmute', onChange);
-        t.removeEventListener('ended', onChange);
-      }
-      resolve();
-    };
-    const onChange = () => {
-      if (ready()) finish();
-    };
-    for (const t of tracks) {
-      t.addEventListener('unmute', onChange);
-      t.addEventListener('ended', finish);
-    }
-    const tid = window.setTimeout(finish, maxMs);
-  });
-}
-
-/** Bidirectional voice: force sendrecv + enabled sender tracks (fixes recvonly/sendonly drift on some desktops). */
-function ensureAudioSendRecv(pc: RTCPeerConnection) {
-  for (const tr of pc.getTransceivers()) {
-    const st = tr.sender?.track;
-    const rt = tr.receiver?.track;
-    if (st?.kind !== 'audio' && rt?.kind !== 'audio') continue;
-    if (st?.kind === 'audio') {
-      st.enabled = true;
-    }
-    try {
-      tr.direction = 'sendrecv';
-    } catch {
-      /* ignore */
-    }
-  }
-}
-
 async function loadIceServers(): Promise<RTCIceServer[]> {
   const t = getAccessToken();
   if (!t) return [];
@@ -237,14 +158,6 @@ export function VoiceCallProvider({ children }: { children: ReactNode }) {
   const pcRef = useRef<RTCPeerConnection | null>(null);
   const localStreamRef = useRef<MediaStream | null>(null);
   const remoteAudioRef = useRef<HTMLAudioElement | null>(null);
-  const bindRemoteAudioRef = useCallback((el: HTMLAudioElement | null) => {
-    remoteAudioRef.current = el;
-    if (el) {
-      el.volume = 1;
-      el.defaultMuted = false;
-      (el as HTMLAudioElement & { playsInline?: boolean }).playsInline = true;
-    }
-  }, []);
   const pendingIceRef = useRef<RTCIceCandidateInit[]>([]);
   const pendingOfferSdpRef = useRef<string | null>(null);
   const callerMediaStartedRef = useRef(false);
@@ -407,7 +320,6 @@ export function VoiceCallProvider({ children }: { children: ReactNode }) {
       setPhase('active');
       phaseRef.current = 'active';
       startElapsedTimer();
-      playRemoteAudioElement(remoteAudioRef.current);
     },
     [clearConnectingTimer, startElapsedTimer],
   );
@@ -429,7 +341,14 @@ export function VoiceCallProvider({ children }: { children: ReactNode }) {
           // Prefer a dedicated stream so the element does not share a MediaStream the PC may recycle.
           const stream = e.streams[0] ?? new MediaStream([track]);
           el.srcObject = stream;
-          const tryPlay = () => playRemoteAudioElement(el);
+          const tryPlay = () => {
+            const p = el.play();
+            if (p !== undefined) {
+              void p.catch(() => {
+                window.setTimeout(() => void el.play().catch(() => {}), 300);
+              });
+            }
+          };
           tryPlay();
           track.addEventListener('unmute', tryPlay, { once: true });
         }
@@ -496,7 +415,6 @@ export function VoiceCallProvider({ children }: { children: ReactNode }) {
       if (!pc || roleRef.current !== 'caller') return;
       await pc.setRemoteDescription({ type: 'answer', sdp });
       await flushPendingIce();
-      ensureAudioSendRecv(pc);
     },
     [flushPendingIce],
   );
@@ -511,14 +429,8 @@ export function VoiceCallProvider({ children }: { children: ReactNode }) {
       }
       await pc.setRemoteDescription({ type: 'offer', sdp });
       await flushPendingIce();
-      const loc = localStreamRef.current;
-      if (loc) {
-        await waitForLocalMicFrames(loc, 1200);
-      }
-      ensureAudioSendRecv(pc);
       const answer = await pc.createAnswer();
       await pc.setLocalDescription(answer);
-      ensureAudioSendRecv(pc);
       const sid = sessionIdRef.current;
       const s = socketRef.current;
       if (sid && s) {
@@ -574,26 +486,12 @@ export function VoiceCallProvider({ children }: { children: ReactNode }) {
       pcRef.current = pc;
       wirePc(pc);
 
-      const stream = await openMicStream();
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
       localStreamRef.current = stream;
-      stream.getAudioTracks().forEach((t) => {
-        t.enabled = true;
-      });
       stream.getTracks().forEach((track) => pc.addTrack(track, stream));
-      try {
-        stream.getAudioTracks().forEach((t) => {
-          t.contentHint = 'speech';
-        });
-      } catch {
-        /* ignore */
-      }
-      await waitForLocalMicFrames(stream, 1200);
-      ensureAudioSendRecv(pc);
-      queueMicrotask(() => playRemoteAudioElement(remoteAudioRef.current));
 
       const offer = await pc.createOffer();
       await pc.setLocalDescription(offer);
-      ensureAudioSendRecv(pc);
       const sid = sessionIdRef.current;
       const s = socketRef.current;
       if (!sid || !s) return;
@@ -613,36 +511,22 @@ export function VoiceCallProvider({ children }: { children: ReactNode }) {
     try {
       // Mic before pcRef: if the offer is applied during getUserMedia, createAnswer runs without local tracks.
       const ice = await loadIceServers();
-      const stream = await openMicStream();
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
       localStreamRef.current = stream;
-      stream.getAudioTracks().forEach((t) => {
-        t.enabled = true;
-      });
 
       const pc = new RTCPeerConnection({ iceServers: ice });
       callActivatedRef.current = false;
       pcRef.current = pc;
       stream.getTracks().forEach((track) => pc.addTrack(track, stream));
-      try {
-        stream.getAudioTracks().forEach((t) => {
-          t.contentHint = 'speech';
-        });
-      } catch {
-        /* ignore */
-      }
       wirePc(pc);
-      queueMicrotask(() => playRemoteAudioElement(remoteAudioRef.current));
 
       if (pendingOfferSdpRef.current) {
         const sdp = pendingOfferSdpRef.current;
         pendingOfferSdpRef.current = null;
         await pc.setRemoteDescription({ type: 'offer', sdp });
         await flushPendingIce();
-        await waitForLocalMicFrames(stream, 1200);
-        ensureAudioSendRecv(pc);
         const answer = await pc.createAnswer();
         await pc.setLocalDescription(answer);
-        ensureAudioSendRecv(pc);
         const sid = sessionIdRef.current;
         const s = socketRef.current;
         if (sid && s) {
@@ -661,21 +545,6 @@ export function VoiceCallProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     phaseRef.current = phase;
-  }, [phase]);
-
-  /** Desktop autoplay policy: remote play() often must follow a user gesture; retry on any in-call tap. */
-  useEffect(() => {
-    const duringCall =
-      phase === 'outgoing' ||
-      phase === 'incoming' ||
-      phase === 'connecting' ||
-      phase === 'active';
-    if (!duringCall) return;
-    const onPointerDown = () => {
-      playRemoteAudioElement(remoteAudioRef.current);
-    };
-    document.addEventListener('pointerdown', onPointerDown, true);
-    return () => document.removeEventListener('pointerdown', onPointerDown, true);
   }, [phase]);
 
   useEffect(() => {
@@ -962,7 +831,7 @@ export function VoiceCallProvider({ children }: { children: ReactNode }) {
       {children}
       {/* Avoid display:none — browsers often block or mute playback for hidden <audio>. */}
       <audio
-        ref={bindRemoteAudioRef}
+        ref={remoteAudioRef}
         className="pointer-events-none fixed left-0 top-0 h-px w-px opacity-0"
         playsInline
         autoPlay
