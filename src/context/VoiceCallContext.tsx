@@ -248,13 +248,18 @@ export function VoiceCallProvider({ children }: { children: ReactNode }) {
   const flushPendingIce = useCallback(async () => {
     const pc = pcRef.current;
     if (!pc?.remoteDescription) return;
-    const batch = [...pendingIceRef.current];
-    pendingIceRef.current = [];
-    for (const c of batch) {
-      try {
-        await pc.addIceCandidate(c);
-      } catch {
-        /* ignore */
+    // Drain in a loop: while we await addIceCandidate, other call_signal handlers can enqueue
+    // more candidates; a single batch would leave them forever (no later setRemoteDescription).
+    for (;;) {
+      const batch = [...pendingIceRef.current];
+      if (batch.length === 0) break;
+      pendingIceRef.current = [];
+      for (const c of batch) {
+        try {
+          await pc.addIceCandidate(c);
+        } catch {
+          /* ignore */
+        }
       }
     }
   }, []);
@@ -412,12 +417,13 @@ export function VoiceCallProvider({ children }: { children: ReactNode }) {
           } catch {
             pendingIceRef.current.push(payload.candidate);
           }
+          await flushPendingIce();
         } else {
           pendingIceRef.current.push(payload.candidate);
         }
       }
     },
-    [applyAnswer, applyOfferOrQueue],
+    [applyAnswer, applyOfferOrQueue, flushPendingIce],
   );
 
   const runCallerMedia = useCallback(async () => {
