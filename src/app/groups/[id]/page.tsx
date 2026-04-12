@@ -1240,7 +1240,7 @@ export default function GroupThreadPage() {
           </div>
         ) : null}
 
-        <div className="flex-1 space-y-2 px-2.5 py-2 sm:px-3">
+        <div className="flex-1 space-y-2.5 px-2.5 py-3 sm:px-3">
           {loading ? (
             <Card>
               <div className="text-sm text-slate-700">در حال دریافت پیام‌ها...</div>
@@ -1352,7 +1352,7 @@ export default function GroupThreadPage() {
                     }}
                   >
                     <div
-                      className={`relative max-w-[88%] rounded-[1.15rem] px-3.5 py-2.5 shadow-sm ${
+                      className={`relative max-w-[88%] rounded-[1.15rem] px-3.5 py-2.5 shadow-[0_1px_2px_rgba(0,0,0,0.06)] ${
                         deleted
                           ? mine
                             ? rowSelected

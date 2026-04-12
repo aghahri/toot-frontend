@@ -192,7 +192,7 @@ function HomePageInner() {
   return (
     <AuthGate>
       <div className="relative min-h-[60dvh] bg-[#f7f9f9]" dir="rtl">
-        <div className="sticky top-14 z-[15] bg-white/90 shadow-[0_1px_0_rgba(0,0,0,0.04)] backdrop-blur-md">
+        <div className="sticky top-14 z-[15] border-b border-slate-200/60 bg-white/95 shadow-[0_1px_0_rgba(15,23,42,0.06)] backdrop-blur-md">
           <HomeFeedHeader />
           <FeedTabs active={tab} onChange={setTab} />
         </div>

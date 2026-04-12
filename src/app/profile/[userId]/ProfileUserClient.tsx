@@ -156,22 +156,32 @@ export function ProfileUserClient({ userId }: ProfileUserClientProps) {
   return (
     <AuthGate>
       <div className="min-h-[60dvh] bg-[#f7f9f9] pb-28" dir="rtl">
-        <header className="sticky top-14 z-[16] border-b border-slate-200/80 bg-white/95 px-3 py-2 backdrop-blur-md">
-          <div className="mx-auto flex max-w-lg items-center gap-2">
+        <header className="sticky top-14 z-[16] border-b border-slate-200/70 bg-white/95 shadow-[0_1px_0_rgba(0,0,0,0.04)] backdrop-blur-md">
+          <div className="mx-auto flex max-w-lg items-center gap-2 px-3 py-2.5">
             <button
               type="button"
               onClick={() => router.back()}
-              className="rounded-full px-3 py-1.5 text-sm font-bold text-slate-700 hover:bg-slate-100"
+              className="flex h-10 min-w-[2.5rem] items-center justify-center rounded-full text-sm font-bold text-slate-700 transition hover:bg-slate-100 active:bg-slate-200"
+              aria-label="بازگشت"
             >
-              ← بازگشت
+              <span className="text-lg leading-none" aria-hidden>
+                ‹
+              </span>
             </button>
-            <div className="min-w-0 flex-1 truncate text-sm font-bold text-slate-900">
-              {profile?.name ?? 'پروفایل'}
+            <div className="min-w-0 flex-1 text-right">
+              <div className="truncate text-[15px] font-extrabold leading-tight text-slate-900">
+                {profile?.name ?? 'پروفایل'}
+              </div>
+              {profile ? (
+                <div className="truncate text-[12px] font-medium text-slate-500" dir="ltr">
+                  @{profile.username}
+                </div>
+              ) : null}
             </div>
           </div>
         </header>
 
-        <main className="mx-auto w-full max-w-lg px-3 pt-4">
+        <main className="mx-auto w-full max-w-lg px-3 pt-5">
           {profileError ? (
             <div className="rounded-2xl border border-red-100 bg-red-50/90 px-4 py-6 text-center">
               <p className="text-sm font-semibold text-red-700">{profileError}</p>
@@ -187,62 +197,66 @@ export function ProfileUserClient({ userId }: ProfileUserClientProps) {
             <div className="py-12 text-center text-sm text-slate-500">در حال بارگذاری…</div>
           ) : (
             <>
-              <section className="rounded-2xl border border-slate-200/90 bg-white p-4 shadow-sm">
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
+              <section className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm ring-1 ring-slate-100/80">
+                <div className="flex flex-col items-center gap-4 px-4 pb-2 pt-6 text-center sm:flex-row sm:items-start sm:text-right">
                   <div className="shrink-0">
                     {profile.avatar ? (
                       <img
                         src={profile.avatar}
                         alt=""
-                        className="h-24 w-24 rounded-2xl object-cover ring-2 ring-slate-100"
+                        className="h-[5.5rem] w-[5.5rem] rounded-full object-cover ring-4 ring-slate-100 shadow-sm"
                       />
                     ) : (
-                      <div className="flex h-24 w-24 items-center justify-center rounded-2xl bg-gradient-to-br from-sky-500 to-slate-600 text-3xl font-bold text-white ring-2 ring-slate-100">
+                      <div className="flex h-[5.5rem] w-[5.5rem] items-center justify-center rounded-full bg-gradient-to-br from-sky-500 to-slate-700 text-3xl font-extrabold text-white ring-4 ring-slate-100 shadow-sm">
                         {profile.name.trim().slice(0, 1) || '?'}
                       </div>
                     )}
                   </div>
-                  <div className="min-w-0 flex-1">
-                    <h1 className="text-xl font-extrabold text-slate-900">{profile.name}</h1>
-                    <p className="mt-0.5 text-sm text-slate-500" dir="ltr">
+                  <div className="min-w-0 flex-1 sm:pt-1">
+                    <h1 className="text-[1.35rem] font-extrabold leading-tight tracking-tight text-slate-900">
+                      {profile.name}
+                    </h1>
+                    <p className="mt-1 text-[14px] font-medium text-slate-500" dir="ltr">
                       {handle}
                     </p>
                     {profile.bio ? (
-                      <p className="mt-3 whitespace-pre-wrap text-sm leading-relaxed text-slate-700">
+                      <p className="mt-3 whitespace-pre-wrap text-[14px] leading-relaxed text-slate-700">
                         {profile.bio}
                       </p>
                     ) : (
-                      <p className="mt-2 text-xs text-slate-400">بیوگرافی ثبت نشده.</p>
+                      <p className="mt-3 text-[12px] text-slate-400">بیوگرافی ثبت نشده.</p>
                     )}
                   </div>
                 </div>
 
-                <div className="mt-4 grid grid-cols-3 gap-2 border-y border-slate-100 py-3 text-center">
-                  <div>
-                    <div className="text-lg font-extrabold tabular-nums text-slate-900">
+                <div className="mx-4 my-4 flex items-stretch justify-around rounded-xl bg-slate-50/90 py-3 ring-1 ring-slate-100">
+                  <div className="flex min-w-0 flex-1 flex-col items-center justify-center text-center">
+                    <div className="text-[1.125rem] font-extrabold tabular-nums text-slate-900">
                       {profile.postCount}
                     </div>
-                    <div className="text-[11px] font-semibold text-slate-500">پست</div>
+                    <div className="mt-0.5 text-[11px] font-bold text-slate-500">پست</div>
                   </div>
-                  <div>
-                    <div className="text-lg font-extrabold tabular-nums text-slate-900">
+                  <div className="w-px shrink-0 bg-slate-200" aria-hidden />
+                  <div className="flex min-w-0 flex-1 flex-col items-center justify-center text-center">
+                    <div className="text-[1.125rem] font-extrabold tabular-nums text-slate-900">
                       {profile.followerCount}
                     </div>
-                    <div className="text-[11px] font-semibold text-slate-500">دنبال‌کننده</div>
+                    <div className="mt-0.5 text-[11px] font-bold text-slate-500">دنبال‌کننده</div>
                   </div>
-                  <div>
-                    <div className="text-lg font-extrabold tabular-nums text-slate-900">
+                  <div className="w-px shrink-0 bg-slate-200" aria-hidden />
+                  <div className="flex min-w-0 flex-1 flex-col items-center justify-center text-center">
+                    <div className="text-[1.125rem] font-extrabold tabular-nums text-slate-900">
                       {profile.followingCount}
                     </div>
-                    <div className="text-[11px] font-semibold text-slate-500">دنبال‌شده</div>
+                    <div className="mt-0.5 text-[11px] font-bold text-slate-500">دنبال‌شده</div>
                   </div>
                 </div>
 
-                <div className="mt-4 flex flex-wrap gap-2">
+                <div className="border-t border-slate-100 px-4 pb-4 pt-3">
                   {profile.isSelf ? (
                     <Link
                       href="/profile/edit"
-                      className="flex-1 rounded-full bg-slate-900 px-4 py-2.5 text-center text-sm font-bold text-white transition hover:bg-slate-800"
+                      className="flex min-h-[46px] w-full items-center justify-center rounded-full bg-slate-900 text-sm font-extrabold text-white transition hover:bg-slate-800"
                     >
                       ویرایش پروفایل
                     </Link>
@@ -251,9 +265,9 @@ export function ProfileUserClient({ userId }: ProfileUserClientProps) {
                       type="button"
                       disabled={followBusy}
                       onClick={() => void onToggleFollow()}
-                      className={`flex-1 rounded-full px-4 py-2.5 text-sm font-bold transition disabled:opacity-60 ${
+                      className={`flex min-h-[46px] w-full items-center justify-center rounded-full text-sm font-extrabold transition disabled:opacity-60 ${
                         profile.isFollowing
-                          ? 'border-2 border-slate-300 bg-white text-slate-800 hover:bg-slate-50'
+                          ? 'border-2 border-slate-300 bg-white text-slate-900 hover:bg-slate-50'
                           : 'bg-sky-600 text-white hover:bg-sky-700'
                       }`}
                     >
@@ -267,7 +281,10 @@ export function ProfileUserClient({ userId }: ProfileUserClientProps) {
                 </div>
               </section>
 
-              <h2 className="mb-2 mt-8 px-1 text-sm font-extrabold text-slate-800">پست‌ها</h2>
+              <div className="mb-2 mt-10 flex items-end justify-between border-b border-slate-200/90 px-1 pb-2">
+                <h2 className="text-base font-extrabold text-slate-900">پست‌ها</h2>
+                <span className="text-[12px] font-semibold tabular-nums text-slate-500">{profile.postCount}</span>
+              </div>
 
               {postsLoading ? (
                 <ProfilePostsSkeleton />

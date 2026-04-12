@@ -240,8 +240,8 @@ export function FeedPostCard({
   return (
     <article
       id={anchorId}
-      className={`border-b border-slate-100/90 bg-white px-4 py-3 transition hover:bg-slate-50/60 ${
-        isViewerRepostRow ? 'bg-emerald-50/35 ring-1 ring-inset ring-emerald-200/60' : ''
+      className={`border-b border-slate-100 bg-white px-4 py-3.5 transition hover:bg-slate-50/70 ${
+        isViewerRepostRow ? 'bg-emerald-50/40 ring-1 ring-inset ring-emerald-200/55' : ''
       } ${emphasize ? 'bg-sky-50/90 ring-2 ring-inset ring-sky-400/70' : ''}`}
       dir="rtl"
     >
@@ -342,7 +342,7 @@ export function FeedPostCard({
           </div>
 
           {p.text ? (
-            <div className="mt-1 whitespace-pre-wrap text-[15px] leading-relaxed text-slate-800">
+            <div className="mt-2 whitespace-pre-wrap text-[15px] leading-[1.55] text-slate-800">
               {p.text}
             </div>
           ) : null}
@@ -378,7 +378,7 @@ export function FeedPostCard({
           ) : null}
 
           <div
-            className="mt-3 flex max-w-md items-center justify-between gap-0.5 text-slate-500"
+            className="mt-3.5 flex max-w-md items-center justify-between gap-1 text-slate-500"
             dir="ltr"
           >
             <button

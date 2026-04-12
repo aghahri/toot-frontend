@@ -165,19 +165,22 @@ export default function ProfileEditPage() {
 
   return (
     <AuthGate>
-      <main className="mx-auto w-full max-w-md p-4 pb-28" dir="rtl">
-        <div className="mb-4 flex items-center gap-2">
+      <main className="mx-auto w-full max-w-md bg-[#f7f9f9] p-4 pb-28" dir="rtl">
+        <div className="mb-3 flex items-center gap-2">
           <Link
             href={userId ? `/profile/${userId}` : '/profile'}
-            className="text-sm font-bold text-sky-700 hover:underline"
+            className="inline-flex items-center gap-1 rounded-full px-2 py-1 text-sm font-bold text-sky-800 transition hover:bg-white/90 hover:underline"
           >
-            ← بازگشت
+            <span aria-hidden>‹</span>
+            بازگشت
           </Link>
         </div>
-        <h1 className="text-2xl font-extrabold text-slate-900">ویرایش پروفایل</h1>
-        <p className="mt-1 text-sm text-slate-600">نام، نام کاربری، بیو و تصویر پروفایل.</p>
+        <h1 className="text-[1.35rem] font-extrabold tracking-tight text-slate-900">ویرایش پروفایل</h1>
+        <p className="mt-1.5 text-[13px] leading-relaxed text-slate-600">
+          نام، نام کاربری، بیو و تصویر را به‌روز کنید.
+        </p>
 
-        <Card className="mt-6">
+        <Card className="mt-5 border-slate-200/80 shadow-sm ring-1 ring-slate-100/80">
           {loading ? (
             <p className="text-sm text-slate-500">در حال بارگذاری…</p>
           ) : (

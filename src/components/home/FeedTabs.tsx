@@ -17,7 +17,7 @@ type FeedTabsProps = {
 export function FeedTabs({ active, onChange }: FeedTabsProps) {
   return (
     <div
-      className="flex border-b border-slate-200/90 bg-white/90"
+      className="flex border-b border-slate-200/90 bg-white"
       role="tablist"
       aria-label="بخش‌های فید"
     >
@@ -30,14 +30,14 @@ export function FeedTabs({ active, onChange }: FeedTabsProps) {
             role="tab"
             aria-selected={selected}
             onClick={() => onChange(t.id)}
-            className={`relative min-w-0 flex-1 px-1 py-3 text-center text-[13px] font-bold transition ${
-              selected ? 'text-slate-900' : 'text-slate-500 hover:text-slate-700'
+            className={`relative min-h-[48px] min-w-0 flex-1 px-1 py-3 text-center text-[13px] font-extrabold transition ${
+              selected ? 'text-slate-950' : 'text-slate-500 hover:text-slate-800'
             }`}
           >
             <span className="line-clamp-1">{t.label}</span>
             {selected ? (
               <span
-                className="absolute bottom-0 left-1/2 h-0.5 w-10 max-w-[70%] -translate-x-1/2 rounded-full bg-sky-600"
+                className="absolute bottom-0 left-1/2 h-[3px] w-12 max-w-[72%] -translate-x-1/2 rounded-full bg-sky-600"
                 aria-hidden
               />
             ) : null}

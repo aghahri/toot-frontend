@@ -36,7 +36,7 @@ function GroupJoinInner() {
 
   useEffect(() => {
     if (!token) {
-      setPreviewError('لینک دعوت نامعتبر است.');
+      setPreviewError('این لینک دعوت کامل نیست یا نامعتبر است.');
       setLoadingPreview(false);
       return;
     }
@@ -91,56 +91,73 @@ function GroupJoinInner() {
   }
 
   return (
-    <main className="mx-auto min-h-[50vh] w-full max-w-md bg-stone-50 px-4 py-6" dir="rtl">
-      <h1 className="text-lg font-extrabold text-stone-900">دعوت به گروه</h1>
+    <main className="mx-auto min-h-[50vh] w-full max-w-md bg-[#f0f2f5] px-3 py-6" dir="rtl">
+      <h1 className="text-[1.35rem] font-extrabold text-stone-900">دعوت به گروه</h1>
+      <p className="mt-1 text-[12px] leading-relaxed text-stone-500">
+        با ورود به توت، فقط شما به این گروه اضافه می‌شوید.
+      </p>
 
       {loadingPreview ? (
-        <p className="mt-4 text-sm text-stone-500">در حال بارگذاری…</p>
+        <div className="mt-6 space-y-3 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-stone-200/80">
+          <div className="h-6 max-w-[75%] animate-pulse rounded bg-stone-100" />
+          <div className="h-4 w-full animate-pulse rounded bg-stone-50" />
+          <div className="h-4 max-w-[66%] animate-pulse rounded bg-stone-50" />
+        </div>
       ) : previewError ? (
-        <p className="mt-4 text-sm font-semibold text-red-700">{previewError}</p>
+        <div className="mt-6 rounded-2xl border border-red-200 bg-red-50 px-4 py-4 text-center shadow-sm">
+          <p className="text-sm font-semibold text-red-800">{previewError}</p>
+        </div>
       ) : preview ? (
-        <div className="mt-4 space-y-3 rounded-2xl border border-stone-200 bg-white p-4 shadow-sm">
-          <h2 className="text-xl font-extrabold text-stone-900">{preview.name}</h2>
-          {preview.description ? (
-            <p className="text-sm leading-relaxed text-stone-600">{preview.description}</p>
-          ) : null}
-          <dl className="space-y-1 text-sm text-stone-600">
+        <div className="mt-5 overflow-hidden rounded-2xl bg-white shadow-md ring-1 ring-stone-200/80">
+          <div className="border-b border-stone-100 px-4 py-4">
+            <h2 className="text-lg font-extrabold leading-snug text-stone-900">{preview.name}</h2>
+            {preview.description ? (
+              <p className="mt-2 text-[13px] leading-relaxed text-stone-600">{preview.description}</p>
+            ) : null}
+          </div>
+          <dl className="space-y-0 divide-y divide-stone-100 px-4 text-[13px]">
             {preview.networkName ? (
-              <div className="flex justify-between gap-2">
-                <dt>شبکه</dt>
-                <dd className="font-semibold text-stone-800">{preview.networkName}</dd>
+              <div className="flex justify-between gap-2 py-3">
+                <dt className="text-stone-500">شبکه</dt>
+                <dd className="font-semibold text-stone-900">{preview.networkName}</dd>
               </div>
             ) : null}
-            <div className="flex justify-between gap-2">
-              <dt>اعضا</dt>
-              <dd className="font-semibold text-stone-800">{preview.memberCount} نفر</dd>
+            <div className="flex justify-between gap-2 py-3">
+              <dt className="text-stone-500">اعضا</dt>
+              <dd className="font-semibold text-stone-900">{preview.memberCount} نفر</dd>
             </div>
           </dl>
 
-          {joinError ? <p className="text-sm font-semibold text-red-700">{joinError}</p> : null}
+          <div className="p-4 pt-2">
+            {joinError ? (
+              <p className="mb-3 rounded-xl bg-red-50 px-3 py-2 text-center text-[12px] font-semibold text-red-800">
+                {joinError}
+              </p>
+            ) : null}
 
-          {authed ? (
-            <button
-              type="button"
-              disabled={joining}
-              onClick={() => void onJoin()}
-              className="mt-2 w-full rounded-xl bg-emerald-600 py-3 text-center text-sm font-bold text-white disabled:opacity-60"
-            >
-              {joining ? 'در حال پیوستن…' : 'پیوستن به گروه'}
-            </button>
-          ) : (
-            <Link
-              href={loginHref}
-              className="mt-2 block w-full rounded-xl bg-sky-600 py-3 text-center text-sm font-bold text-white"
-            >
-              ورود برای پیوستن
-            </Link>
-          )}
+            {authed ? (
+              <button
+                type="button"
+                disabled={joining}
+                onClick={() => void onJoin()}
+                className="flex min-h-[48px] w-full items-center justify-center rounded-xl bg-emerald-600 text-sm font-extrabold text-white shadow-sm transition hover:bg-emerald-700 disabled:opacity-55"
+              >
+                {joining ? 'در حال پیوستن…' : 'پیوستن به گروه'}
+              </button>
+            ) : (
+              <Link
+                href={loginHref}
+                className="flex min-h-[48px] w-full items-center justify-center rounded-xl bg-stone-900 text-sm font-extrabold text-white shadow-sm transition hover:bg-stone-800"
+              >
+                ورود و پیوستن
+              </Link>
+            )}
+          </div>
         </div>
       ) : null}
 
-      <div className="mt-6 text-center">
-        <Link href="/groups" className="text-sm font-bold text-sky-700 underline">
+      <div className="mt-8 text-center">
+        <Link href="/groups" className="text-sm font-bold text-emerald-800 underline-offset-2 hover:underline">
           بازگشت به گروه‌ها
         </Link>
       </div>
@@ -152,7 +169,7 @@ export default function GroupJoinPage() {
   return (
     <Suspense
       fallback={
-        <div className="mx-auto max-w-md px-4 py-8 text-center text-sm text-stone-600" dir="rtl">
+        <div className="mx-auto max-w-md px-4 py-10 text-center text-sm text-stone-600" dir="rtl">
           در حال بارگذاری…
         </div>
       }
