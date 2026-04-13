@@ -111,6 +111,157 @@ function mapCallEndedMessage(
 }
 
 /** First audio m= line + direction attributes (no full SDP). */
+/** Summarize servers from API (no URLs/credentials logged). */
+function summarizeIceServersConfig(servers: RTCIceServer[]): { count: number; hasRelayHint: boolean } {
+  let hasRelayHint = false;
+  for (const s of servers) {
+    const u = s.urls;
+    const arr: string[] =
+      typeof u === 'string' ? [u] : Array.isArray(u) ? u.filter((x): x is string => typeof x === 'string') : [];
+    for (const x of arr) {
+      const low = x.toLowerCase();
+      if (low.startsWith('turn:') || low.startsWith('turns:')) hasRelayHint = true;
+    }
+  }
+  return { count: servers.length, hasRelayHint };
+}
+
+/**
+ * Dev-only: parse RTCStatsReport for selected ICE pair + audio RTP counters.
+ * Handles Chromium (candidate-pair.selected), transport.selectedCandidatePairId, and common fallbacks.
+ */
+function formatIceStatsFromReport(report: RTCStatsReport): string[] {
+  const byId = new Map<string, RTCStats>();
+  report.forEach((s) => byId.set(s.id, s));
+
+  const lines: string[] = [];
+  lines.push('--- getStats (ICE / RTP) ---');
+
+  let transportSelectedPairId: string | undefined;
+  report.forEach((s) => {
+    if (s.type === 'transport') {
+      const t = s as unknown as Record<string, unknown>;
+      const id = t.selectedCandidatePairId;
+      if (typeof id === 'string' && id) transportSelectedPairId = id;
+    }
+  });
+
+  const pairs: RTCStats[] = [];
+  report.forEach((s) => {
+    if (s.type === 'candidate-pair') pairs.push(s);
+  });
+
+  let selectedPair: RTCStats | undefined;
+  for (const p of pairs) {
+    const raw = p as unknown as Record<string, unknown>;
+    if (raw.selected === true || p.id === transportSelectedPairId) {
+      selectedPair = p;
+      break;
+    }
+  }
+  if (!selectedPair) {
+    selectedPair = pairs.find((p) => (p as unknown as Record<string, unknown>).state === 'succeeded');
+  }
+
+  const readPair = (p: RTCStats) => p as unknown as Record<string, unknown>;
+  const readCand = (p: RTCStats | undefined) => (p ? (p as unknown as Record<string, unknown>) : undefined);
+
+  if (!selectedPair) {
+    lines.push('selectedCandidatePair: NO');
+    lines.push(
+      pairs.length === 0
+        ? 'candidate-pair stats: 0 (ICE gathering may not have emitted pairs yet)'
+        : `candidate-pair stats: ${pairs.length} (none selected / none succeeded yet)`,
+    );
+    for (const p of pairs.slice(0, 3)) {
+      const x = readPair(p);
+      lines.push(
+        `  pair id=${p.id} state=${String(x.state)} nominated=${String(x.nominated)} bytesSent=${String(x.bytesSent ?? '—')} bytesRecv=${String(x.bytesReceived ?? '—')}`,
+      );
+    }
+  } else {
+    const cp = readPair(selectedPair);
+    const locId = typeof cp.localCandidateId === 'string' ? cp.localCandidateId : undefined;
+    const remId = typeof cp.remoteCandidateId === 'string' ? cp.remoteCandidateId : undefined;
+    const loc = locId ? byId.get(locId) : undefined;
+    const rem = remId ? byId.get(remId) : undefined;
+    const lc = readCand(loc);
+    const rc = readCand(rem);
+
+    const rtt = cp.currentRoundTripTime;
+    const rttMs =
+      typeof rtt === 'number' && Number.isFinite(rtt) ? (rtt * 1000).toFixed(0) : 'n/a';
+
+    lines.push(`selectedCandidatePair: YES id=${selectedPair.id}`);
+    lines.push(`  state=${String(cp.state)} nominated=${String(cp.nominated)} rttMs≈${rttMs} (from CRTP)`);
+    lines.push(`  pair bytesSent=${String(cp.bytesSent ?? '—')} bytesReceived=${String(cp.bytesReceived ?? '—')}`);
+    if (typeof cp.packetsSent === 'number' || typeof cp.packetsReceived === 'number') {
+      lines.push(
+        `  pair packetsSent=${String(cp.packetsSent ?? '—')} packetsReceived=${String(cp.packetsReceived ?? '—')}`,
+      );
+    }
+    lines.push(
+      `  localCandidateId=${locId ?? '—'} type=${String(lc?.candidateType ?? '—')} protocol=${String(lc?.protocol ?? '—')}`,
+    );
+    lines.push(
+      `  remoteCandidateId=${remId ?? '—'} type=${String(rc?.candidateType ?? '—')} protocol=${String(rc?.protocol ?? '—')}`,
+    );
+  }
+
+  let obPackets = 0;
+  let obBytes = 0;
+  let ibPackets = 0;
+  let ibBytes = 0;
+  let sawOb = false;
+  let sawIb = false;
+
+  report.forEach((s) => {
+    const t = s.type;
+    const k = (s as unknown as Record<string, unknown>).kind;
+    if (t === 'outbound-rtp' && k === 'audio') {
+      sawOb = true;
+      const x = s as unknown as Record<string, unknown>;
+      if (typeof x.packetsSent === 'number') obPackets += x.packetsSent;
+      if (typeof x.bytesSent === 'number') obBytes += x.bytesSent;
+    }
+    if (t === 'inbound-rtp' && k === 'audio') {
+      sawIb = true;
+      const x = s as unknown as Record<string, unknown>;
+      if (typeof x.packetsReceived === 'number') ibPackets += x.packetsReceived;
+      if (typeof x.bytesReceived === 'number') ibBytes += x.bytesReceived;
+    }
+  });
+
+  if (sawOb) {
+    lines.push(`outbound-rtp audio: packetsSent=${obPackets} bytesSent=${obBytes}`);
+  } else {
+    lines.push('outbound-rtp audio: (no report yet)');
+  }
+  if (sawIb) {
+    lines.push(`inbound-rtp audio: packetsReceived=${ibPackets} bytesReceived=${ibBytes}`);
+  } else {
+    lines.push('inbound-rtp audio: (no report yet)');
+  }
+
+  const pairBytesOut = selectedPair ? Number(readPair(selectedPair).bytesSent ?? 0) : 0;
+  const pairBytesIn = selectedPair ? Number(readPair(selectedPair).bytesReceived ?? 0) : 0;
+  const noPair = !selectedPair;
+  const noRtpFlow = (obBytes === 0 && ibBytes === 0 && obPackets === 0 && ibPackets === 0) || (!sawOb && !sawIb);
+  if (noPair) {
+    lines.push('diag: no selected/succeeded pair — likely ICE still checking or blocked (need TURN?)');
+  } else if (pairBytesOut === 0 && pairBytesIn === 0 && noRtpFlow) {
+    lines.push('diag: pair selected but 0 bytes on pair + 0 RTP — path may not carry media yet');
+  } else if (obBytes === 0 && sawOb) {
+    lines.push('diag: outbound RTP reports 0 bytesSent — mic/sender path may not be encoding');
+  } else if (ibBytes === 0 && sawIb) {
+    lines.push('diag: inbound RTP reports 0 bytesReceived — remote not received or decrypt fail');
+  } else {
+    lines.push('diag: counters non-zero or reports pending — compare local/remote candidate types (host vs relay)');
+  }
+
+  return lines;
+}
+
 function extractAudioSdpHints(sdp: string | null | undefined): string[] {
   if (!sdp) return [];
   const lines = sdp.split(/\r?\n/);
@@ -187,6 +338,7 @@ export function VoiceCallProvider({ children }: { children: ReactNode }) {
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [endedReason, setEndedReason] = useState<string | null>(null);
   const [voiceDbgTick, setVoiceDbgTick] = useState(0);
+  const [voiceIceDbgText, setVoiceIceDbgText] = useState('');
 
   const sessionIdRef = useRef<string | null>(null);
   const roleRef = useRef<'caller' | 'callee' | null>(null);
@@ -195,6 +347,8 @@ export function VoiceCallProvider({ children }: { children: ReactNode }) {
   const localStreamRef = useRef<MediaStream | null>(null);
   const remoteAudioRef = useRef<HTMLAudioElement | null>(null);
   const remotePlayDiagRef = useRef<string>('—');
+  /** Last ICE list from /calls/webrtc-config (counts only; cleared on teardown). */
+  const iceServerSummaryRef = useRef<{ count: number; hasRelayHint: boolean } | null>(null);
   const pendingIceRef = useRef<RTCIceCandidateInit[]>([]);
   const pendingOfferSdpRef = useRef<string | null>(null);
   const callerMediaStartedRef = useRef(false);
@@ -254,6 +408,7 @@ export function VoiceCallProvider({ children }: { children: ReactNode }) {
       a.srcObject = null;
     }
     remotePlayDiagRef.current = '—';
+    iceServerSummaryRef.current = null;
     pendingIceRef.current = [];
     pendingOfferSdpRef.current = null;
     callerMediaStartedRef.current = false;
@@ -565,6 +720,7 @@ export function VoiceCallProvider({ children }: { children: ReactNode }) {
     startConnectingWatchdog();
     try {
       const ice = await loadIceServers();
+      iceServerSummaryRef.current = summarizeIceServersConfig(ice);
       const pc = new RTCPeerConnection({ iceServers: ice });
       callActivatedRef.current = false;
       pcRef.current = pc;
@@ -595,6 +751,7 @@ export function VoiceCallProvider({ children }: { children: ReactNode }) {
     try {
       // Mic before pcRef: if the offer is applied during getUserMedia, createAnswer runs without local tracks.
       const ice = await loadIceServers();
+      iceServerSummaryRef.current = summarizeIceServersConfig(ice);
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
       localStreamRef.current = stream;
 
@@ -638,6 +795,33 @@ export function VoiceCallProvider({ children }: { children: ReactNode }) {
     const id = window.setInterval(() => setVoiceDbgTick((n) => n + 1), 500);
     return () => clearInterval(id);
   }, [phase]);
+
+  useEffect(() => {
+    if (!VOICE_CALL_DEBUG) {
+      setVoiceIceDbgText('');
+      return;
+    }
+    if (phase !== 'connecting' && phase !== 'active') {
+      setVoiceIceDbgText('');
+      return;
+    }
+    const pc = pcRef.current;
+    if (!pc) {
+      setVoiceIceDbgText('getStats: (no pc)');
+      return;
+    }
+    let cancelled = false;
+    void pc.getStats().then((report) => {
+      if (cancelled) return;
+      setVoiceIceDbgText(formatIceStatsFromReport(report).join('\n'));
+    }).catch((e: unknown) => {
+      if (cancelled) return;
+      setVoiceIceDbgText(`getStats failed: ${e instanceof Error ? e.message : String(e)}`);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [phase, voiceDbgTick]);
 
   useEffect(() => {
     if (!socket) return;
@@ -875,6 +1059,12 @@ export function VoiceCallProvider({ children }: { children: ReactNode }) {
     lines.push(
       `pc.connectionState=${pc.connectionState} ice=${pc.iceConnectionState} sig=${pc.signalingState}`,
     );
+    const iceSum = iceServerSummaryRef.current;
+    lines.push(
+      iceSum
+        ? `webrtc-config iceServers: count=${iceSum.count} relayUrlsHint=${iceSum.hasRelayHint ? 'yes' : 'no'}`
+        : 'webrtc-config iceServers: (not loaded yet or teardown)',
+    );
     const localAudioTracks = loc?.getAudioTracks() ?? [];
     lines.push(`localAudioTracks count=${localAudioTracks.length}`);
     localAudioTracks.forEach((t, i) => {
@@ -1012,8 +1202,9 @@ export function VoiceCallProvider({ children }: { children: ReactNode }) {
                 </p>
               ) : null}
               {VOICE_CALL_DEBUG && (phase === 'connecting' || phase === 'active') ? (
-                <pre className="mt-3 max-h-44 w-full max-w-[min(100%,24rem)] overflow-auto rounded border border-dashed border-amber-700/70 bg-black/55 p-2 text-left font-mono text-[9px] leading-tight text-amber-200/95">
+                <pre className="mt-3 max-h-[min(50vh,22rem)] w-full max-w-[min(100%,24rem)] overflow-auto rounded border border-dashed border-amber-700/70 bg-black/55 p-2 text-left font-mono text-[9px] leading-tight text-amber-200/95 whitespace-pre-wrap break-words">
                   {voiceDebugText}
+                  {voiceIceDbgText ? `\n${voiceIceDbgText}` : ''}
                 </pre>
               ) : null}
             </>
