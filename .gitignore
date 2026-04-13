@@ -18,3 +18,15 @@ yarn-error.log*
 # misc
 .DS_Store
 
+# Capacitor / Android local build outputs (keep committed android/ sources after `cap add android`)
+android/.gradle/
+android/app/build/
+android/build/
+android/local.properties
+android/captures/
+android/*.iml
+.idea/
+
+# Do not commit APK binaries into the Next public tree by default
+public/downloads/*.apk
+
