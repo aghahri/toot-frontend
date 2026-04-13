@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { getAndroidApkDownloadUrl } from '@/lib/android-app';
 
 const highlights = [
   {
@@ -24,6 +25,8 @@ const highlights = [
 ] as const;
 
 export default function LandingPage() {
+  const androidApkUrl = getAndroidApkDownloadUrl();
+
   return (
     <main
       className="relative min-h-[calc(100dvh-3.5rem)] overflow-x-hidden"
@@ -68,6 +71,44 @@ export default function LandingPage() {
             ثبت‌نام
           </Link>
         </div>
+
+        {androidApkUrl ? (
+          <section
+            className="mt-8 rounded-2xl border border-emerald-200/90 bg-gradient-to-br from-emerald-50/90 to-white/90 p-4 shadow-sm ring-1 ring-emerald-100/70 backdrop-blur-sm sm:mt-10 sm:p-5"
+            aria-labelledby="landing-android-beta"
+          >
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:gap-5">
+              <div
+                className="mx-auto flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-emerald-600 text-2xl text-white shadow-md shadow-emerald-900/10 sm:mx-0"
+                aria-hidden
+              >
+                🤖
+              </div>
+              <div className="min-w-0 flex-1 text-center sm:text-start">
+                <p
+                  id="landing-android-beta"
+                  className="text-xs font-extrabold uppercase tracking-wide text-emerald-800/90"
+                >
+                  نسخه آزمایشی اندروید
+                </p>
+                <p className="mt-2 text-sm font-semibold leading-relaxed text-slate-800">
+                  نسخه اندروید توت به‌صورت آزمایشی در دسترس است.
+                </p>
+                <p className="mt-1.5 text-sm leading-relaxed text-slate-600">
+                  این نسخه در حال توسعه و بهبود تدریجی است. مناسب برای تست اولیه و ارسال بازخورد.
+                </p>
+                <a
+                  href={androidApkUrl}
+                  rel="noopener noreferrer"
+                  download
+                  className="mt-4 inline-flex min-h-[3rem] w-full items-center justify-center rounded-2xl bg-emerald-600 px-5 text-base font-bold text-white shadow-lg shadow-emerald-900/20 transition hover:bg-emerald-700 active:scale-[0.99] sm:w-auto sm:min-w-[12rem]"
+                >
+                  دانلود نسخه آزمایشی اندروید
+                </a>
+              </div>
+            </div>
+          </section>
+        ) : null}
 
         <section className="mt-14 sm:mt-16" aria-labelledby="landing-highlights">
           <h2
