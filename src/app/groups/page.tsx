@@ -19,6 +19,7 @@ type GroupInboxRow = {
   id: string;
   name: string;
   description: string | null;
+  type?: 'CHAT' | 'COMMUNITY';
   networkId: string | null;
   network?: { id: string; name: string } | null;
   memberCount: number;
@@ -369,7 +370,8 @@ function renderGroupRow(
   const previewTimeIso =
     (lm?.createdAt as string | undefined) ?? item.lastActivityAt ?? new Date().toISOString();
   const unread = typeof item.unreadCount === 'number' ? item.unreadCount : 0;
-  const subtitle = [item.network?.name ? `شبکه: ${item.network.name}` : '', `${item.memberCount} عضو`]
+  const kindLabel = item.type === 'CHAT' ? 'گروه چت' : 'گروه اجتماعی';
+  const subtitle = [kindLabel, item.network?.name ? `شبکه: ${item.network.name}` : '', `${item.memberCount} عضو`]
     .filter(Boolean)
     .join(' · ');
 

@@ -240,8 +240,8 @@ export default function CreateGroupPage() {
       };
       const body =
         mode === 'network' && networkId
-          ? { ...base, networkId }
-          : base;
+          ? { ...base, networkId, type: 'COMMUNITY' as const }
+          : { ...base, type: 'CHAT' as const };
 
       const created = await apiFetch<{ id: string }>('groups', {
         method: 'POST',
@@ -293,7 +293,7 @@ export default function CreateGroupPage() {
                 mode === 'normal' ? 'bg-emerald-500 text-white shadow-sm' : 'text-stone-600'
               }`}
             >
-              گروه معمولی
+              گروه چت
             </button>
             <button
               type="button"
@@ -302,7 +302,7 @@ export default function CreateGroupPage() {
                 mode === 'network' ? 'bg-sky-600 text-white shadow-sm' : 'text-stone-600'
               }`}
             >
-              در شبکه
+              گروه اجتماعی شبکه
             </button>
           </div>
         ) : null}
@@ -310,7 +310,7 @@ export default function CreateGroupPage() {
         {step === 'members' && mode === 'normal' ? (
           <div className="px-3 pt-3">
             <p className="mb-2 text-[11px] leading-relaxed text-stone-600">
-              حداقل یک نفر را از میان کاربران جستجو و انتخاب کنید (نیازی به شبکه نیست).
+              حداقل یک نفر را برای شروع گروه چت انتخاب کنید (بدون شبکه).
             </p>
             <input
               value={search}
@@ -523,7 +523,7 @@ export default function CreateGroupPage() {
 
             <p className="mb-2 text-[11px] font-bold text-stone-500">
               {selectedIds.length} عضو به‌اضافهٔ شما
-              {mode === 'normal' ? ' · گروه معمولی' : ' · مرتبط با شبکه'}
+              {mode === 'normal' ? ' · گروه چت خصوصی' : ' · گروه اجتماعی شبکه'}
             </p>
 
             <label className="mb-3 block">
