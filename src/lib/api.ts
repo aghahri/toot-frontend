@@ -1,17 +1,15 @@
+import { API_BASE_URL, buildApiUrl } from './api-url';
+
+let authModulePromise: Promise<typeof import('./auth')> | null = null;
+function loadAuthModule() {
+  if (!authModulePromise) authModulePromise = import('./auth');
+  return authModulePromise;
+}
+
 export type HealthResponse = {
   status: string;
   timestamp?: string;
 };
-
-const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://api.tootapp.net';
-
-function buildUrl(path: string) {
-  if (path.startsWith('http://') || path.startsWith('https://')) return path;
-  const trimmedBase = API_BASE_URL.replace(/\/+$/, '');
-  const trimmedPath = path.replace(/^\/+/, '');
-  return `${trimmedBase}/${trimmedPath}`;
-}
 
 function extractMessageFromBody(body: unknown): string | null {
   if (!body || typeof body !== 'object') return null;
@@ -46,16 +44,37 @@ export async function getErrorMessageFromResponse(res: Response): Promise<string
 export async function apiFetch<T>(
   path: string,
   options: RequestInit & { token?: string } = {},
+  /** Internal: avoid infinite 401 retry loops */
+  _allow401Refresh = true,
 ): Promise<T> {
-  const { token, ...rest } = options;
+  const { token: tokenOverride, ...rest } = options;
+  const { getAccessToken, tryRefreshAccessTokenOnce } = await loadAuthModule();
+  const token = tokenOverride ?? getAccessToken() ?? undefined;
 
-  const res = await fetch(buildUrl(path), {
+  const res = await fetch(buildApiUrl(path), {
     ...rest,
     headers: {
       ...(rest.headers ?? {}),
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
   });
+
+  if (
+    res.status === 401 &&
+    _allow401Refresh &&
+    path !== 'auth/refresh' &&
+    path !== 'auth/login' &&
+    path !== 'auth/verify-otp' &&
+    path !== 'auth/register' &&
+    path !== 'auth/request-otp' &&
+    path !== 'health'
+  ) {
+    const refreshed = await tryRefreshAccessTokenOnce();
+    if (refreshed) {
+      const nextTok = getAccessToken() ?? undefined;
+      return apiFetch<T>(path, { ...options, token: nextTok }, false);
+    }
+  }
 
   if (!res.ok) {
     const message = await getErrorMessageFromResponse(res);
@@ -66,10 +85,12 @@ export async function apiFetch<T>(
 }
 
 export function getApiBaseUrl() {
-  return API_BASE_URL;
+  return API_BASE_URL.replace(/\/+$/, '');
 }
 
 export async function getHealth(): Promise<HealthResponse> {
   return apiFetch<HealthResponse>('health', { method: 'GET' });
 }
+
+export { buildApiUrl } from './api-url';
 

@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { apiFetch } from '@/lib/api';
-import { clearAccessToken, getAccessToken } from '@/lib/auth';
+import { getAccessToken, performServerLogout } from '@/lib/auth';
 
 type MeBrief = { id: string; name: string; avatar: string | null };
 
@@ -17,7 +17,19 @@ export function Navbar() {
   const onHome = pathname === '/home';
 
   useEffect(() => {
-    setTokenPresent(!!getAccessToken());
+    const sync = () => setTokenPresent(!!getAccessToken());
+    sync();
+    if (typeof window === 'undefined') return;
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === 'toot_access_token' || e.key === 'toot_refresh_token') sync();
+    };
+    const onAuth = () => sync();
+    window.addEventListener('storage', onStorage);
+    window.addEventListener('toot-auth-token-changed', onAuth);
+    return () => {
+      window.removeEventListener('storage', onStorage);
+      window.removeEventListener('toot-auth-token-changed', onAuth);
+    };
   }, []);
 
   useEffect(() => {
@@ -40,8 +52,8 @@ export function Navbar() {
     };
   }, [tokenPresent]);
 
-  function onLogout() {
-    clearAccessToken();
+  async function onLogout() {
+    await performServerLogout();
     router.replace('/login');
   }
 
@@ -116,7 +128,7 @@ export function Navbar() {
 
             <button
               type="button"
-              onClick={onLogout}
+              onClick={() => void onLogout()}
               className="flex h-9 shrink-0 items-center justify-center rounded-full border border-stone-200/90 bg-white px-2.5 text-[11px] font-bold text-stone-700 transition hover:bg-stone-50 sm:px-3"
               aria-label="خروج از حساب"
             >

@@ -3,9 +3,10 @@
 import type { FormEvent } from 'react';
 import { useEffect, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { login, requestOtp, verifyOtp } from '@/lib/auth';
+import { bootstrapAuthState, login, requestOtp, verifyOtp } from '@/lib/auth';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
+import { Spinner } from '@/components/ui/Spinner';
 import { TextInput } from '@/components/forms/TextInput';
 
 const OTP_BANNER_AUTO_DISMISS_MS = 15_000;
@@ -31,6 +32,7 @@ export default function LoginClient() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [otpCopied, setOtpCopied] = useState(false);
+  const [authHydrating, setAuthHydrating] = useState(true);
 
   const redirectTimer = useRef<number | null>(null);
   const otpBannerDismissTimerRef = useRef<number | null>(null);
@@ -159,6 +161,30 @@ export default function LoginClient() {
   }
 
   const showDevOtpEnvHint = process.env.NEXT_PUBLIC_DEV_OTP === 'true';
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const ok = await bootstrapAuthState();
+      if (cancelled) return;
+      if (ok) {
+        router.replace(next);
+        return;
+      }
+      setAuthHydrating(false);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [router, next]);
+
+  if (authHydrating) {
+    return (
+      <main className="mx-auto flex min-h-[50vh] w-full max-w-md flex-col items-center justify-center p-4">
+        <Spinner label="در حال بررسی نشست..." />
+      </main>
+    );
+  }
 
   return (
     <>
