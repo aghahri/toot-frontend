@@ -25,6 +25,7 @@ type UserSearchHit = {
   phoneMasked: string;
 };
 type SuggestedNetworkRow = { id: string; name: string; description: string | null };
+type NetworkSpaceCategory = 'PUBLIC_GENERAL' | 'NEIGHBORHOOD' | 'EDUCATION' | 'SPORT' | 'TECH';
 
 type CreateMode = 'normal' | 'network';
 
@@ -53,6 +54,10 @@ function CreateGroupPageInner() {
   const [suggestedNetworks, setSuggestedNetworks] = useState<SuggestedNetworkRow[]>([]);
   const [loadingSuggestions, setLoadingSuggestions] = useState(false);
   const [joiningSuggestionId, setJoiningSuggestionId] = useState<string | null>(null);
+  const [createNetworkOpen, setCreateNetworkOpen] = useState(false);
+  const [networkCreating, setNetworkCreating] = useState(false);
+  const [newNetworkName, setNewNetworkName] = useState('');
+  const [newNetworkDescription, setNewNetworkDescription] = useState('');
   const submitLockRef = useRef(false);
   const kind = (searchParams.get('kind') ?? '').toLowerCase();
   const presetNetworkId = (searchParams.get('networkId') ?? '').trim();
@@ -61,6 +66,16 @@ function CreateGroupPageInner() {
   const forceChatMode = kind === 'chat';
   const forceCommunityMode = kind === 'community';
   const forcedMode: CreateMode | null = forceCommunityMode ? 'network' : forceChatMode ? 'normal' : null;
+  const isNeighborhoodFlow = spaceKey.toUpperCase() === 'NEIGHBORHOOD';
+
+  function resolveSpaceCategoryForNetwork(raw: string): NetworkSpaceCategory {
+    const v = raw.trim().toUpperCase();
+    if (v === 'NEIGHBORHOOD') return 'NEIGHBORHOOD';
+    if (v === 'EDUCATION') return 'EDUCATION';
+    if (v === 'SPORT') return 'SPORT';
+    if (v === 'TECH') return 'TECH';
+    return 'PUBLIC_GENERAL';
+  }
 
   const memberNetworks = useMemo(
     () => networks.filter((n) => n.isMember),
@@ -331,6 +346,36 @@ function CreateGroupPageInner() {
     }
   }
 
+  async function createFirstNetworkInline() {
+    const token = getAccessToken();
+    const name = newNetworkName.trim();
+    if (!token || !name || name.length < 2) return;
+    setNetworkCreating(true);
+    setError(null);
+    try {
+      const created = await apiFetch<{ id: string; name: string }>('networks', {
+        method: 'POST',
+        token,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name,
+          description: newNetworkDescription.trim() || undefined,
+          visibility: 'PUBLIC',
+          spaceCategory: resolveSpaceCategoryForNetwork(spaceKey),
+        }),
+      });
+      await loadNetworks();
+      setNetworkId(created.id);
+      setCreateNetworkOpen(false);
+      setNewNetworkName('');
+      setNewNetworkDescription('');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'ساخت شبکه انجام نشد');
+    } finally {
+      setNetworkCreating(false);
+    }
+  }
+
   const backHref =
     returnTo === 'direct'
       ? '/direct'
@@ -497,11 +542,22 @@ function CreateGroupPageInner() {
           <div className="px-3 pt-3">
             {memberNetworks.length === 0 ? (
               <div className="mb-3 space-y-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
-                <p className="font-semibold">برای ساخت گروه اجتماعی ابتدا یک شبکه مرتبط انتخاب یا به آن بپیوندید.</p>
+                <p className="font-semibold">
+                  {isNeighborhoodFlow
+                    ? 'برای گروه اجتماعی محله، ابتدا باید یک شبکه محله داشته باشید.'
+                    : 'برای ساخت گروه اجتماعی ابتدا یک شبکه مرتبط انتخاب یا به آن بپیوندید.'}
+                </p>
                 <div className="flex flex-wrap gap-2">
                   <Link href="/spaces" className="rounded-lg bg-white px-2.5 py-1.5 font-extrabold text-amber-900">
                     مشاهده فضاها
                   </Link>
+                  <button
+                    type="button"
+                    onClick={() => setCreateNetworkOpen(true)}
+                    className="rounded-lg bg-amber-600 px-2.5 py-1.5 font-extrabold text-white"
+                  >
+                    ایجاد اولین شبکه
+                  </button>
                 </div>
                 {loadingSuggestions ? (
                   <p className="text-[11px] text-amber-700">در حال دریافت شبکه‌های مرتبط…</p>
@@ -524,7 +580,7 @@ function CreateGroupPageInner() {
                   </div>
                 ) : (
                   <p className="text-[11px] text-amber-700">
-                    شبکه‌ای برای این فضا یافت نشد؛ از بخش فضاها یک شبکه عمومی را انتخاب و عضو شوید.
+                    هنوز شبکه‌ای برای این فضا ساخته نشده؛ اولین شبکه را همین‌جا ایجاد کنید.
                   </p>
                 )}
               </div>
@@ -702,6 +758,62 @@ function CreateGroupPageInner() {
           </div>
         ) : null}
       </main>
+
+      {createNetworkOpen ? (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/35 p-3" dir="rtl">
+          <div className="w-full max-w-md rounded-2xl bg-white p-4 shadow-xl">
+            <div className="mb-2 flex items-center justify-between">
+              <h3 className="text-sm font-extrabold text-slate-900">ایجاد اولین شبکه</h3>
+              <button
+                type="button"
+                onClick={() => setCreateNetworkOpen(false)}
+                className="rounded-full px-2 py-1 text-xs font-bold text-slate-500 hover:bg-slate-100"
+              >
+                بستن
+              </button>
+            </div>
+            <p className="mb-3 text-xs text-slate-500">
+              شبکه را بسازید تا بلافاصله بتوانید گروه اجتماعی همین مسیر را ایجاد کنید.
+            </p>
+            <label className="mb-2 block">
+              <span className="mb-1 block text-[11px] font-bold text-slate-600">نام شبکه</span>
+              <input
+                value={newNetworkName}
+                onChange={(e) => setNewNetworkName(e.target.value)}
+                placeholder={isNeighborhoodFlow ? 'مثلاً محله نارمک' : 'مثلاً شبکه برنامه‌نویسان'}
+                className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
+              />
+            </label>
+            <label className="mb-3 block">
+              <span className="mb-1 block text-[11px] font-bold text-slate-600">توضیح کوتاه (اختیاری)</span>
+              <textarea
+                value={newNetworkDescription}
+                onChange={(e) => setNewNetworkDescription(e.target.value)}
+                rows={2}
+                maxLength={500}
+                className="w-full resize-none rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
+              />
+            </label>
+            <div className="flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setCreateNetworkOpen(false)}
+                className="rounded-full border border-slate-200 px-3 py-1.5 text-xs font-bold text-slate-700"
+              >
+                انصراف
+              </button>
+              <button
+                type="button"
+                disabled={networkCreating || newNetworkName.trim().length < 2}
+                onClick={() => void createFirstNetworkInline()}
+                className="rounded-full bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white disabled:opacity-50"
+              >
+                {networkCreating ? 'در حال ایجاد...' : 'ایجاد شبکه'}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </AuthGate>
   );
 }
