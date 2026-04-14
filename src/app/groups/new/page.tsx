@@ -14,10 +14,6 @@ type NetworkRow = {
   isMember?: boolean;
 };
 
-type NetMember = {
-  user: { id: string; name: string; avatar: string | null; email: string };
-};
-
 type UserSearchHit = {
   id: string;
   name: string;
@@ -39,16 +35,15 @@ function CreateGroupPageInner() {
   const [myUserId, setMyUserId] = useState<string | null>(null);
   const [networks, setNetworks] = useState<NetworkRow[]>([]);
   const [networkId, setNetworkId] = useState<string>('');
-  const [members, setMembers] = useState<NetMember[]>([]);
   const [search, setSearch] = useState('');
   const [searchHits, setSearchHits] = useState<UserSearchHit[]>([]);
   const [searching, setSearching] = useState(false);
   const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [selectedProfiles, setSelectedProfiles] = useState<Record<string, UserSearchHit>>({});
   const [groupName, setGroupName] = useState('');
   const [description, setDescription] = useState('');
   const [loadingBoot, setLoadingBoot] = useState(true);
-  const [loadingMembers, setLoadingMembers] = useState(false);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [suggestedNetworks, setSuggestedNetworks] = useState<SuggestedNetworkRow[]>([]);
@@ -120,8 +115,9 @@ function CreateGroupPageInner() {
       setMode('normal');
       setNetworkId('');
       setSelectedIds([]);
+      setSelectedProfiles({});
       setSearch('');
-      setMembers([]);
+      setSearchHits([]);
     }
   }, [memberNetworks.length, mode, forceCommunityMode]);
 
@@ -141,34 +137,6 @@ function CreateGroupPageInner() {
     if (!forcedMode) return;
     setMode((prev) => (prev === forcedMode ? prev : forcedMode));
   }, [forcedMode]);
-
-  useEffect(() => {
-    if (mode !== 'network' || !networkId || !myUserId) {
-      setMembers([]);
-      return;
-    }
-    let cancelled = false;
-    void (async () => {
-      const token = getAccessToken();
-      if (!token) return;
-      setLoadingMembers(true);
-      try {
-        const rows = await apiFetch<NetMember[]>(`networks/${networkId}/members`, {
-          method: 'GET',
-          token,
-        });
-        if (cancelled) return;
-        setMembers(Array.isArray(rows) ? rows : []);
-      } catch {
-        if (!cancelled) setMembers([]);
-      } finally {
-        if (!cancelled) setLoadingMembers(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [networkId, myUserId, mode]);
 
   useEffect(() => {
     if (!forceCommunityMode || memberNetworks.length > 0 || !spaceKey) {
@@ -199,9 +167,13 @@ function CreateGroupPageInner() {
   }, [forceCommunityMode, memberNetworks.length, spaceKey]);
 
   useEffect(() => {
-    if (mode !== 'normal') return;
     const q = search.trim();
     if (q.length < 2) {
+      setSearchHits([]);
+      setSearching(false);
+      return;
+    }
+    if (mode === 'network' && !networkId) {
       setSearchHits([]);
       setSearching(false);
       return;
@@ -214,8 +186,12 @@ function CreateGroupPageInner() {
       void (async () => {
         setSearching(true);
         try {
+          const netQ =
+            mode === 'network' && networkId
+              ? `&networkId=${encodeURIComponent(networkId)}`
+              : '';
           const rows = await apiFetch<UserSearchHit[]>(
-            `users/search?q=${encodeURIComponent(q)}&limit=30`,
+            `users/search?q=${encodeURIComponent(q)}&limit=30${netQ}`,
             { method: 'GET', token },
           );
           setSearchHits(Array.isArray(rows) ? rows.filter((h) => h.id !== myUserId) : []);
@@ -230,42 +206,40 @@ function CreateGroupPageInner() {
     return () => {
       if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
     };
-  }, [search, mode, myUserId]);
-
-  const others = useMemo(
-    () => members.filter((m) => m.user?.id && m.user.id !== myUserId),
-    [members, myUserId],
-  );
-
-  const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    if (!q) return others;
-    return others.filter((m) => {
-      const name = (m.user.name ?? '').toLowerCase();
-      const email = (m.user.email ?? '').toLowerCase();
-      return name.includes(q) || email.includes(q);
-    });
-  }, [others, search]);
+  }, [search, mode, myUserId, networkId]);
 
   const selectedSet = useMemo(() => new Set(selectedIds), [selectedIds]);
 
-  function toggleUser(id: string) {
-    setSelectedIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+  const selectedUserChips = useMemo(
+    () =>
+      selectedIds
+        .map((id) => selectedProfiles[id] ?? searchHits.find((h) => h.id === id))
+        .filter(Boolean) as UserSearchHit[],
+    [selectedIds, selectedProfiles, searchHits],
+  );
+
+  function toggleUser(id: string, hit?: UserSearchHit) {
+    if (selectedIds.includes(id)) {
+      setSelectedIds(selectedIds.filter((x) => x !== id));
+      setSelectedProfiles((p) => {
+        const next = { ...p };
+        delete next[id];
+        return next;
+      });
+    } else {
+      setSelectedIds([...selectedIds, id]);
+      if (hit) setSelectedProfiles((p) => ({ ...p, [id]: hit }));
+    }
   }
 
   function removeSelected(id: string) {
     setSelectedIds((prev) => prev.filter((x) => x !== id));
+    setSelectedProfiles((p) => {
+      const next = { ...p };
+      delete next[id];
+      return next;
+    });
   }
-
-  const selectedUsersNetwork = useMemo(
-    () => selectedIds.map((id) => others.find((m) => m.user.id === id)?.user).filter(Boolean) as NetMember['user'][],
-    [selectedIds, others],
-  );
-
-  const selectedUsersNormal = useMemo(() => {
-    const map = new Map(searchHits.map((h) => [h.id, h] as const));
-    return selectedIds.map((id) => map.get(id)).filter(Boolean) as UserSearchHit[];
-  }, [selectedIds, searchHits]);
 
   const canNextNormal = selectedIds.length >= 1;
   const canNextNetwork = selectedIds.length >= 1 && !!networkId;
@@ -284,6 +258,7 @@ function CreateGroupPageInner() {
   function setModeAndReset(next: CreateMode) {
     setMode(next);
     setSelectedIds([]);
+    setSelectedProfiles({});
     setSearch('');
     setSearchHits([]);
     setError(null);
@@ -449,19 +424,20 @@ function CreateGroupPageInner() {
         {step === 'members' && mode === 'normal' ? (
           <div className="px-3 pt-3">
             <p className="mb-2 text-[11px] leading-relaxed text-stone-600">
-              حداقل یک نفر را برای شروع گروه چت انتخاب کنید (بدون شبکه).
+              حداقل یک نفر را برای شروع گروه چت انتخاب کنید (بدون شبکه). نام، نام کاربری، ایمیل یا بخشی از شماره موبایل را
+              جستجو کنید (حداقل ۲ نویسه).
             </p>
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="نام، نام کاربری یا بخشی از شماره…"
+              placeholder="جستجو…"
               className="mb-3 w-full rounded-xl border border-stone-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
               autoComplete="off"
             />
 
             <div className="mb-2 flex flex-wrap items-center gap-2">
               <span className="text-xs font-bold text-stone-600">انتخاب‌شده: {selectedIds.length}</span>
-              {selectedUsersNormal.map((u) => (
+              {selectedUserChips.map((u) => (
                 <button
                   key={u.id}
                   type="button"
@@ -495,7 +471,7 @@ function CreateGroupPageInner() {
                       <li key={hit.id}>
                         <button
                           type="button"
-                          onClick={() => toggleUser(hit.id)}
+                          onClick={() => toggleUser(hit.id, hit)}
                           className={`flex w-full items-center gap-3 px-3 py-3 text-right transition ${
                             on ? 'bg-emerald-50' : 'hover:bg-stone-50'
                           }`}
@@ -593,6 +569,9 @@ function CreateGroupPageInner() {
                   onChange={(e) => {
                     setNetworkId(e.target.value);
                     setSelectedIds([]);
+                    setSelectedProfiles({});
+                    setSearch('');
+                    setSearchHits([]);
                   }}
                   className="w-full rounded-xl border border-stone-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
                 >
@@ -606,10 +585,14 @@ function CreateGroupPageInner() {
               </label>
             ) : null}
 
+            <p className="mb-2 text-[11px] leading-relaxed text-stone-600">
+              اعضای فعال این شبکه را با نام، نام کاربری، ایمیل یا بخشی از شماره موبایل جستجو کنید (حداقل ۲ نویسه) — همان
+              رفتار جستجوی گفتگوی جدید.
+            </p>
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="جستجوی نام یا ایمیل…"
+              placeholder="جستجو…"
               disabled={!networkId}
               className="mb-3 w-full rounded-xl border border-stone-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-sky-400 focus:ring-2 focus:ring-sky-100 disabled:opacity-50"
               autoComplete="off"
@@ -617,7 +600,7 @@ function CreateGroupPageInner() {
 
             <div className="mb-2 flex flex-wrap items-center gap-2">
               <span className="text-xs font-bold text-stone-600">انتخاب‌شده: {selectedIds.length}</span>
-              {selectedUsersNetwork.map((u) => (
+              {selectedUserChips.map((u) => (
                 <button
                   key={u.id}
                   type="button"
@@ -638,45 +621,48 @@ function CreateGroupPageInner() {
 
             {!networkId ? (
               <p className="py-8 text-center text-sm text-stone-500">یک شبکه انتخاب کنید.</p>
-            ) : loadingMembers ? (
-              <p className="py-8 text-center text-sm text-stone-500">در حال بارگذاری اعضا…</p>
-            ) : filtered.length === 0 ? (
-              <p className="py-8 text-center text-sm text-stone-500">
-                {others.length === 0
-                  ? 'عضو دیگری در این شبکه نیست. دیگران باید ابتدا به شبکه بپیوندند.'
-                  : 'نتیجه‌ای یافت نشد.'}
-              </p>
             ) : (
-              <ul className="divide-y divide-stone-100 overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-sm">
-                {filtered.map((m) => {
-                  const u = m.user;
-                  const on = selectedSet.has(u.id);
-                  return (
-                    <li key={u.id}>
-                      <button
-                        type="button"
-                        onClick={() => toggleUser(u.id)}
-                        className={`flex w-full items-center gap-3 px-3 py-3 text-right transition ${
-                          on ? 'bg-sky-50' : 'hover:bg-stone-50'
-                        }`}
-                      >
-                        <span
-                          className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 text-xs font-bold ${
-                            on ? 'border-sky-500 bg-sky-500 text-white' : 'border-stone-300 text-transparent'
-                          }`}
-                          aria-hidden
-                        >
-                          ✓
-                        </span>
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate text-sm font-bold text-stone-900">{u.name}</p>
-                          <p className="truncate text-[11px] text-stone-500">{u.email}</p>
-                        </div>
-                      </button>
-                    </li>
-                  );
-                })}
-              </ul>
+              <div className="mb-2 max-h-64 overflow-y-auto rounded-2xl border border-stone-200 bg-white shadow-sm">
+                {search.trim().length < 2 ? (
+                  <p className="px-3 py-6 text-center text-sm text-stone-500">حداقل ۲ نویسه برای جستجو وارد کنید.</p>
+                ) : searching ? (
+                  <p className="px-3 py-6 text-center text-sm text-stone-500">در حال جستجو…</p>
+                ) : searchHits.length === 0 ? (
+                  <p className="px-3 py-6 text-center text-sm text-stone-500">نتیجه‌ای یافت نشد.</p>
+                ) : (
+                  <ul className="divide-y divide-stone-100">
+                    {searchHits.map((hit) => {
+                      const on = selectedSet.has(hit.id);
+                      return (
+                        <li key={hit.id}>
+                          <button
+                            type="button"
+                            onClick={() => toggleUser(hit.id, hit)}
+                            className={`flex w-full items-center gap-3 px-3 py-3 text-right transition ${
+                              on ? 'bg-sky-50' : 'hover:bg-stone-50'
+                            }`}
+                          >
+                            <span
+                              className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 text-xs font-bold ${
+                                on ? 'border-sky-500 bg-sky-500 text-white' : 'border-stone-300 text-transparent'
+                              }`}
+                              aria-hidden
+                            >
+                              ✓
+                            </span>
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate text-sm font-bold text-stone-900">{hit.name}</p>
+                              <p className="truncate text-[11px] text-stone-500" dir="ltr">
+                                @{hit.username} · {hit.phoneMasked}
+                              </p>
+                            </div>
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </div>
             )}
 
             <div className="sticky bottom-0 mt-4 bg-stone-100/95 py-2 backdrop-blur-sm">
