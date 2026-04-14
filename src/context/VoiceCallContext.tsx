@@ -13,6 +13,7 @@ import {
 import type { Socket } from 'socket.io-client';
 import { apiFetch } from '@/lib/api';
 import { getAccessToken } from '@/lib/auth';
+import { isVoiceDebugEnabled } from '@/lib/voice-call-debug';
 import { useAppRealtime } from './AppRealtimeSocketContext';
 
 export type VoicePeer = {
@@ -58,14 +59,6 @@ export type VoiceCallContextValue = {
 const VoiceCallContext = createContext<VoiceCallContextValue | null>(null);
 
 const CONNECTING_TIMEOUT_MS = 55_000;
-
-/**
- * Voice debug overlay: production shows only when NEXT_PUBLIC_VOICE_CALL_DEBUG=1.
- * In development it is on by default; set NEXT_PUBLIC_VOICE_CALL_DEBUG=0 to hide.
- */
-const VOICE_CALL_DEBUG =
-  process.env.NEXT_PUBLIC_VOICE_CALL_DEBUG === '1' ||
-  (process.env.NODE_ENV === 'development' && process.env.NEXT_PUBLIC_VOICE_CALL_DEBUG !== '0');
 
 function mapStartError(code: string, message?: string): string {
   switch (code) {
@@ -805,14 +798,14 @@ export function VoiceCallProvider({ children }: { children: ReactNode }) {
   }, [phase]);
 
   useEffect(() => {
-    if (!VOICE_CALL_DEBUG) return;
+    if (!isVoiceDebugEnabled) return;
     if (phase !== 'connecting' && phase !== 'active') return;
     const id = window.setInterval(() => setVoiceDbgTick((n) => n + 1), 500);
     return () => clearInterval(id);
   }, [phase]);
 
   useEffect(() => {
-    if (!VOICE_CALL_DEBUG) {
+    if (!isVoiceDebugEnabled) {
       setVoiceIceDbgText('');
       return;
     }
@@ -1110,7 +1103,7 @@ export function VoiceCallProvider({ children }: { children: ReactNode }) {
   const canStartCall = phase === 'idle';
 
   const voiceDebugText = useMemo(() => {
-    if (!VOICE_CALL_DEBUG) return '';
+    if (!isVoiceDebugEnabled) return '';
     if (phase !== 'connecting' && phase !== 'active') return '';
     void voiceDbgTick;
     const pc = pcRef.current;
@@ -1284,7 +1277,7 @@ export function VoiceCallProvider({ children }: { children: ReactNode }) {
                 </div>
               )}
 
-              {VOICE_CALL_DEBUG && (phase === 'connecting' || phase === 'active') ? (
+              {isVoiceDebugEnabled && (phase === 'connecting' || phase === 'active') ? (
                 <pre className="mt-3 max-h-[min(42vh,18rem)] w-full overflow-auto rounded border border-dashed border-amber-700/70 bg-black/55 p-2 text-left font-mono text-[9px] leading-tight text-amber-200/95 whitespace-pre-wrap break-words">
                   {voiceDebugText}
                   {voiceIceDbgText ? `\n${voiceIceDbgText}` : ''}
