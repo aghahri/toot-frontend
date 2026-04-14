@@ -18,6 +18,21 @@ export function getAccessToken(): string | null {
   }
 }
 
+export function getCurrentUserIdFromAccessToken(): string | null {
+  const token = getAccessToken();
+  if (!token) return null;
+  const parts = token.split('.');
+  if (parts.length < 2 || !parts[1]) return null;
+  try {
+    const b64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+    const pad = b64.length % 4 === 0 ? '' : '='.repeat(4 - (b64.length % 4));
+    const payload = JSON.parse(atob(b64 + pad)) as { sub?: unknown };
+    return typeof payload.sub === 'string' && payload.sub.trim() ? payload.sub : null;
+  } catch {
+    return null;
+  }
+}
+
 export function getRefreshToken(): string | null {
   if (typeof window === 'undefined') return null;
   try {

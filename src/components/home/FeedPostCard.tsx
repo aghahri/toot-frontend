@@ -39,6 +39,7 @@ function formatCount(n: number): string {
 type FeedPostCardProps = {
   post: FeedPost;
   onPatch: (postId: string, patch: Partial<FeedPost>) => void;
+  onDelete?: (postId: string) => void;
   onOpenReply: (post: FeedPost) => void;
   /** After repost toggle succeeds, refresh feed (e.g. silent) so repost strip/order matches server. */
   onRepostChanged?: () => void;
@@ -46,15 +47,18 @@ type FeedPostCardProps = {
   linkAuthorProfile?: boolean;
   /** Brief visual emphasis (e.g. deep-link from search). */
   emphasize?: boolean;
+  viewerUserId?: string | null;
 };
 
 export function FeedPostCard({
   post,
   onPatch,
+  onDelete,
   onOpenReply,
   onRepostChanged,
   linkAuthorProfile = true,
   emphasize = false,
+  viewerUserId = null,
 }: FeedPostCardProps) {
   const p = post;
   const handle = p.user?.username?.trim() || `@user_${p.userId.slice(0, 6)}`;
@@ -70,6 +74,12 @@ export function FeedPostCard({
   const [likeBusy, setLikeBusy] = useState(false);
   const [repostBusy, setRepostBusy] = useState(false);
   const [bookmarkBusy, setBookmarkBusy] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
+  const [editText, setEditText] = useState(post.text ?? '');
+  const [editBusy, setEditBusy] = useState(false);
+  const [deleteBusy, setDeleteBusy] = useState(false);
+  const [ownerActionError, setOwnerActionError] = useState<string | null>(null);
 
   const likeLock = useRef(false);
   const repostLock = useRef(false);
@@ -78,12 +88,18 @@ export function FeedPostCard({
   const [repostFeedback, setRepostFeedback] = useState<string | null>(null);
 
   useEffect(() => {
+    setEditText(post.text ?? '');
+  }, [post.id, post.text]);
+
+  useEffect(() => {
     return () => {
       if (repostFeedbackTimerRef.current != null) {
         window.clearTimeout(repostFeedbackTimerRef.current);
       }
     };
   }, []);
+
+  const isOwner = !!viewerUserId && viewerUserId === p.userId;
 
   const applySnapshot = useCallback(
     (snap: PostEngagementSnapshot) => {
@@ -237,6 +253,55 @@ export function FeedPostCard({
     linkAuthorProfile && p.user?.id ? `/profile/${p.user.id}` : null;
   const anchorId = isViewerRepostRow ? `feed-post-${p.id}-vrepost` : `feed-post-${p.id}`;
 
+  const saveEdit = useCallback(async () => {
+    if (!isOwner || editBusy) return;
+    const t = getAccessToken();
+    if (!t) return;
+    setEditBusy(true);
+    setOwnerActionError(null);
+    try {
+      const updated = await apiFetch<FeedPost>(`posts/${encodeURIComponent(p.id)}`, {
+        method: 'PATCH',
+        token: t,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: editText }),
+      });
+      onPatch(p.id, {
+        text: updated.text,
+        media: updated.media,
+        mediaUrl: updated.mediaUrl,
+      });
+      setEditOpen(false);
+      setMenuOpen(false);
+    } catch (e) {
+      setOwnerActionError(e instanceof Error ? e.message : 'ویرایش انجام نشد');
+    } finally {
+      setEditBusy(false);
+    }
+  }, [editBusy, editText, isOwner, onPatch, p.id]);
+
+  const removePost = useCallback(async () => {
+    if (!isOwner || deleteBusy) return;
+    const t = getAccessToken();
+    if (!t) return;
+    const ok = window.confirm('این پست حذف شود؟ این عمل قابل بازگشت نیست.');
+    if (!ok) return;
+    setDeleteBusy(true);
+    setOwnerActionError(null);
+    try {
+      await apiFetch<{ success: true; id: string }>(`posts/${encodeURIComponent(p.id)}`, {
+        method: 'DELETE',
+        token: t,
+      });
+      onDelete?.(p.id);
+    } catch (e) {
+      setOwnerActionError(e instanceof Error ? e.message : 'حذف انجام نشد');
+    } finally {
+      setDeleteBusy(false);
+      setMenuOpen(false);
+    }
+  }, [deleteBusy, isOwner, onDelete, p.id]);
+
   return (
     <article
       id={anchorId}
@@ -331,15 +396,89 @@ export function FeedPostCard({
                 </time>
               </div>
             </div>
-            <button
-              type="button"
-              className="shrink-0 rounded-full p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
-              aria-label="گزینه‌های بیشتر (به‌زودی)"
-              disabled
-            >
-              <span className="text-lg leading-none">⋯</span>
-            </button>
+            <div className="relative shrink-0">
+              {isOwner ? (
+                <>
+                  <button
+                    type="button"
+                    className="rounded-full p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
+                    aria-label="گزینه‌های پست"
+                    onClick={() => setMenuOpen((v) => !v)}
+                  >
+                    <span className="text-lg leading-none">⋯</span>
+                  </button>
+                  {menuOpen ? (
+                    <div className="absolute left-0 top-9 z-10 min-w-[9rem] overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditOpen(true);
+                          setMenuOpen(false);
+                          setOwnerActionError(null);
+                        }}
+                        className="block w-full px-3 py-2 text-right text-xs font-bold text-slate-700 transition hover:bg-slate-50"
+                      >
+                        ویرایش پست
+                      </button>
+                      <button
+                        type="button"
+                        disabled={deleteBusy}
+                        onClick={() => void removePost()}
+                        className="block w-full px-3 py-2 text-right text-xs font-bold text-red-600 transition hover:bg-red-50 disabled:opacity-60"
+                      >
+                        حذف پست
+                      </button>
+                    </div>
+                  ) : null}
+                </>
+              ) : (
+                <button
+                  type="button"
+                  className="rounded-full p-1.5 text-slate-300"
+                  aria-label="گزینه‌های بیشتر"
+                  disabled
+                >
+                  <span className="text-lg leading-none">⋯</span>
+                </button>
+              )}
+            </div>
           </div>
+
+          {editOpen ? (
+            <div className="mt-2.5 rounded-xl border border-slate-200 bg-slate-50/70 p-2.5">
+              <textarea
+                value={editText}
+                onChange={(e) => setEditText(e.target.value)}
+                className="min-h-[5.5rem] w-full resize-y rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-200"
+                placeholder="متن پست"
+              />
+              <div className="mt-2 flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditOpen(false);
+                    setEditText(post.text ?? '');
+                    setOwnerActionError(null);
+                  }}
+                  className="rounded-full border border-slate-300 px-3 py-1.5 text-xs font-bold text-slate-700 transition hover:bg-slate-100"
+                >
+                  انصراف
+                </button>
+                <button
+                  type="button"
+                  disabled={editBusy}
+                  onClick={() => void saveEdit()}
+                  className="rounded-full bg-slate-900 px-3 py-1.5 text-xs font-bold text-white transition hover:bg-slate-800 disabled:opacity-60"
+                >
+                  {editBusy ? '...' : 'ذخیره'}
+                </button>
+              </div>
+            </div>
+          ) : null}
+
+          {ownerActionError ? (
+            <p className="mt-2 text-xs font-semibold text-red-600">{ownerActionError}</p>
+          ) : null}
 
           {p.text ? (
             <div className="mt-2.5 whitespace-pre-wrap text-[15px] leading-[1.58] text-slate-800">

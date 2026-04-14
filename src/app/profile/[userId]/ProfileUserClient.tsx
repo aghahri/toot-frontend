@@ -1,10 +1,10 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { AuthGate } from '@/components/AuthGate';
-import { getAccessToken } from '@/lib/auth';
+import { getAccessToken, getCurrentUserIdFromAccessToken } from '@/lib/auth';
 import { apiFetch } from '@/lib/api';
 import { FeedPostCard } from '@/components/home/FeedPostCard';
 import { FeedEmptyState } from '@/components/home/FeedEmptyState';
@@ -54,6 +54,8 @@ type ProfileUserClientProps = {
   userId: string;
 };
 
+type ProfilePostTab = 'posts' | 'photos' | 'videos';
+
 export function ProfileUserClient({ userId }: ProfileUserClientProps) {
   const router = useRouter();
   const { startCall: startVoiceCall, canStartCall: canStartVoiceCall } = useVoiceCall();
@@ -66,6 +68,8 @@ export function ProfileUserClient({ userId }: ProfileUserClientProps) {
   const [dmBusy, setDmBusy] = useState(false);
   const [dmError, setDmError] = useState<string | null>(null);
   const [replyPost, setReplyPost] = useState<FeedPost | null>(null);
+  const [postTab, setPostTab] = useState<ProfilePostTab>('posts');
+  const viewerUserId = getCurrentUserIdFromAccessToken();
 
   const loadProfile = useCallback(async () => {
     const t = getAccessToken();
@@ -125,6 +129,33 @@ export function ProfileUserClient({ userId }: ProfileUserClientProps) {
     },
     [patchPost],
   );
+
+  const removePost = useCallback((postId: string) => {
+    setPosts((prev) => prev.filter((p) => p.id !== postId));
+  }, []);
+
+  const photoPosts = useMemo(
+    () =>
+      posts.filter((p) => {
+        if (p.media.length === 0) return !!p.mediaUrl;
+        return p.media.some(
+          (m) => m.type === 'IMAGE' || (typeof m.mimeType === 'string' && m.mimeType.startsWith('image/')),
+        );
+      }),
+    [posts],
+  );
+
+  const videoPosts = useMemo(
+    () =>
+      posts.filter((p) =>
+        p.media.some(
+          (m) => m.type === 'VIDEO' || (typeof m.mimeType === 'string' && m.mimeType.startsWith('video/')),
+        ),
+      ),
+    [posts],
+  );
+
+  const visiblePosts = postTab === 'photos' ? photoPosts : postTab === 'videos' ? videoPosts : posts;
 
   async function onToggleFollow() {
     if (!profile || profile.isSelf) return;
@@ -349,6 +380,27 @@ export function ProfileUserClient({ userId }: ProfileUserClientProps) {
                     {profile.postCount}
                   </span>
                 </div>
+                <div className="mt-3 grid grid-cols-3 gap-1 rounded-xl bg-slate-100/80 p-1">
+                  {([
+                    { id: 'posts', label: 'پست‌ها', count: posts.length },
+                    { id: 'photos', label: 'عکس‌ها', count: photoPosts.length },
+                    { id: 'videos', label: 'ویدیوها', count: videoPosts.length },
+                  ] as const).map((tabItem) => (
+                    <button
+                      key={tabItem.id}
+                      type="button"
+                      onClick={() => setPostTab(tabItem.id)}
+                      className={`rounded-lg px-2 py-2 text-xs font-bold transition ${
+                        postTab === tabItem.id
+                          ? 'bg-white text-slate-900 shadow-sm ring-1 ring-slate-200'
+                          : 'text-slate-600 hover:bg-white/70'
+                      }`}
+                    >
+                      {tabItem.label}
+                      <span className="ms-1 text-[10px] tabular-nums text-slate-500">{tabItem.count}</span>
+                    </button>
+                  ))}
+                </div>
               </div>
 
               {postsLoading ? (
@@ -364,22 +416,36 @@ export function ProfileUserClient({ userId }: ProfileUserClientProps) {
                     تلاش دوباره
                   </button>
                 </div>
-              ) : posts.length === 0 ? (
+              ) : visiblePosts.length === 0 ? (
                 <FeedEmptyState
-                  title="هنوز پستی نیست"
-                  description="وقتی این کاربر پست بگذارد، اینجا نمایش داده می‌شود."
+                  title={
+                    postTab === 'posts'
+                      ? 'هنوز پستی نیست'
+                      : postTab === 'photos'
+                        ? 'عکسی وجود ندارد'
+                        : 'ویدیویی وجود ندارد'
+                  }
+                  description={
+                    postTab === 'posts'
+                      ? 'وقتی این کاربر پست بگذارد، اینجا نمایش داده می‌شود.'
+                      : postTab === 'photos'
+                        ? 'پست‌های دارای تصویر در این بخش نمایش داده می‌شوند.'
+                        : 'پست‌های دارای ویدیو در این بخش نمایش داده می‌شوند.'
+                  }
                   icon="✦"
                 />
               ) : (
                 <div className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm">
-                  {posts.map((p) => (
+                  {visiblePosts.map((p) => (
                     <FeedPostCard
                       key={p.id}
                       post={p}
                       onPatch={patchPost}
+                      onDelete={removePost}
                       onOpenReply={setReplyPost}
                       onRepostChanged={() => void loadPosts({ silent: true })}
                       linkAuthorProfile={false}
+                      viewerUserId={viewerUserId}
                     />
                   ))}
                 </div>

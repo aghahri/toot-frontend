@@ -3,7 +3,7 @@
 import { Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { AuthGate } from '@/components/AuthGate';
-import { getAccessToken } from '@/lib/auth';
+import { getAccessToken, getCurrentUserIdFromAccessToken } from '@/lib/auth';
 import { apiFetch } from '@/lib/api';
 import { FeedTabs } from '@/components/home/FeedTabs';
 import { FeedPostCard } from '@/components/home/FeedPostCard';
@@ -45,6 +45,7 @@ function HomePageInner() {
   const [replyPost, setReplyPost] = useState<FeedPost | null>(null);
   const [emphasizePostId, setEmphasizePostId] = useState<string | null>(null);
   const [postTargetMissed, setPostTargetMissed] = useState(false);
+  const viewerUserId = getCurrentUserIdFromAccessToken();
   const abortRef = useRef<AbortController | null>(null);
   const deepLinkFetchAttempted = useRef<Set<string>>(new Set());
   const deepLinkScrollDone = useRef<string | null>(null);
@@ -189,6 +190,11 @@ function HomePageInner() {
     patchPost(postId, { replyCount });
   }, [patchPost]);
 
+  const removePost = useCallback((postId: string) => {
+    setPosts((prev) => prev.filter((x) => x.id !== postId));
+    setFollowingPosts((prev) => prev.filter((x) => x.id !== postId));
+  }, []);
+
   return (
     <AuthGate>
       <div className="relative min-h-[60dvh] w-full min-w-0 max-w-[100vw] bg-[#f7f9f9]" dir="rtl">
@@ -244,9 +250,11 @@ function HomePageInner() {
                       }
                       post={p}
                       onPatch={patchPost}
+                      onDelete={removePost}
                       onOpenReply={setReplyPost}
                       onRepostChanged={() => void loadFeed({ silent: true })}
                       emphasize={emphasizePostId === p.id}
+                      viewerUserId={viewerUserId}
                     />
                   ))}
                 </div>
@@ -292,9 +300,11 @@ function HomePageInner() {
                       key={p.id}
                       post={p}
                       onPatch={patchPost}
+                      onDelete={removePost}
                       onOpenReply={setReplyPost}
                       onRepostChanged={() => void loadFollowingFeed({ silent: true })}
                       emphasize={emphasizePostId === p.id}
+                      viewerUserId={viewerUserId}
                     />
                   ))}
                 </div>
