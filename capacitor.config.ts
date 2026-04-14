@@ -8,7 +8,22 @@ import type { CapacitorConfig } from '@capacitor/cli';
  *
  * Dev (http) is allowed with cleartext only when the origin uses http://.
  */
-const origin = process.env.CAPACITOR_WEB_ORIGIN?.trim();
+function resolveCapacitorWebOrigin(): string | null {
+  const raw = process.env.CAPACITOR_WEB_ORIGIN?.trim();
+  if (!raw) return null;
+  try {
+    const parsed = new URL(raw);
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+      return null;
+    }
+    // Capacitor server URL must be a valid origin for Android Bridge startup.
+    return parsed.origin;
+  } catch {
+    return null;
+  }
+}
+
+const origin = resolveCapacitorWebOrigin();
 
 const config: CapacitorConfig = {
   appId: 'net.tootapp.mobile',
