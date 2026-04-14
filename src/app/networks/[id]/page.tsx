@@ -114,6 +114,14 @@ export default function NetworkDetailPage() {
                   عضو شبکه هستید
                 </span>
               )}
+              {net.isMember ? (
+                <Link
+                  href={`/groups/new?kind=community&networkId=${encodeURIComponent(net.id)}`}
+                  className="rounded-xl border border-sky-200 bg-sky-50 px-4 py-2.5 text-sm font-bold text-sky-800"
+                >
+                  ساخت گروه اجتماعی
+                </Link>
+              ) : null}
             </div>
           </div>
         ) : null}

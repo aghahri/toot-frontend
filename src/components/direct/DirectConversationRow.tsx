@@ -95,6 +95,7 @@ type Props = {
   onPin?: () => void;
   onArchiveToggle?: () => void;
   onMuteToggle?: () => void;
+  nameBadge?: { label: string; className: string };
 };
 
 export function DirectConversationRow({
@@ -118,6 +119,7 @@ export function DirectConversationRow({
   onPin,
   onArchiveToggle,
   onMuteToggle,
+  nameBadge,
 }: Props) {
   const label = peerName || 'کاربر';
   const timeLabel = previewTimeIso ? formatShortTime(previewTimeIso) : '';
@@ -169,6 +171,11 @@ export function DirectConversationRow({
                   </span>
                 ) : null}
                 <div className={`min-w-0 truncate text-[15px] ${titleClass}`}>{label}</div>
+                {nameBadge ? (
+                  <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-extrabold ${nameBadge.className}`}>
+                    {nameBadge.label}
+                  </span>
+                ) : null}
                 {inboxMuted ? (
                   <span className="shrink-0 text-[12px] text-stone-400" title="بی‌صدا" aria-hidden>
                     🔕

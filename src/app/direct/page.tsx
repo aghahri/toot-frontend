@@ -590,12 +590,12 @@ export default function DirectPage() {
                     گفتگوی جدید
                   </button>
                   <Link
-                    href="/groups/new"
+                    href="/groups/new?kind=chat"
                     role="menuitem"
                     className="flex w-full px-4 py-3 text-right text-sm font-bold text-stone-800 transition hover:bg-stone-100"
                     onClick={() => setPlusMenuOpen(false)}
                   >
-                    گروه جدید
+                    ایجاد گروه چت
                   </Link>
                 </div>
               ) : null}

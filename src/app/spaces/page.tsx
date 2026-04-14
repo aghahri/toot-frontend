@@ -187,7 +187,7 @@ export default function SpacesOverviewPage() {
                         </div>
                         <div className="grid grid-cols-2 gap-2">
                           <div className="rounded-lg bg-slate-50 p-2">
-                            <p className="mb-1 font-bold text-slate-700">گروه‌ها</p>
+                            <p className="mb-1 font-bold text-slate-700">گروه‌های اجتماعی</p>
                             {block.groups.length === 0 ? (
                               <p className="text-slate-400">موردی نیست</p>
                             ) : (
@@ -221,7 +221,13 @@ export default function SpacesOverviewPage() {
                         </div>
                       </div>
                       {SPACE_DETAIL_MAP[block.key] ? (
-                        <div className="mt-2 text-left">
+                        <div className="mt-2 flex items-center justify-between gap-2 text-left">
+                          <Link
+                            href="/groups/new?kind=community"
+                            className="text-[11px] font-bold text-emerald-700 hover:underline"
+                          >
+                            ساخت گروه اجتماعی
+                          </Link>
                           <Link
                             href={`/spaces/${SPACE_DETAIL_MAP[block.key]}`}
                             className="text-[11px] font-bold text-sky-700 hover:underline"

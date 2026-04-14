@@ -148,9 +148,17 @@ function SpaceDetailInner() {
         ) : data ? (
           <div className="space-y-6">
             <section className="rounded-2xl border border-slate-200/90 bg-white p-4 shadow-sm">
-              <h2 className="text-sm font-extrabold text-slate-900">گروه‌ها</h2>
+              <div className="flex items-center justify-between gap-2">
+                <h2 className="text-sm font-extrabold text-slate-900">گروه‌های اجتماعی</h2>
+                <Link
+                  href="/groups/new?kind=community"
+                  className="rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-[11px] font-extrabold text-sky-800"
+                >
+                  ساخت گروه اجتماعی
+                </Link>
+              </div>
               <p className="mt-1 text-[11px] leading-relaxed text-slate-500">
-                گروه‌های همین فضا؛ پیوستن فقط برای گروه‌های زیرشبکه (دارای شبکه) فعال است.
+                فقط گروه‌های اجتماعی این فضا؛ گروه‌های چت خصوصی در این بخش نمایش داده نمی‌شوند.
               </p>
               <ul className="mt-3 divide-y divide-slate-100">
                 {data.groups.length === 0 ? (

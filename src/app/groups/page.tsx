@@ -254,7 +254,10 @@ export default function GroupsInboxPage() {
           className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-stone-200/80 bg-stone-50/95 px-4 py-2.5 backdrop-blur-sm"
           dir="rtl"
         >
-          <p className="text-sm font-semibold text-stone-600">گروه‌ها</p>
+          <div>
+            <p className="text-sm font-semibold text-stone-700">گروه‌ها</p>
+            <p className="text-[10px] text-stone-500">گروه چت (خصوصی) و گروه اجتماعی (جامعه‌محور)</p>
+          </div>
           <div className="flex shrink-0 items-center gap-1">
             <button
               type="button"
@@ -268,8 +271,8 @@ export default function GroupsInboxPage() {
               </span>
             </button>
             <Link
-              href="/groups/new"
-              title="گروه جدید"
+              href="/groups/new?kind=community"
+              title="ساخت گروه اجتماعی"
               className="flex h-11 w-11 items-center justify-center rounded-full bg-sky-500 text-white shadow-md shadow-sky-600/25 transition hover:bg-sky-600 active:scale-95"
             >
               <IconPlus className="h-6 w-6 stroke-[2.5]" />
@@ -374,6 +377,10 @@ function renderGroupRow(
   const subtitle = [kindLabel, item.network?.name ? `شبکه: ${item.network.name}` : '', `${item.memberCount} عضو`]
     .filter(Boolean)
     .join(' · ');
+  const badge =
+    item.type === 'CHAT'
+      ? { label: 'گروه چت', className: 'bg-emerald-100 text-emerald-800 ring-1 ring-emerald-200' }
+      : { label: 'گروه اجتماعی', className: 'bg-sky-100 text-sky-800 ring-1 ring-sky-200' };
 
   return (
     <DirectConversationRow
@@ -393,6 +400,7 @@ function renderGroupRow(
       inboxArchived={item.inboxArchived === true}
       inboxMuted={item.inboxMuted === true}
       unreadEmphasis={unread > 0 && previewVariant === 'default'}
+      nameBadge={badge}
       menuOpen={ctx.menuOpenId === item.id}
       onMenuToggle={() => ctx.setMenuOpenId(ctx.menuOpenId === item.id ? null : item.id)}
       onPin={() => void ctx.onInboxAction(item.id, item.inboxPinned ? 'inbox/unpin' : 'inbox/pin')}

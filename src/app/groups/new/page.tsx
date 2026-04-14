@@ -1,8 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AuthGate } from '@/components/AuthGate';
 import { IconPlus } from '@/components/MessagingTabIcons';
 import { getAccessToken } from '@/lib/auth';
@@ -29,8 +29,9 @@ type CreateMode = 'normal' | 'network';
 
 type Step = 'members' | 'details';
 
-export default function CreateGroupPage() {
+function CreateGroupPageInner() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [step, setStep] = useState<Step>('members');
   const [mode, setMode] = useState<CreateMode>('normal');
   const [myUserId, setMyUserId] = useState<string | null>(null);
@@ -49,6 +50,11 @@ export default function CreateGroupPage() {
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const submitLockRef = useRef(false);
+  const kind = (searchParams.get('kind') ?? '').toLowerCase();
+  const presetNetworkId = (searchParams.get('networkId') ?? '').trim();
+  const forceChatMode = kind === 'chat';
+  const forceCommunityMode = kind === 'community';
+  const forcedMode: CreateMode | null = forceCommunityMode ? 'network' : forceChatMode ? 'normal' : null;
 
   const memberNetworks = useMemo(
     () => networks.filter((n) => n.isMember),
@@ -89,20 +95,31 @@ export default function CreateGroupPage() {
   }, [loadNetworks]);
 
   useEffect(() => {
-    if (memberNetworks.length === 0 && mode === 'network') {
+    if (memberNetworks.length === 0 && mode === 'network' && !forceCommunityMode) {
       setMode('normal');
       setNetworkId('');
       setSelectedIds([]);
       setSearch('');
       setMembers([]);
     }
-  }, [memberNetworks.length, mode]);
+  }, [memberNetworks.length, mode, forceCommunityMode]);
 
   useEffect(() => {
     if (memberNetworks.length === 1 && !networkId && mode === 'network') {
       setNetworkId(memberNetworks[0].id);
     }
   }, [memberNetworks, networkId, mode]);
+
+  useEffect(() => {
+    if (!presetNetworkId || mode !== 'network') return;
+    if (!memberNetworks.some((n) => n.id === presetNetworkId)) return;
+    setNetworkId((prev) => (prev === presetNetworkId ? prev : presetNetworkId));
+  }, [presetNetworkId, memberNetworks, mode]);
+
+  useEffect(() => {
+    if (!forcedMode) return;
+    setMode((prev) => (prev === forcedMode ? prev : forcedMode));
+  }, [forcedMode]);
 
   useEffect(() => {
     if (mode !== 'network' || !networkId || !myUserId) {
@@ -280,11 +297,17 @@ export default function CreateGroupPage() {
             ←
           </Link>
           <h1 className="min-w-0 flex-1 text-sm font-bold text-stone-800">
-            {step === 'members' ? 'گروه جدید — اعضا' : 'گروه جدید — جزئیات'}
+            {step === 'members'
+              ? mode === 'normal'
+                ? 'ایجاد گروه چت — اعضا'
+                : 'ایجاد گروه اجتماعی — اعضا'
+              : mode === 'normal'
+                ? 'ایجاد گروه چت — جزئیات'
+                : 'ایجاد گروه اجتماعی — جزئیات'}
           </h1>
         </header>
 
-        {step === 'members' && memberNetworks.length > 0 ? (
+        {step === 'members' && memberNetworks.length > 0 && !forcedMode ? (
           <div className="mx-3 mt-3 flex gap-1 rounded-xl border border-stone-200 bg-white p-1">
             <button
               type="button"
@@ -306,6 +329,12 @@ export default function CreateGroupPage() {
             </button>
           </div>
         ) : null}
+
+        <div className="mx-3 mt-3 rounded-xl border border-stone-200 bg-white px-3 py-2 text-[11px] text-stone-600">
+          {mode === 'normal'
+            ? 'گروه چت برای گفتگوی خصوصی چندنفره است و در فضاهای عمومی نمایش داده نمی‌شود.'
+            : 'گروه اجتماعی برای جامعه و فضا/شبکه است و در سطوح اجتماعی قابل کشف است.'}
+        </div>
 
         {step === 'members' && mode === 'normal' ? (
           <div className="px-3 pt-3">
@@ -401,6 +430,14 @@ export default function CreateGroupPage() {
 
         {step === 'members' && mode === 'network' ? (
           <div className="px-3 pt-3">
+            {memberNetworks.length === 0 ? (
+              <div className="mb-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                برای ساخت گروه اجتماعی باید عضو یک شبکه باشید.
+                <Link href="/spaces" className="mr-1 font-extrabold underline">
+                  رفتن به فضاها
+                </Link>
+              </div>
+            ) : null}
             {memberNetworks.length > 1 ? (
               <label className="mb-3 block">
                 <span className="mb-1 block text-[11px] font-bold text-stone-500">شبکه</span>
@@ -531,7 +568,7 @@ export default function CreateGroupPage() {
               <input
                 value={groupName}
                 onChange={(e) => setGroupName(e.target.value)}
-                placeholder="مثلاً خانواده"
+                placeholder={mode === 'normal' ? 'مثلاً برنامه سفر دوستان' : 'مثلاً جامعه آموزش برنامه‌نویسی'}
                 minLength={2}
                 maxLength={100}
                 className="w-full rounded-xl border border-stone-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
@@ -567,7 +604,7 @@ export default function CreateGroupPage() {
               ) : (
                 <>
                   <IconPlus className="h-5 w-5 stroke-[2.5]" />
-                  ساخت گروه
+                  {mode === 'normal' ? 'ساخت گروه چت' : 'ساخت گروه اجتماعی'}
                 </>
               )}
             </button>
@@ -575,5 +612,21 @@ export default function CreateGroupPage() {
         ) : null}
       </main>
     </AuthGate>
+  );
+}
+
+export default function CreateGroupPage() {
+  return (
+    <Suspense
+      fallback={
+        <AuthGate>
+          <main className="mx-auto min-h-[50vh] w-full max-w-md px-4 py-10 text-center text-sm text-stone-600" dir="rtl">
+            در حال بارگذاری…
+          </main>
+        </AuthGate>
+      }
+    >
+      <CreateGroupPageInner />
+    </Suspense>
   );
 }
