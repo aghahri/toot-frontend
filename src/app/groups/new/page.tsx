@@ -30,15 +30,29 @@ type Step = 'members' | 'details';
 function CreateGroupPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const kind = (searchParams.get('kind') ?? '').toLowerCase();
+  const presetNetworkId = (searchParams.get('networkId') ?? '').trim();
+  const spaceKey = (searchParams.get('spaceKey') ?? '').trim();
+  const returnTo = (searchParams.get('returnTo') ?? '').trim().toLowerCase();
+  const forceChatMode = kind === 'chat';
+  const forceCommunityMode = kind === 'community';
+  const forcedMode: CreateMode | null = forceCommunityMode ? 'network' : forceChatMode ? 'normal' : null;
+  const isNeighborhoodFlow = spaceKey.toUpperCase() === 'NEIGHBORHOOD';
+
   const [step, setStep] = useState<Step>('members');
-  const [mode, setMode] = useState<CreateMode>('normal');
+  const [mode, setMode] = useState<CreateMode>(() => (kind === 'community' ? 'network' : 'normal'));
   const [myUserId, setMyUserId] = useState<string | null>(null);
   const [networks, setNetworks] = useState<NetworkRow[]>([]);
   const [networkId, setNetworkId] = useState<string>('');
   const [search, setSearch] = useState('');
   const [searchHits, setSearchHits] = useState<UserSearchHit[]>([]);
   const [searching, setSearching] = useState(false);
+  const [memberSearchError, setMemberSearchError] = useState<string | null>(null);
   const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const modeRef = useRef(mode);
+  const networkIdRef = useRef(networkId);
+  modeRef.current = mode;
+  networkIdRef.current = networkId;
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [selectedProfiles, setSelectedProfiles] = useState<Record<string, UserSearchHit>>({});
   const [groupName, setGroupName] = useState('');
@@ -54,14 +68,6 @@ function CreateGroupPageInner() {
   const [newNetworkName, setNewNetworkName] = useState('');
   const [newNetworkDescription, setNewNetworkDescription] = useState('');
   const submitLockRef = useRef(false);
-  const kind = (searchParams.get('kind') ?? '').toLowerCase();
-  const presetNetworkId = (searchParams.get('networkId') ?? '').trim();
-  const spaceKey = (searchParams.get('spaceKey') ?? '').trim();
-  const returnTo = (searchParams.get('returnTo') ?? '').trim().toLowerCase();
-  const forceChatMode = kind === 'chat';
-  const forceCommunityMode = kind === 'community';
-  const forcedMode: CreateMode | null = forceCommunityMode ? 'network' : forceChatMode ? 'normal' : null;
-  const isNeighborhoodFlow = spaceKey.toUpperCase() === 'NEIGHBORHOOD';
 
   function resolveSpaceCategoryForNetwork(raw: string): NetworkSpaceCategory {
     const v = raw.trim().toUpperCase();
@@ -171,11 +177,7 @@ function CreateGroupPageInner() {
     if (q.length < 2) {
       setSearchHits([]);
       setSearching(false);
-      return;
-    }
-    if (mode === 'network' && !networkId) {
-      setSearchHits([]);
-      setSearching(false);
+      setMemberSearchError(null);
       return;
     }
     const token = getAccessToken();
@@ -184,19 +186,27 @@ function CreateGroupPageInner() {
     if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
     searchDebounceRef.current = setTimeout(() => {
       void (async () => {
+        const m = modeRef.current;
+        const nid = networkIdRef.current;
+        if (m === 'network' && !nid) {
+          setSearchHits([]);
+          setSearching(false);
+          setMemberSearchError(null);
+          return;
+        }
         setSearching(true);
+        setMemberSearchError(null);
         try {
-          const netQ =
-            mode === 'network' && networkId
-              ? `&networkId=${encodeURIComponent(networkId)}`
-              : '';
+          const netQ = m === 'network' && nid ? `&networkId=${encodeURIComponent(nid)}` : '';
           const rows = await apiFetch<UserSearchHit[]>(
             `users/search?q=${encodeURIComponent(q)}&limit=30${netQ}`,
             { method: 'GET', token },
           );
           setSearchHits(Array.isArray(rows) ? rows.filter((h) => h.id !== myUserId) : []);
-        } catch {
+        } catch (e) {
           setSearchHits([]);
+          const msg = e instanceof Error ? e.message : 'جستجو انجام نشد';
+          setMemberSearchError(msg);
         } finally {
           setSearching(false);
         }
@@ -206,7 +216,7 @@ function CreateGroupPageInner() {
     return () => {
       if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
     };
-  }, [search, mode, myUserId, networkId]);
+  }, [search, myUserId, networkId, mode]);
 
   const selectedSet = useMemo(() => new Set(selectedIds), [selectedIds]);
 
@@ -261,8 +271,19 @@ function CreateGroupPageInner() {
     setSelectedProfiles({});
     setSearch('');
     setSearchHits([]);
+    setMemberSearchError(null);
     setError(null);
     setStep('members');
+  }
+
+  function formatMemberSearchFailure(raw: string): string {
+    if (raw.includes('active member') || raw.includes('Forbidden')) {
+      return 'جستجوی اعضای این شبکه فقط برای اعضای فعال شبکه مجاز است. اگر تازه پیوسته‌اید، صفحه را یک‌بار به‌روز کنید یا شبکه درست را انتخاب کنید.';
+    }
+    if (raw.includes('Request failed with 403')) {
+      return 'دسترسی به جستجوی این شبکه مجاز نیست (احتمالاً عضو فعال این شبکه نیستید).';
+    }
+    return raw;
   }
 
   async function handleCreate() {
@@ -461,6 +482,10 @@ function CreateGroupPageInner() {
                 <p className="px-3 py-6 text-center text-sm text-stone-500">حداقل ۲ نویسه برای جستجو وارد کنید.</p>
               ) : searching ? (
                 <p className="px-3 py-6 text-center text-sm text-stone-500">در حال جستجو…</p>
+              ) : memberSearchError ? (
+                <p className="px-3 py-6 text-center text-sm font-semibold text-red-800">
+                  {formatMemberSearchFailure(memberSearchError)}
+                </p>
               ) : searchHits.length === 0 ? (
                 <p className="px-3 py-6 text-center text-sm text-stone-500">نتیجه‌ای یافت نشد.</p>
               ) : (
@@ -572,6 +597,7 @@ function CreateGroupPageInner() {
                     setSelectedProfiles({});
                     setSearch('');
                     setSearchHits([]);
+                    setMemberSearchError(null);
                   }}
                   className="w-full rounded-xl border border-stone-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
                 >
@@ -627,8 +653,15 @@ function CreateGroupPageInner() {
                   <p className="px-3 py-6 text-center text-sm text-stone-500">حداقل ۲ نویسه برای جستجو وارد کنید.</p>
                 ) : searching ? (
                   <p className="px-3 py-6 text-center text-sm text-stone-500">در حال جستجو…</p>
+                ) : memberSearchError ? (
+                  <p className="px-3 py-6 text-center text-sm font-semibold text-red-800">
+                    {formatMemberSearchFailure(memberSearchError)}
+                  </p>
                 ) : searchHits.length === 0 ? (
-                  <p className="px-3 py-6 text-center text-sm text-stone-500">نتیجه‌ای یافت نشد.</p>
+                  <p className="px-3 py-6 text-center text-sm text-stone-500">
+                    نتیجه‌ای یافت نشد. فقط اعضای فعال این شبکه در این فهرست می‌آیند؛ اگر عضو دیگری در شبکه نیست، کسی نمایش داده
+                    نمی‌شود.
+                  </p>
                 ) : (
                   <ul className="divide-y divide-stone-100">
                     {searchHits.map((hit) => {
