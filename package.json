@@ -9,7 +9,8 @@
     "lint": "next lint",
     "android:add": "cap add android",
     "android:sync": "cap sync android",
-    "android:open": "cap open android"
+    "android:open": "cap open android",
+    "android:apk:release": "node scripts/android-apk-release.mjs"
   },
   "dependencies": {
     "@capacitor/android": "6.2.0",

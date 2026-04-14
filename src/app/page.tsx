@@ -1,4 +1,10 @@
+'use client';
+
 import Link from 'next/link';
+import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { Spinner } from '@/components/ui/Spinner';
+import { bootstrapAuthState } from '@/lib/auth';
 import { getAndroidApkDownloadUrl } from '@/lib/android-app';
 
 const highlights = [
@@ -25,7 +31,33 @@ const highlights = [
 ] as const;
 
 export default function LandingPage() {
+  const router = useRouter();
   const androidApkUrl = getAndroidApkDownloadUrl();
+  const [authChecked, setAuthChecked] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const isAuthed = await bootstrapAuthState();
+      if (cancelled) return;
+      if (isAuthed) {
+        router.replace('/home');
+        return;
+      }
+      setAuthChecked(true);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [router]);
+
+  if (!authChecked) {
+    return (
+      <main className="mx-auto flex min-h-[50vh] w-full max-w-md flex-col items-center justify-center p-4">
+        <Spinner label="در حال آماده‌سازی..." />
+      </main>
+    );
+  }
 
   return (
     <main
