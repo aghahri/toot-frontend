@@ -1,6 +1,6 @@
 # Android APK (Capacitor) — Toot web shell
 
-The native app is a **minimal Capacitor 6** wrapper around the **same deployed Next.js site** users open in the browser. The WebView loads your production web origin (`CAPACITOR_WEB_ORIGIN`); it is not a separate React bundle.
+The native app is a **minimal Capacitor 6** wrapper around the **same deployed Next.js site** users open in the browser. The WebView loads a web origin via `server.url`; it is not a separate React bundle.
 
 Voice calls use **WebRTC inside the system WebView** (same as Chrome). Microphone permission is required on Android.
 
@@ -34,6 +34,10 @@ npm run android:sync
 ```
 
 `android:sync` copies `capacitor-www/` into the Android project and bakes `capacitor.config` (including `server.url`) into the native build.
+
+Important:
+- `capacitor://localhost` is **not** a valid value for `CAPACITOR_WEB_ORIGIN` in this project.
+- If `CAPACITOR_WEB_ORIGIN` is unset, the config defaults to `https://app.tootapp.net` for production-safe startup.
 
 - Use **https** in production.
 - For local dev over HTTP, `cleartext` is enabled automatically when `CAPACITOR_WEB_ORIGIN` starts with `http://`.
