@@ -271,7 +271,7 @@ export default function GroupsInboxPage() {
               </span>
             </button>
             <Link
-              href="/groups/new?kind=community"
+              href="/groups/new?kind=community&returnTo=groups"
               title="ساخت گروه اجتماعی"
               className="flex h-11 w-11 items-center justify-center rounded-full bg-sky-500 text-white shadow-md shadow-sky-600/25 transition hover:bg-sky-600 active:scale-95"
             >

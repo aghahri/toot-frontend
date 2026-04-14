@@ -151,7 +151,7 @@ function SpaceDetailInner() {
               <div className="flex items-center justify-between gap-2">
                 <h2 className="text-sm font-extrabold text-slate-900">گروه‌های اجتماعی</h2>
                 <Link
-                  href="/groups/new?kind=community"
+                  href={`/groups/new?kind=community&spaceKey=${encodeURIComponent(spaceKey)}&returnTo=spaces`}
                   className="rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-[11px] font-extrabold text-sky-800"
                 >
                   ساخت گروه اجتماعی

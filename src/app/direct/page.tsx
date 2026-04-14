@@ -590,7 +590,7 @@ export default function DirectPage() {
                     گفتگوی جدید
                   </button>
                   <Link
-                    href="/groups/new?kind=chat"
+                    href="/groups/new?kind=chat&returnTo=direct"
                     role="menuitem"
                     className="flex w-full px-4 py-3 text-right text-sm font-bold text-stone-800 transition hover:bg-stone-100"
                     onClick={() => setPlusMenuOpen(false)}
@@ -663,6 +663,12 @@ export default function DirectPage() {
         ) : null}
 
         <div className="mt-4 px-4 text-center">
+          <Link
+            href="/groups"
+            className="mb-3 block rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-800"
+          >
+            مشاهده گروه‌های چت و اجتماعی
+          </Link>
           <Link
             href="/home"
             className="text-xs font-semibold text-stone-500 underline-offset-2 hover:text-stone-700 hover:underline"

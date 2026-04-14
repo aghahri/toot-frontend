@@ -223,7 +223,13 @@ export default function SpacesOverviewPage() {
                       {SPACE_DETAIL_MAP[block.key] ? (
                         <div className="mt-2 flex items-center justify-between gap-2 text-left">
                           <Link
-                            href="/groups/new?kind=community"
+                            href={
+                              SPACE_DETAIL_MAP[block.key]
+                                ? `/groups/new?kind=community&spaceKey=${encodeURIComponent(
+                                    SPACE_DETAIL_MAP[block.key]!,
+                                  )}&returnTo=spaces`
+                                : '/groups/new?kind=community&returnTo=spaces'
+                            }
                             className="text-[11px] font-bold text-emerald-700 hover:underline"
                           >
                             ساخت گروه اجتماعی

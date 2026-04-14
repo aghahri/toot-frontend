@@ -116,7 +116,7 @@ export default function NetworkDetailPage() {
               )}
               {net.isMember ? (
                 <Link
-                  href={`/groups/new?kind=community&networkId=${encodeURIComponent(net.id)}`}
+                  href={`/groups/new?kind=community&networkId=${encodeURIComponent(net.id)}&returnTo=network`}
                   className="rounded-xl border border-sky-200 bg-sky-50 px-4 py-2.5 text-sm font-bold text-sky-800"
                 >
                   ساخت گروه اجتماعی

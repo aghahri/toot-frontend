@@ -130,6 +130,8 @@ export default function GroupThreadPage() {
   const [bulkDeleting, setBulkDeleting] = useState(false);
   const [flashMessageId, setFlashMessageId] = useState<string | null>(null);
   const [playingMessageId, setPlayingMessageId] = useState<string | null>(null);
+  const [createdNotice, setCreatedNotice] = useState(false);
+  const [backHref, setBackHref] = useState('/groups');
 
   const socketRef = useRef<ReturnType<typeof io> | null>(null);
   const typingTimerRef = useRef<number | null>(null);
@@ -154,6 +156,22 @@ export default function GroupThreadPage() {
   const holdTimerRef = useRef<number | null>(null);
   const holdGestureRef = useRef<{ x: number; y: number } | null>(null);
   const skipNextRowClickRef = useRef(false);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const qp = new URLSearchParams(window.location.search);
+    setCreatedNotice(qp.get('created') === '1');
+    const rt = (qp.get('returnTo') ?? '').toLowerCase();
+    if (rt === 'direct') {
+      setBackHref('/direct');
+      return;
+    }
+    if (rt === 'spaces') {
+      setBackHref('/spaces');
+      return;
+    }
+    setBackHref('/groups');
+  }, []);
 
   const scrollToBottom = () => {
     requestAnimationFrame(() => {
@@ -1149,7 +1167,7 @@ export default function GroupThreadPage() {
           ) : (
             <div className="flex items-center gap-2.5 px-3 py-2">
               <Link
-                href="/groups"
+                href={backHref}
                 className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-slate-700 transition hover:bg-slate-100 active:bg-slate-200"
                 aria-label="بازگشت"
               >
@@ -1210,6 +1228,12 @@ export default function GroupThreadPage() {
             </div>
           )}
         </header>
+
+        {createdNotice ? (
+          <div className="mx-3 mt-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-[11px] font-semibold text-emerald-800" dir="rtl">
+            گروه چت جدید ساخته شد و همین‌جا آماده گفتگو است.
+          </div>
+        ) : null}
 
         {pinnedOk ? (
           <div

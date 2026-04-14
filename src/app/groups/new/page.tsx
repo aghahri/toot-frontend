@@ -24,6 +24,7 @@ type UserSearchHit = {
   username: string;
   phoneMasked: string;
 };
+type SuggestedNetworkRow = { id: string; name: string; description: string | null };
 
 type CreateMode = 'normal' | 'network';
 
@@ -49,9 +50,14 @@ function CreateGroupPageInner() {
   const [loadingMembers, setLoadingMembers] = useState(false);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [suggestedNetworks, setSuggestedNetworks] = useState<SuggestedNetworkRow[]>([]);
+  const [loadingSuggestions, setLoadingSuggestions] = useState(false);
+  const [joiningSuggestionId, setJoiningSuggestionId] = useState<string | null>(null);
   const submitLockRef = useRef(false);
   const kind = (searchParams.get('kind') ?? '').toLowerCase();
   const presetNetworkId = (searchParams.get('networkId') ?? '').trim();
+  const spaceKey = (searchParams.get('spaceKey') ?? '').trim();
+  const returnTo = (searchParams.get('returnTo') ?? '').trim().toLowerCase();
   const forceChatMode = kind === 'chat';
   const forceCommunityMode = kind === 'community';
   const forcedMode: CreateMode | null = forceCommunityMode ? 'network' : forceChatMode ? 'normal' : null;
@@ -148,6 +154,34 @@ function CreateGroupPageInner() {
       cancelled = true;
     };
   }, [networkId, myUserId, mode]);
+
+  useEffect(() => {
+    if (!forceCommunityMode || memberNetworks.length > 0 || !spaceKey) {
+      setSuggestedNetworks([]);
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      const token = getAccessToken();
+      if (!token) return;
+      setLoadingSuggestions(true);
+      try {
+        const detail = await apiFetch<{ networks?: SuggestedNetworkRow[] }>(
+          `discover/spaces/detail/${encodeURIComponent(spaceKey)}?limit=20`,
+          { method: 'GET', token },
+        );
+        if (cancelled) return;
+        setSuggestedNetworks(Array.isArray(detail.networks) ? detail.networks : []);
+      } catch {
+        if (!cancelled) setSuggestedNetworks([]);
+      } finally {
+        if (!cancelled) setLoadingSuggestions(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [forceCommunityMode, memberNetworks.length, spaceKey]);
 
   useEffect(() => {
     if (mode !== 'normal') return;
@@ -266,7 +300,13 @@ function CreateGroupPageInner() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       });
-      router.replace(`/groups/${created.id}`);
+      const targetReturn =
+        returnTo === 'direct' || returnTo === 'spaces' || returnTo === 'groups' || returnTo === 'network'
+          ? returnTo
+          : mode === 'normal'
+            ? 'direct'
+            : 'groups';
+      router.replace(`/groups/${created.id}?created=1&returnTo=${encodeURIComponent(targetReturn)}`);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'ساخت گروه انجام نشد');
     } finally {
@@ -274,6 +314,31 @@ function CreateGroupPageInner() {
       submitLockRef.current = false;
     }
   }
+
+  async function joinSuggestedNetwork(networkIdToJoin: string) {
+    const token = getAccessToken();
+    if (!token) return;
+    setJoiningSuggestionId(networkIdToJoin);
+    setError(null);
+    try {
+      await apiFetch(`networks/${networkIdToJoin}/join`, { method: 'POST', token });
+      await loadNetworks();
+      setNetworkId(networkIdToJoin);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'پیوستن به شبکه ممکن نیست');
+    } finally {
+      setJoiningSuggestionId(null);
+    }
+  }
+
+  const backHref =
+    returnTo === 'direct'
+      ? '/direct'
+      : returnTo === 'spaces'
+        ? '/spaces'
+        : returnTo === 'network'
+          ? '/spaces'
+          : '/groups';
 
   if (loadingBoot) {
     return (
@@ -290,7 +355,7 @@ function CreateGroupPageInner() {
       <main className="mx-auto min-h-[60vh] w-full max-w-md bg-stone-100/90 pb-24" dir="rtl">
         <header className="sticky top-0 z-10 flex items-center gap-2 border-b border-stone-200/80 bg-stone-50/95 px-3 py-2.5 backdrop-blur-sm">
           <Link
-            href="/direct"
+            href={backHref}
             className="flex h-10 min-w-[2.5rem] items-center justify-center rounded-full text-stone-600 hover:bg-stone-200/80"
             aria-label="بازگشت"
           >
@@ -431,11 +496,37 @@ function CreateGroupPageInner() {
         {step === 'members' && mode === 'network' ? (
           <div className="px-3 pt-3">
             {memberNetworks.length === 0 ? (
-              <div className="mb-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
-                برای ساخت گروه اجتماعی باید عضو یک شبکه باشید.
-                <Link href="/spaces" className="mr-1 font-extrabold underline">
-                  رفتن به فضاها
-                </Link>
+              <div className="mb-3 space-y-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                <p className="font-semibold">برای ساخت گروه اجتماعی ابتدا یک شبکه مرتبط انتخاب یا به آن بپیوندید.</p>
+                <div className="flex flex-wrap gap-2">
+                  <Link href="/spaces" className="rounded-lg bg-white px-2.5 py-1.5 font-extrabold text-amber-900">
+                    مشاهده فضاها
+                  </Link>
+                </div>
+                {loadingSuggestions ? (
+                  <p className="text-[11px] text-amber-700">در حال دریافت شبکه‌های مرتبط…</p>
+                ) : suggestedNetworks.length > 0 ? (
+                  <div className="space-y-1 rounded-lg border border-amber-200/80 bg-white/70 p-2">
+                    <p className="text-[11px] font-bold text-amber-900">شبکه‌های پیشنهادی این فضا:</p>
+                    {suggestedNetworks.slice(0, 5).map((n) => (
+                      <div key={n.id} className="flex items-center justify-between gap-2">
+                        <span className="truncate text-[11px] text-amber-900">{n.name}</span>
+                        <button
+                          type="button"
+                          disabled={joiningSuggestionId === n.id}
+                          onClick={() => void joinSuggestedNetwork(n.id)}
+                          className="shrink-0 rounded-lg bg-amber-600 px-2.5 py-1 text-[11px] font-bold text-white disabled:opacity-50"
+                        >
+                          {joiningSuggestionId === n.id ? '…' : 'پیوستن'}
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-[11px] text-amber-700">
+                    شبکه‌ای برای این فضا یافت نشد؛ از بخش فضاها یک شبکه عمومی را انتخاب و عضو شوید.
+                  </p>
+                )}
               </div>
             ) : null}
             {memberNetworks.length > 1 ? (
