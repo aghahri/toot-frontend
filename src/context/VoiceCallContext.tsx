@@ -963,12 +963,6 @@ export function VoiceCallProvider({ children }: { children: ReactNode }) {
         goToEnded('اتصال با سرور برقرار نیست. اینترنت را بررسی کنید.', 4500);
         return;
       }
-      // Unlock audio playback on iOS Safari while we still have the user gesture.
-      const elToUnlock = remoteAudioRef.current;
-      if (elToUnlock) {
-        elToUnlock.muted = true;
-        void elToUnlock.play().catch(() => {}).finally(() => { elToUnlock.pause(); elToUnlock.muted = false; });
-      }
       lastCallOptsRef.current = {
         conversationId: opts.conversationId?.trim() || undefined,
         targetUserId: opts.targetUserId?.trim() || undefined,
@@ -1027,12 +1021,6 @@ export function VoiceCallProvider({ children }: { children: ReactNode }) {
     const sid = sessionIdRef.current;
     const s = socketRef.current;
     if (!sid || !s || incomingActionBusy || phaseRef.current !== 'incoming') return;
-    // Unlock audio playback on iOS Safari while we still have the user gesture.
-    const elToUnlock = remoteAudioRef.current;
-    if (elToUnlock) {
-      elToUnlock.muted = true;
-      void elToUnlock.play().catch(() => {}).finally(() => { elToUnlock.pause(); elToUnlock.muted = false; });
-    }
     setIncomingActionBusy(true);
     s.emit('call_accept', { sessionId: sid }, (res: { ok?: boolean; code?: string }) => {
       if (res?.ok === false) {
