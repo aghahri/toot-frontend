@@ -7,7 +7,7 @@ import { Suspense } from 'react';
 import { AuthGate } from '@/components/AuthGate';
 import { apiFetch } from '@/lib/api';
 import { getAccessToken } from '@/lib/auth';
-import { FIELD_TYPE_OPTIONS, formStatusLabel } from '@/lib/neighborhoodForms';
+import { FIELD_TYPE_OPTIONS, formStatusBadgeClass, formStatusLabel } from '@/lib/neighborhoodForms';
 
 type ManageFormRow = {
   id: string;
@@ -224,6 +224,9 @@ function NeighborhoodFormsManageInner() {
 
         <section className={CARD}>
           <h2 className="text-sm font-extrabold text-slate-900">ایجاد فرم جدید</h2>
+          <p className="mt-1 text-xs leading-relaxed text-slate-500">
+            فرم‌های محله‌ای برای نظرسنجی، درخواست خدمات و جمع‌آوری داده محلی.
+          </p>
           <div className="mt-3">
             <label className="mb-1 block text-xs font-bold text-slate-700">شبکه محله (اجباری)</label>
             <select
@@ -252,6 +255,7 @@ function NeighborhoodFormsManageInner() {
               onChange={(e) => setTitle(e.target.value)}
               required
             />
+            <p className="-mt-1 text-[11px] text-slate-500">عنوان کوتاه و دقیق انتخاب کنید.</p>
             <textarea
               className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm"
               placeholder="توضیح فرم"
@@ -262,6 +266,7 @@ function NeighborhoodFormsManageInner() {
             <div className="space-y-2">
               {fields.map((field, idx) => (
                 <div key={`${field.key}-${idx}`} className="rounded-2xl border border-slate-200 bg-slate-50 p-2.5">
+                  <p className="mb-1 text-[11px] font-bold text-slate-600">فیلد {idx + 1}</p>
                   <input
                     className="mb-1.5 w-full rounded-xl border border-slate-200 bg-white px-2.5 py-2 text-xs"
                     placeholder="key"
@@ -295,6 +300,18 @@ function NeighborhoodFormsManageInner() {
                       </option>
                     ))}
                   </select>
+                  <label className="mt-1.5 inline-flex items-center gap-1.5 text-[11px] text-slate-600">
+                    <input
+                      type="checkbox"
+                      checked={field.required}
+                      onChange={(e) =>
+                        setFields((prev) =>
+                          prev.map((x, i) => (i === idx ? { ...x, required: e.target.checked } : x)),
+                        )
+                      }
+                    />
+                    پاسخ این فیلد الزامی است
+                  </label>
                   {(field.type === 'single_choice' || field.type === 'multi_choice') ? (
                     <input
                       className="mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-2.5 py-2 text-xs"
@@ -330,15 +347,25 @@ function NeighborhoodFormsManageInner() {
 
         <section className={CARD + ' mt-4'}>
           <h2 className="text-sm font-extrabold text-slate-900">فرم‌های شبکه</h2>
-          {loading ? <p className="mt-2 text-sm text-slate-500">در حال بارگذاری…</p> : null}
-          {error ? <p className="mt-2 text-sm font-semibold text-red-700">{error}</p> : null}
-          {success ? <p className="mt-2 text-sm font-semibold text-emerald-700">{success}</p> : null}
+          {loading ? (
+            <div className="mt-2 space-y-2">
+              <p className="text-sm text-slate-500">در حال بارگذاری فرم‌ها…</p>
+              <div className="h-16 animate-pulse rounded-2xl bg-slate-100" />
+            </div>
+          ) : null}
+          {error ? <p className="mt-2 rounded-2xl bg-rose-50 px-3 py-2 text-sm font-semibold text-rose-700">{error}</p> : null}
+          {success ? <p className="mt-2 rounded-2xl bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-700">{success}</p> : null}
+          {!loading && !error && forms.length === 0 ? (
+            <p className="mt-2 rounded-2xl bg-slate-50 px-3 py-3 text-sm text-slate-600">
+              هنوز فرمی برای این شبکه ثبت نشده است.
+            </p>
+          ) : null}
           <ul className="mt-3 space-y-2.5">
             {forms.map((form) => (
               <li key={form.id} className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
                 <div className="flex items-center justify-between gap-2">
                   <p className="text-sm font-extrabold text-slate-900">{form.title}</p>
-                  <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-700">
+                  <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ring-1 ${formStatusBadgeClass(form.status)}`}>
                     {formStatusLabel(form.status)}
                   </span>
                 </div>

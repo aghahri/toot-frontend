@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { AuthGate } from '@/components/AuthGate';
 import { apiFetch } from '@/lib/api';
 import { getAccessToken } from '@/lib/auth';
+import { formStatusBadgeClass, formStatusLabel } from '@/lib/neighborhoodForms';
 
 type NetworkRow = {
   id: string;
@@ -18,7 +19,7 @@ type FormRow = {
   id: string;
   title: string;
   description: string | null;
-  status: 'PUBLISHED';
+  status: 'DRAFT' | 'PUBLISHED' | 'CLOSED';
   publishedAt: string | null;
   closedAt: string | null;
   _count: { responses: number };
@@ -48,7 +49,10 @@ export default function NeighborhoodFormsListPage() {
       setError(null);
       try {
         const token = getAccessToken();
-        if (!token) return;
+        if (!token) {
+          setError('برای مشاهده فرم‌های محله باید وارد شوید.');
+          return;
+        }
         const allNetworks = await apiFetch<NetworkRow[]>('networks', { method: 'GET', token });
         const neighborhood = allNetworks.filter(
           (n) => n.spaceCategory === 'NEIGHBORHOOD' && (n.isMember ?? true),
@@ -77,7 +81,10 @@ export default function NeighborhoodFormsListPage() {
       setError(null);
       try {
         const token = getAccessToken();
-        if (!token) return;
+        if (!token) {
+          setError('برای مشاهده فرم‌های محله باید وارد شوید.');
+          return;
+        }
         const rows = await apiFetch<FormRow[]>(`networks/${networkId}/forms`, { method: 'GET', token });
         if (!cancelled) setForms(rows);
       } catch (e) {
@@ -129,13 +136,25 @@ export default function NeighborhoodFormsListPage() {
               </span>
             ) : null}
           </div>
+          {!loading && !error && networks.length === 0 ? (
+            <p className="mt-3 rounded-2xl bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-800">
+              هنوز عضو شبکه محله‌ای نیستید؛ ابتدا به یک شبکه محله بپیوندید.
+            </p>
+          ) : null}
         </section>
 
         <section className={SECTION_CARD + ' mt-4'}>
-          {loading ? <p className="text-sm text-slate-500">در حال بارگذاری…</p> : null}
-          {error ? <p className="text-sm font-semibold text-red-700">{error}</p> : null}
+          {loading ? (
+            <div className="space-y-2">
+              <p className="text-sm text-slate-500">در حال بارگذاری فرم‌ها…</p>
+              <div className="h-20 animate-pulse rounded-2xl bg-slate-100" />
+            </div>
+          ) : null}
+          {error ? <p className="rounded-2xl bg-rose-50 px-3 py-2 text-sm font-semibold text-rose-700">{error}</p> : null}
           {!loading && !error && forms.length === 0 ? (
-            <p className="text-sm text-slate-500">فرم منتشرشده‌ای برای این شبکه وجود ندارد.</p>
+            <p className="rounded-2xl bg-slate-50 px-3 py-3 text-sm text-slate-600">
+              در این شبکه هنوز فرم منتشرشده‌ای ثبت نشده است.
+            </p>
           ) : null}
           <ul className="space-y-2.5">
             {forms.map((form) => (
@@ -149,6 +168,11 @@ export default function NeighborhoodFormsListPage() {
                   </div>
                   <span className="rounded-full bg-sky-50 px-2 py-0.5 text-[10px] font-bold text-sky-700">
                     پاسخ: {form._count.responses}
+                  </span>
+                </div>
+                <div className="mt-2">
+                  <span className={`rounded-full px-2.5 py-1 text-[10px] font-extrabold ring-1 ${formStatusBadgeClass(form.status)}`}>
+                    {formStatusLabel(form.status)}
                   </span>
                 </div>
                 <div className="mt-3 flex gap-2">

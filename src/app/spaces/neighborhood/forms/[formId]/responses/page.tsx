@@ -38,6 +38,12 @@ const CARD =
 const SECONDARY_CTA =
   'rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-extrabold text-slate-700 transition hover:bg-slate-50';
 
+function renderAnswerValue(value: unknown): string {
+  if (Array.isArray(value)) return value.join('، ');
+  if (typeof value === 'boolean') return value ? 'بله' : 'خیر';
+  return String(value ?? '-');
+}
+
 export default function NeighborhoodFormResponsesPage() {
   const params = useParams<{ formId: string }>();
   const formId = params?.formId ?? '';
@@ -53,11 +59,19 @@ export default function NeighborhoodFormResponsesPage() {
     let cancelled = false;
     void (async () => {
       if (!networkId || !formId) return;
+      if (!networkId) {
+        setError('شناسه شبکه مشخص نیست. از صفحه مدیریت وارد شوید.');
+        setLoading(false);
+        return;
+      }
       setLoading(true);
       setError(null);
       try {
         const token = getAccessToken();
-        if (!token) return;
+        if (!token) {
+          setError('برای مشاهده پاسخ‌ها باید وارد شوید.');
+          return;
+        }
         const [summaryRes, responsesRes] = await Promise.all([
           apiFetch<SummaryRes>(`networks/${networkId}/forms/${formId}/summary`, { method: 'GET', token }),
           apiFetch<ResponseRow[]>(`networks/${networkId}/forms/${formId}/responses`, { method: 'GET', token }),
@@ -87,12 +101,19 @@ export default function NeighborhoodFormResponsesPage() {
         </div>
 
         <section className={CARD}>
-          {loading ? <p className="text-sm text-slate-500">در حال بارگذاری…</p> : null}
-          {error ? <p className="text-sm font-semibold text-red-700">{error}</p> : null}
+          {loading ? (
+            <div className="space-y-2">
+              <p className="text-sm text-slate-500">در حال بارگذاری خلاصه پاسخ‌ها…</p>
+              <div className="h-20 animate-pulse rounded-2xl bg-slate-100" />
+            </div>
+          ) : null}
+          {error ? <p className="rounded-2xl bg-rose-50 px-3 py-2 text-sm font-semibold text-rose-700">{error}</p> : null}
           {summary ? (
             <>
-              <p className="text-sm font-extrabold text-slate-900">تعداد کل پاسخ‌ها: {summary.totalResponses}</p>
-              <ul className="mt-3 space-y-2">
+              <div className="rounded-2xl bg-emerald-50 px-3 py-2 text-sm font-extrabold text-emerald-800">
+                تعداد کل پاسخ‌ها: {summary.totalResponses}
+              </div>
+              <ul className="mt-3 grid gap-2.5 sm:grid-cols-2">
                 {summary.fields.map((field) => (
                   <li key={field.fieldId} className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
                     <p className="text-xs font-extrabold text-slate-900">{field.label}</p>
@@ -122,18 +143,27 @@ export default function NeighborhoodFormResponsesPage() {
 
         <section className={CARD + ' mt-4'}>
           <h2 className="text-sm font-extrabold text-slate-900">لیست پاسخ‌ها</h2>
+          {!loading && !error && responses.length === 0 ? (
+            <p className="mt-3 rounded-2xl bg-slate-50 px-3 py-3 text-sm text-slate-600">
+              هنوز پاسخی برای این فرم ثبت نشده است.
+            </p>
+          ) : null}
           <ul className="mt-3 space-y-2.5">
             {responses.map((row) => (
-              <li key={row.id} className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
-                <p className="text-xs font-bold text-slate-700">
-                  {row.respondent.name} (@{row.respondent.username})
-                </p>
-                <p className="text-[10px] text-slate-500">{new Date(row.submittedAt).toLocaleString('fa-IR')}</p>
-                <div className="mt-2 space-y-1 text-[11px] text-slate-700">
+              <li key={row.id} className="rounded-2xl border border-slate-200 bg-slate-50 p-3.5">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-xs font-bold text-slate-700">
+                    {row.respondent.name} (@{row.respondent.username})
+                  </p>
+                  <p className="rounded-full bg-white px-2 py-0.5 text-[10px] text-slate-500 ring-1 ring-slate-200">
+                    {new Date(row.submittedAt).toLocaleString('fa-IR')}
+                  </p>
+                </div>
+                <div className="mt-2 space-y-1.5 text-[11px] text-slate-700">
                   {row.answers.map((ans) => (
-                    <p key={ans.id}>
+                    <p key={ans.id} className="rounded-xl bg-white px-2.5 py-1.5 ring-1 ring-slate-200">
                       <span className="font-bold">{ans.field.label}: </span>
-                      {Array.isArray(ans.value) ? ans.value.join(', ') : String(ans.value)}
+                      {renderAnswerValue(ans.value)}
                     </p>
                   ))}
                 </div>

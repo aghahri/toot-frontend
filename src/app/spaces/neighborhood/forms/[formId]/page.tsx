@@ -6,6 +6,7 @@ import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { AuthGate } from '@/components/AuthGate';
 import { apiFetch } from '@/lib/api';
 import { getAccessToken } from '@/lib/auth';
+import { fieldHelperText, fieldTypeLabel, formStatusBadgeClass, formStatusLabel } from '@/lib/neighborhoodForms';
 
 type FieldRow = {
   id: string;
@@ -54,11 +55,19 @@ export default function NeighborhoodFormDetailPage() {
     let cancelled = false;
     void (async () => {
       if (!networkId || !formId) return;
+      if (!networkId) {
+        setError('شناسه شبکه مشخص نیست. از لیست فرم‌ها وارد شوید.');
+        setLoading(false);
+        return;
+      }
       setLoading(true);
       setError(null);
       try {
         const token = getAccessToken();
-        if (!token) return;
+        if (!token) {
+          setError('برای ثبت پاسخ باید وارد شوید.');
+          return;
+        }
         const res = await apiFetch<FormDetail>(`networks/${networkId}/forms/${formId}`, {
           method: 'GET',
           token,
@@ -78,12 +87,19 @@ export default function NeighborhoodFormDetailPage() {
   async function submit(e: FormEvent) {
     e.preventDefault();
     if (!detail || !canSubmit) return;
+    if (!networkId) {
+      setError('شناسه شبکه مشخص نیست.');
+      return;
+    }
     setSaving(true);
     setError(null);
     setSuccess(null);
     try {
       const token = getAccessToken();
-      if (!token) return;
+      if (!token) {
+        setError('برای ثبت پاسخ باید وارد شوید.');
+        return;
+      }
       const payload = detail.fields
         .filter((field) => answers[field.id] !== undefined && answers[field.id] !== '')
         .map((field) => ({ fieldId: field.id, value: answers[field.id] }));
@@ -109,16 +125,26 @@ export default function NeighborhoodFormDetailPage() {
       <main className="mx-auto w-full max-w-md px-4 pb-12 pt-4 sm:pb-14" dir="rtl">
         <div className="mb-4 flex items-center justify-between gap-2">
           <h1 className="text-lg font-extrabold text-slate-900">ثبت فرم محله</h1>
-          <Link href="/spaces/neighborhood/forms" className={SECONDARY_CTA}>
+          <Link href={`/spaces/neighborhood/forms${networkId ? `?networkId=${encodeURIComponent(networkId)}` : ''}`} className={SECONDARY_CTA}>
             بازگشت
           </Link>
         </div>
         <section className={CARD}>
-          {loading ? <p className="text-sm text-slate-500">در حال بارگذاری…</p> : null}
-          {error ? <p className="text-sm font-semibold text-red-700">{error}</p> : null}
+          {loading ? (
+            <div className="space-y-2">
+              <p className="text-sm text-slate-500">در حال بارگذاری فرم…</p>
+              <div className="h-20 animate-pulse rounded-2xl bg-slate-100" />
+            </div>
+          ) : null}
+          {error ? <p className="rounded-2xl bg-rose-50 px-3 py-2 text-sm font-semibold text-rose-700">{error}</p> : null}
           {detail ? (
             <>
-              <h2 className="text-base font-extrabold text-slate-900">{detail.title}</h2>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h2 className="text-base font-extrabold text-slate-900">{detail.title}</h2>
+                <span className={`rounded-full px-2.5 py-1 text-[10px] font-extrabold ring-1 ${formStatusBadgeClass(detail.status)}`}>
+                  {formStatusLabel(detail.status)}
+                </span>
+              </div>
               {detail.description ? (
                 <p className="mt-1 text-xs leading-relaxed text-slate-600">{detail.description}</p>
               ) : null}
@@ -133,6 +159,9 @@ export default function NeighborhoodFormDetailPage() {
                     <label className="mb-1 block text-xs font-bold text-slate-700">
                       {field.label} {field.required ? '*' : ''}
                     </label>
+                    <p className="mb-1.5 text-[11px] text-slate-500">
+                      {fieldTypeLabel(field.type)} - {fieldHelperText(field.type)}
+                    </p>
                     {field.type === 'SHORT_TEXT' ? (
                       <input
                         className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
@@ -210,7 +239,7 @@ export default function NeighborhoodFormDetailPage() {
                     ) : null}
                   </div>
                 ))}
-                {success ? <p className="text-sm font-semibold text-emerald-700">{success}</p> : null}
+                {success ? <p className="rounded-2xl bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-700">{success}</p> : null}
                 <button type="submit" disabled={!canSubmit || saving} className={PRIMARY_CTA}>
                   {saving ? 'در حال ثبت...' : 'ثبت پاسخ'}
                 </button>
