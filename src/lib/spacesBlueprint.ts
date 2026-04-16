@@ -18,6 +18,12 @@ export type SpaceBlueprint = {
   accentClass: string;
   mappedCategory: SpaceKey;
   capabilities: SpaceCapability[];
+  utilities?: Array<{
+    id: string;
+    title: string;
+    description: string;
+    cta: string;
+  }>;
 };
 
 export const SPACE_BLUEPRINTS: readonly SpaceBlueprint[] = [
@@ -34,6 +40,38 @@ export const SPACE_BLUEPRINTS: readonly SpaceBlueprint[] = [
       { id: 'forms', title: 'فرم‌های محله‌ای', stage: 'foundation' },
       { id: 'polls', title: 'نظرسنجی‌های محلی', stage: 'planned' },
       { id: 'local-biz-groups', title: 'گروه‌های کسب‌وکار محلی', stage: 'active' },
+    ],
+    utilities: [
+      {
+        id: 'local-survey-forms',
+        title: 'Local Survey Forms',
+        description: 'فرم‌های محلی برای جمع‌آوری داده و بازخورد شهروندی در سطح محله.',
+        cta: 'شروع فرم محلی',
+      },
+      {
+        id: 'neighborhood-requests',
+        title: 'Neighborhood Requests',
+        description: 'ثبت و پیگیری درخواست‌های محله‌ای برای مسائل خدماتی و اجتماعی.',
+        cta: 'ثبت درخواست',
+      },
+      {
+        id: 'local-business-directory',
+        title: 'Local Business Directory',
+        description: 'فهرست کسب‌وکارهای محلی برای معرفی خدمات محله و اتصال سریع مردم.',
+        cta: 'مشاهده فهرست',
+      },
+      {
+        id: 'community-bulletin',
+        title: 'Community Bulletin',
+        description: 'تابلوی اعلانات محله برای اطلاع‌رسانی رویدادها و پیام‌های عمومی.',
+        cta: 'بازکردن تابلوی محله',
+      },
+      {
+        id: 'join-district-networks',
+        title: 'Join District Networks',
+        description: 'ورود به شبکه‌های ناحیه‌ای برای مشارکت مستقیم در فعالیت‌های محلی.',
+        cta: 'پیوستن به شبکه ناحیه',
+      },
     ],
   },
   {

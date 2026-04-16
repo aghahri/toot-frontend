@@ -287,7 +287,7 @@ function SpaceDetailInner() {
     null;
 
   const networksSection = (
-    <section className="rounded-2xl border border-slate-200/90 bg-white p-4 shadow-sm">
+    <section id="district-networks" className="rounded-2xl border border-slate-200/90 bg-white p-4 shadow-sm">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h2 className="text-sm font-extrabold text-slate-900">
@@ -560,6 +560,44 @@ function SpaceDetailInner() {
                     </span>
                   ))}
                 </div>
+              </section>
+            ) : null}
+
+            {isNeighborhood && blueprint?.utilities?.length ? (
+              <section className="rounded-2xl border border-slate-200/90 bg-white p-4 shadow-sm">
+                <div className="mb-3 flex items-center justify-between gap-2">
+                  <h2 className="text-sm font-extrabold text-slate-900">Neighborhood Utility Blocks</h2>
+                  <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-bold text-emerald-800 ring-1 ring-emerald-200/80">
+                    UI v1
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-500">
+                  این بلوک‌ها نسخه‌ی اولیه رابط کاربری هستند و برای فاز بعدی به سرویس‌های عملیاتی متصل می‌شوند.
+                </p>
+                <ul className="mt-3 grid gap-2.5 sm:grid-cols-2">
+                  {blueprint.utilities.map((item) => (
+                    <li key={item.id} className="rounded-xl border border-slate-200 bg-slate-50/70 p-3">
+                      <p className="text-xs font-extrabold text-slate-900">{item.title}</p>
+                      <p className="mt-1 text-[11px] leading-relaxed text-slate-600">{item.description}</p>
+                      {item.id === 'join-district-networks' ? (
+                        <a
+                          href="#district-networks"
+                          className="mt-2 inline-flex rounded-lg bg-emerald-600 px-2.5 py-1.5 text-[10px] font-bold text-white"
+                        >
+                          {item.cta}
+                        </a>
+                      ) : (
+                        <button
+                          type="button"
+                          className="mt-2 inline-flex cursor-not-allowed rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-[10px] font-bold text-slate-500"
+                          aria-disabled
+                        >
+                          {item.cta} (coming soon)
+                        </button>
+                      )}
+                    </li>
+                  ))}
+                </ul>
               </section>
             ) : null}
 
