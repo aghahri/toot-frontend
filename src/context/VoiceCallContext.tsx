@@ -292,22 +292,23 @@ function extractAudioSdpHints(sdp: string | null | undefined): string[] {
 function getMediaErrorMessage(err: unknown): string {
   if (!(err instanceof Error)) return 'میکروفون در دسترس نیست.';
   const n = err.name;
+  const code = n ? ` [${n}]` : '';
   if (n === 'NotAllowedError' || n === 'PermissionDeniedError') {
-    return 'اجازهٔ میکروفون داده نشد. در تنظیمات مرورگر اجازه را فعال کنید.';
+    return `اجازهٔ میکروفون داده نشد. در تنظیمات مرورگر اجازه را فعال کنید.${code}`;
   }
   if (n === 'NotFoundError' || n === 'DevicesNotFoundError') {
-    return 'میکروفونی روی این دستگاه پیدا نشد.';
+    return `میکروفونی روی این دستگاه پیدا نشد.${code}`;
   }
   if (n === 'NotReadableError' || n === 'TrackStartError') {
-    return 'میکروفون در دسترس نیست یا توسط برنامهٔ دیگری استفاده می‌شود.';
+    return `میکروفون در دسترس نیست یا توسط برنامهٔ دیگری استفاده می‌شود.${code}`;
   }
   if (n === 'OverconstrainedError') {
-    return 'این دستگاه از تماس صوتی پشتیبانی نمی‌کند.';
+    return `این دستگاه از تماس صوتی پشتیبانی نمی‌کند.${code}`;
   }
   if (n === 'AbortError') {
-    return 'باز کردن میکروفون متوقف شد.';
+    return `باز کردن میکروفون متوقف شد.${code}`;
   }
-  return 'میکروفون کار نکرد. مرورگر یا دستگاه را بررسی کنید.';
+  return `میکروفون کار نکرد. مرورگر یا دستگاه را بررسی کنید.${code}`;
 }
 
 function lastCallOptsAllowRetry(opts: LastCallOpts | null): boolean {
@@ -744,6 +745,7 @@ export function VoiceCallProvider({ children }: { children: ReactNode }) {
       if (!sid || !s) return;
       s.emit('call_signal', { sessionId: sid, type: 'offer', sdp: offer.sdp });
     } catch (e) {
+      console.error('[VoiceCall] caller media error:', e instanceof Error ? `${e.name}: ${e.message}` : e);
       goToEnded(getMediaErrorMessage(e), 5000);
       const sid = sessionIdRef.current;
       const s = socketRef.current;
@@ -783,6 +785,7 @@ export function VoiceCallProvider({ children }: { children: ReactNode }) {
         syncVoiceMedia(pc);
       }
     } catch (e) {
+      console.error('[VoiceCall] callee media error:', e instanceof Error ? `${e.name}: ${e.message}` : e);
       goToEnded(getMediaErrorMessage(e), 5000);
       const sid = sessionIdRef.current;
       const s = socketRef.current;
