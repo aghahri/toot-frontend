@@ -734,9 +734,13 @@ export function VoiceCallProvider({ children }: { children: ReactNode }) {
       pcRef.current = pc;
       wirePc(pc);
 
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-      localStreamRef.current = stream;
-      stream.getTracks().forEach((track) => pc.addTrack(track, stream));
+      // Reuse stream pre-acquired from user gesture; fall back to getUserMedia if not available.
+      let stream = localStreamRef.current;
+      if (!stream || !stream.getAudioTracks().some((t) => t.readyState === 'live')) {
+        stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+        localStreamRef.current = stream;
+      }
+      stream.getTracks().forEach((track) => pc.addTrack(track, stream!));
 
       const offer = await pc.createOffer();
       await pc.setLocalDescription(offer);
@@ -758,11 +762,15 @@ export function VoiceCallProvider({ children }: { children: ReactNode }) {
     phaseRef.current = 'connecting';
     startConnectingWatchdog();
     try {
-      // Mic before pcRef: if the offer is applied during getUserMedia, createAnswer runs without local tracks.
       const ice = await loadIceServers();
       iceServerSummaryRef.current = summarizeIceServersConfig(ice);
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-      localStreamRef.current = stream;
+
+      // Reuse stream pre-acquired from user gesture; fall back to getUserMedia if not available.
+      let stream = localStreamRef.current;
+      if (!stream || !stream.getAudioTracks().some((t) => t.readyState === 'live')) {
+        stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+        localStreamRef.current = stream;
+      }
 
       const pc = new RTCPeerConnection({ iceServers: ice });
       callActivatedRef.current = false;
@@ -959,7 +967,7 @@ export function VoiceCallProvider({ children }: { children: ReactNode }) {
   }, [resetToIdle]);
 
   const startCall = useCallback(
-    (opts: LastCallOpts) => {
+    async (opts: LastCallOpts) => {
       const s = socketRef.current;
       if (!s?.connected) {
         lastCallOptsRef.current = opts;
@@ -977,6 +985,20 @@ export function VoiceCallProvider({ children }: { children: ReactNode }) {
       callerMediaStartedRef.current = false;
       calleeMediaStartedRef.current = false;
       pendingOfferSdpRef.current = null;
+
+      // Acquire mic here — still inside the direct user-gesture activation frame.
+      // On iOS Safari getUserMedia must be initiated from user activation; socket
+      // event callbacks (where runCallerMedia runs) do not qualify.
+      if (!localStreamRef.current?.getAudioTracks().some((t) => t.readyState === 'live')) {
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+          localStreamRef.current = stream;
+        } catch (e) {
+          console.error('[VoiceCall] pre-acquire mic (caller):', e instanceof Error ? `${e.name}: ${e.message}` : e);
+          goToEnded(getMediaErrorMessage(e), 5000);
+          return;
+        }
+      }
 
       s.emit(
         'call_start',
@@ -1020,11 +1042,27 @@ export function VoiceCallProvider({ children }: { children: ReactNode }) {
     window.setTimeout(() => startCall(o), 0);
   }, [startCall, teardownMedia]);
 
-  const acceptIncoming = useCallback(() => {
+  const acceptIncoming = useCallback(async () => {
     const sid = sessionIdRef.current;
     const s = socketRef.current;
     if (!sid || !s || incomingActionBusy || phaseRef.current !== 'incoming') return;
     setIncomingActionBusy(true);
+
+    // Acquire mic here — still inside the direct user-gesture activation frame.
+    // On iOS Safari getUserMedia must be initiated from user activation; the
+    // call_accepted socket event (where runCalleeMedia runs) does not qualify.
+    if (!localStreamRef.current?.getAudioTracks().some((t) => t.readyState === 'live')) {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+        localStreamRef.current = stream;
+      } catch (e) {
+        console.error('[VoiceCall] pre-acquire mic (callee):', e instanceof Error ? `${e.name}: ${e.message}` : e);
+        setIncomingActionBusy(false);
+        goToEnded(getMediaErrorMessage(e), 5000);
+        return;
+      }
+    }
+
     s.emit('call_accept', { sessionId: sid }, (res: { ok?: boolean; code?: string }) => {
       if (res?.ok === false) {
         setIncomingActionBusy(false);
