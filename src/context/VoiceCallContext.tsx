@@ -736,7 +736,8 @@ export function VoiceCallProvider({ children }: { children: ReactNode }) {
       } else {
         const ice = await loadIceServers();
         iceServerSummaryRef.current = summarizeIceServersConfig(ice);
-        pc = new RTCPeerConnection({ iceServers: ice });
+        pc = new RTCPeerConnection({});
+        try { pc.setConfiguration({ iceServers: ice }); } catch { /* bad URL format */ }
         callActivatedRef.current = false;
         pcRef.current = pc;
         let stream = localStreamRef.current;
@@ -782,7 +783,8 @@ export function VoiceCallProvider({ children }: { children: ReactNode }) {
           stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
           localStreamRef.current = stream;
         }
-        pc = new RTCPeerConnection({ iceServers: ice });
+        pc = new RTCPeerConnection({});
+        try { pc.setConfiguration({ iceServers: ice }); } catch { /* bad URL format */ }
         callActivatedRef.current = false;
         pcRef.current = pc;
         stream.getTracks().forEach((track) => pc.addTrack(track, stream!));
@@ -997,9 +999,7 @@ export function VoiceCallProvider({ children }: { children: ReactNode }) {
       calleeMediaStartedRef.current = false;
       pendingOfferSdpRef.current = null;
 
-      // Acquire mic + pre-create RTCPeerConnection within user-gesture activation frame.
-      // On iOS Safari, getUserMedia AND addTrack/WebRTC audio ops must be initiated from
-      // user activation; socket event callbacks (where runCallerMedia runs) do not qualify.
+      // Step 1 — acquire mic inside the user-gesture activation frame.
       if (!localStreamRef.current?.getAudioTracks().some((t) => t.readyState === 'live')) {
         try {
           const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
@@ -1010,20 +1010,38 @@ export function VoiceCallProvider({ children }: { children: ReactNode }) {
           return;
         }
       }
-      // Pre-create PC and add tracks now (user-gesture context) to avoid InvalidAccessError
-      // on iOS Safari when addTrack is called later from a socket callback.
+
+      // Step 2 — create RTCPeerConnection and addTrack with NO await in between.
+      // iOS Safari: addTrack throws InvalidAccessError when called after any macro-task
+      // yield (e.g. a fetch/loadIceServers). Create the PC with empty config synchronously
+      // here, then apply ICE servers via setConfiguration below (allowed after activation).
+      let callerPc: RTCPeerConnection;
       try {
-        const ice = await loadIceServers();
-        iceServerSummaryRef.current = summarizeIceServersConfig(ice);
-        const preCreatedPc = new RTCPeerConnection({ iceServers: ice });
+        callerPc = new RTCPeerConnection({});
         callActivatedRef.current = false;
-        pcRef.current = preCreatedPc;
+        pcRef.current = callerPc;
         const preStream = localStreamRef.current!;
-        preStream.getTracks().forEach((track) => preCreatedPc.addTrack(track, preStream));
+        preStream.getTracks().forEach((track) => callerPc.addTrack(track, preStream));
       } catch (e) {
         console.error('[VoiceCall] pre-create PC (caller):', e instanceof Error ? `${e.name}: ${e.message}` : e);
         goToEnded(getMediaErrorMessage(e), 20000);
         return;
+      }
+
+      // Step 3 — load ICE servers and apply via setConfiguration (macro-task is fine here).
+      // Catches SyntaxError from malformed STUN/TURN URLs; falls back to host candidates.
+      try {
+        const ice = await loadIceServers();
+        iceServerSummaryRef.current = summarizeIceServersConfig(ice);
+        if (ice.length > 0 && pcRef.current === callerPc) {
+          try {
+            callerPc.setConfiguration({ iceServers: ice });
+          } catch {
+            /* invalid URL format — proceed without STUN/TURN */
+          }
+        }
+      } catch {
+        iceServerSummaryRef.current = { count: 0, hasRelayHint: false };
       }
 
       s.emit(
@@ -1074,9 +1092,7 @@ export function VoiceCallProvider({ children }: { children: ReactNode }) {
     if (!sid || !s || incomingActionBusy || phaseRef.current !== 'incoming') return;
     setIncomingActionBusy(true);
 
-    // Acquire mic + pre-create RTCPeerConnection within user-gesture activation frame.
-    // On iOS Safari, getUserMedia AND addTrack/WebRTC audio ops must be initiated from
-    // user activation; socket event callbacks (where runCalleeMedia runs) do not qualify.
+    // Step 1 — acquire mic inside the user-gesture activation frame.
     if (!localStreamRef.current?.getAudioTracks().some((t) => t.readyState === 'live')) {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
@@ -1088,21 +1104,35 @@ export function VoiceCallProvider({ children }: { children: ReactNode }) {
         return;
       }
     }
-    // Pre-create PC and add tracks now (user-gesture context) to avoid InvalidAccessError
-    // on iOS Safari when addTrack is called later from a socket callback.
+
+    // Step 2 — create RTCPeerConnection and addTrack with NO await in between.
+    let calleePc: RTCPeerConnection;
     try {
-      const ice = await loadIceServers();
-      iceServerSummaryRef.current = summarizeIceServersConfig(ice);
-      const preCreatedPc = new RTCPeerConnection({ iceServers: ice });
+      calleePc = new RTCPeerConnection({});
       callActivatedRef.current = false;
-      pcRef.current = preCreatedPc;
+      pcRef.current = calleePc;
       const preStream = localStreamRef.current!;
-      preStream.getTracks().forEach((track) => preCreatedPc.addTrack(track, preStream));
+      preStream.getTracks().forEach((track) => calleePc.addTrack(track, preStream));
     } catch (e) {
       console.error('[VoiceCall] pre-create PC (callee):', e instanceof Error ? `${e.name}: ${e.message}` : e);
       setIncomingActionBusy(false);
       goToEnded(getMediaErrorMessage(e), 20000);
       return;
+    }
+
+    // Step 3 — load ICE servers and apply via setConfiguration (macro-task is fine here).
+    try {
+      const ice = await loadIceServers();
+      iceServerSummaryRef.current = summarizeIceServersConfig(ice);
+      if (ice.length > 0 && pcRef.current === calleePc) {
+        try {
+          calleePc.setConfiguration({ iceServers: ice });
+        } catch {
+          /* invalid URL format — proceed without STUN/TURN */
+        }
+      }
+    } catch {
+      iceServerSummaryRef.current = { count: 0, hasRelayHint: false };
     }
 
     s.emit('call_accept', { sessionId: sid }, (res: { ok?: boolean; code?: string }) => {
