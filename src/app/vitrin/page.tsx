@@ -86,49 +86,6 @@ export default function VitrinPage() {
 
         <section className="mb-6">
           <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-sm font-extrabold text-slate-900">اطلاعیه‌های زنده</h2>
-            <span className="rounded-full bg-sky-50 px-2 py-1 text-[11px] font-bold text-sky-700">
-              {publishedAnnouncements.length} مورد
-            </span>
-          </div>
-          {publishedAnnouncements.length === 0 ? (
-            <p className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-xs text-slate-500">
-              فعلاً اطلاعیه‌ی منتشرشده‌ای وجود ندارد.
-            </p>
-          ) : (
-            <ul className="grid grid-cols-1 gap-3">
-              {publishedAnnouncements.map((item) => (
-                <li key={item.id}>
-                  <article className="group relative overflow-hidden rounded-3xl border border-amber-200/70 bg-gradient-to-br from-amber-50 via-orange-50 to-rose-50 p-4 shadow-sm ring-1 ring-inset ring-white/60 transition hover:shadow-md">
-                    <div className="mb-2 inline-flex items-center gap-1 rounded-full bg-white/80 px-2 py-1 text-[11px] font-bold text-amber-800 ring-1 ring-amber-200">
-                      📣 اطلاعیه
-                    </div>
-                    <p className="text-[15px] font-extrabold leading-snug text-slate-900">{item.title}</p>
-                    <p className="mt-1 line-clamp-3 text-xs leading-relaxed text-slate-700">{item.body}</p>
-                    <p className="mt-3 text-[11px] font-bold text-amber-700">متن اطلاع‌رسانی ویترین</p>
-                  </article>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
-
-        <section className="mb-6">
-          <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-sm font-extrabold text-slate-900">فضاهای برجسته</h2>
-            <span className="rounded-full bg-violet-50 px-2 py-1 text-[11px] font-bold text-violet-700">
-              {featuredNetworks.length + featuredGroups.length + featuredChannels.length} مورد
-            </span>
-          </div>
-          <div className="space-y-3">
-            <FeaturedList title="شبکه‌ها" items={featuredNetworks} hrefBase="/networks" kindLabel="شبکه" />
-            <FeaturedList title="گروه‌ها" items={featuredGroups} hrefBase="/groups" kindLabel="گروه" />
-            <FeaturedList title="کانال‌ها" items={featuredChannels} hrefBase="/channels" kindLabel="کانال" />
-          </div>
-        </section>
-
-        <section className="mb-6">
-          <div className="mb-3 flex items-center justify-between">
             <h2 className="text-sm font-extrabold text-slate-900">سرویس‌های اصلی ویترین</h2>
             <span className="rounded-full bg-indigo-50 px-2 py-1 text-[11px] font-bold text-indigo-700">
               {coreLinks.length} مورد
@@ -170,6 +127,49 @@ export default function VitrinPage() {
               })}
             </ul>
           )}
+        </section>
+
+        <section className="mb-6">
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="text-sm font-extrabold text-slate-900">اطلاعیه‌های زنده</h2>
+            <span className="rounded-full bg-sky-50 px-2 py-1 text-[11px] font-bold text-sky-700">
+              {publishedAnnouncements.length} مورد
+            </span>
+          </div>
+          {publishedAnnouncements.length === 0 ? (
+            <p className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-xs text-slate-500">
+              فعلاً اطلاعیه‌ی منتشرشده‌ای وجود ندارد.
+            </p>
+          ) : (
+            <ul className="grid grid-cols-1 gap-3">
+              {publishedAnnouncements.map((item) => (
+                <li key={item.id}>
+                  <article className="group relative overflow-hidden rounded-3xl border border-amber-200/70 bg-gradient-to-br from-amber-50 via-orange-50 to-rose-50 p-4 shadow-sm ring-1 ring-inset ring-white/60 transition hover:shadow-md">
+                    <div className="mb-2 inline-flex items-center gap-1 rounded-full bg-white/80 px-2 py-1 text-[11px] font-bold text-amber-800 ring-1 ring-amber-200">
+                      📣 اطلاعیه
+                    </div>
+                    <p className="text-[15px] font-extrabold leading-snug text-slate-900">{item.title}</p>
+                    <p className="mt-1 line-clamp-3 text-xs leading-relaxed text-slate-700">{item.body}</p>
+                    <p className="mt-3 text-[11px] font-bold text-amber-700">متن اطلاع‌رسانی ویترین</p>
+                  </article>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+
+        <section className="mb-6">
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="text-sm font-extrabold text-slate-900">فضاهای برجسته</h2>
+            <span className="rounded-full bg-violet-50 px-2 py-1 text-[11px] font-bold text-violet-700">
+              {featuredNetworks.length + featuredGroups.length + featuredChannels.length} مورد
+            </span>
+          </div>
+          <div className="space-y-3">
+            <FeaturedList title="شبکه‌ها" items={featuredNetworks} hrefBase="/networks" kindLabel="شبکه" />
+            <FeaturedList title="گروه‌ها" items={featuredGroups} hrefBase="/groups" kindLabel="گروه" />
+            <FeaturedList title="کانال‌ها" items={featuredChannels} hrefBase="/channels" kindLabel="کانال" />
+          </div>
         </section>
 
         {coreLinks.length === 0 ? (
