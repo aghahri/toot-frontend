@@ -995,7 +995,7 @@ export function VoiceCallProvider({ children }: { children: ReactNode }) {
           localStreamRef.current = stream;
         } catch (e) {
           console.error('[VoiceCall] pre-acquire mic (caller):', e instanceof Error ? `${e.name}: ${e.message}` : e);
-          goToEnded(getMediaErrorMessage(e), 5000);
+          goToEnded(getMediaErrorMessage(e), 20000);
           return;
         }
       }
@@ -1058,7 +1058,7 @@ export function VoiceCallProvider({ children }: { children: ReactNode }) {
       } catch (e) {
         console.error('[VoiceCall] pre-acquire mic (callee):', e instanceof Error ? `${e.name}: ${e.message}` : e);
         setIncomingActionBusy(false);
-        goToEnded(getMediaErrorMessage(e), 5000);
+        goToEnded(getMediaErrorMessage(e), 20000);
         return;
       }
     }
