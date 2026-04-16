@@ -578,6 +578,7 @@ function SpaceDetailInner() {
                 utilities={blueprint.utilities}
               />
             ) : null}
+            {spaceKey === 'NEIGHBORHOOD' ? <NeighborhoodFormsCapabilitySection /> : null}
 
             {isNeighborhood ? (
               <>
@@ -676,7 +677,14 @@ const SpaceUtilitiesSection = memo(function SpaceUtilitiesSection({
           <li key={item.id} className={`${SUB_CARD} min-h-[10.25rem] bg-slate-50/70 ring-1 ${theme.cardRing}`}>
             <p className="text-xs font-extrabold text-slate-900">{item.title}</p>
             <p className="mt-1 text-[11px] leading-relaxed text-slate-600">{item.description}</p>
-            {isNeighborhood && item.id === 'join-district-networks' ? (
+            {isNeighborhood && item.id === 'local-survey-forms' ? (
+              <Link
+                href="/spaces/neighborhood/forms"
+                className={`${PRIMARY_CTA} mt-2 inline-flex !px-3 !py-1.5 !text-[11px] ${theme.primaryCta}`}
+              >
+                {item.cta}
+              </Link>
+            ) : isNeighborhood && item.id === 'join-district-networks' ? (
               <a
                 href="#district-networks"
                 className={`${PRIMARY_CTA} mt-2 inline-flex !px-3 !py-1.5 !text-[11px] ${theme.jumpCta}`}
@@ -695,6 +703,30 @@ const SpaceUtilitiesSection = memo(function SpaceUtilitiesSection({
           </li>
         ))}
       </ul>
+    </section>
+  );
+});
+
+const NeighborhoodFormsCapabilitySection = memo(function NeighborhoodFormsCapabilitySection() {
+  return (
+    <section className={SECTION_CARD}>
+      <div className="flex items-center justify-between gap-2">
+        <h2 className="text-base font-extrabold text-slate-900">Neighborhood Forms / Local Forms</h2>
+        <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-extrabold text-emerald-800 ring-1 ring-emerald-200/80">
+          v1 Live
+        </span>
+      </div>
+      <p className="mt-1 text-xs leading-relaxed text-slate-600">
+        فرم‌های محله‌ای برای نظرسنجی، درخواست‌های خدماتی و جمع‌آوری داده‌های محلی در سطح شبکه.
+      </p>
+      <div className="mt-3 flex flex-wrap gap-2">
+        <Link href="/spaces/neighborhood/forms" className={PRIMARY_CTA + ' !bg-emerald-700 hover:!bg-emerald-600'}>
+          مشاهده فرم‌ها
+        </Link>
+        <Link href="/spaces/neighborhood/forms/manage" className={SECONDARY_CTA}>
+          مدیریت فرم‌ها
+        </Link>
+      </div>
     </section>
   );
 });
