@@ -156,6 +156,44 @@ export const SPACE_BLUEPRINTS: readonly SpaceBlueprint[] = [
       { id: 'game-forums', title: 'فروم‌های بازی', stage: 'planned' },
       { id: 'match-lobbies', title: 'اتاق‌های هماهنگی بازی', stage: 'planned' },
     ],
+    utilities: [
+      {
+        id: 'clan-guild-communities',
+        title: 'Clan / Guild Communities',
+        description: 'ساختار جامعه‌های کلن و گیلد برای ارتباط پایدار و هماهنگی اعضا.',
+        cta: 'ورود به Clan/Guild',
+      },
+      {
+        id: 'team-matchmaking',
+        title: 'Team Matchmaking',
+        description: 'هماهنگی اولیه برای تشکیل تیم و پیدا کردن هم‌تیمی مناسب برای مسابقه.',
+        cta: 'شروع Matchmaking',
+      },
+      {
+        id: 'game-forums',
+        title: 'Game Forums',
+        description: 'فروم‌های موضوعی بازی برای بحث، راهنما، اخبار و تجربیات بازیکنان.',
+        cta: 'بازکردن Game Forum',
+      },
+      {
+        id: 'tournament-channels',
+        title: 'Tournament Channels',
+        description: 'کانال‌های تورنمنت برای اطلاع‌رسانی برنامه، قوانین و اعلام نتایج.',
+        cta: 'مشاهده Tournament Channel',
+      },
+      {
+        id: 'voice-squad-coordination',
+        title: 'Voice Squad Coordination',
+        description: 'هماهنگی اسکاد و ارتباط سریع تیمی در مسیر توسعه قابلیت‌های صوتی گروهی.',
+        cta: 'هماهنگی Voice Squad',
+      },
+      {
+        id: 'find-teammates',
+        title: 'Find Teammates',
+        description: 'مسیر کشف بازیکن‌های هم‌سطح برای تشکیل تیم‌های پایدار و رقابتی.',
+        cta: 'یافتن هم‌تیمی',
+      },
+    ],
   },
   {
     id: 'business',
