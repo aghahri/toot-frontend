@@ -536,8 +536,11 @@ function SpaceDetailInner() {
           <div className="space-y-6">
             {blueprint ? <BlueprintIntroSection blueprint={blueprint} /> : null}
 
-            {isNeighborhood && blueprint?.utilities?.length ? (
-              <NeighborhoodUtilitiesSection utilities={blueprint.utilities} />
+            {blueprint?.utilities?.length ? (
+              <SpaceUtilitiesSection
+                spaceId={blueprint.id}
+                utilities={blueprint.utilities}
+              />
             ) : null}
 
             {isNeighborhood ? (
@@ -603,15 +606,25 @@ const BlueprintIntroSection = memo(function BlueprintIntroSection({
   );
 });
 
-const NeighborhoodUtilitiesSection = memo(function NeighborhoodUtilitiesSection({
+const SpaceUtilitiesSection = memo(function SpaceUtilitiesSection({
+  spaceId,
   utilities,
 }: {
+  spaceId: NonNullable<ReturnType<typeof SPACE_BLUEPRINTS.find>>['id'];
   utilities: NonNullable<ReturnType<typeof SPACE_BLUEPRINTS.find>>['utilities'];
 }) {
+  const isNeighborhood = spaceId === 'neighborhood';
+  const isEducation = spaceId === 'education';
+  const title = isEducation
+    ? 'Education Utility / Capability'
+    : isNeighborhood
+      ? 'Neighborhood Utility Blocks'
+      : 'Space Utility Blocks';
+
   return (
     <section className={SECTION_CARD}>
       <div className="mb-3 flex items-center justify-between gap-2">
-        <h2 className="text-sm font-extrabold text-slate-900">Neighborhood Utility Blocks</h2>
+        <h2 className="text-sm font-extrabold text-slate-900">{title}</h2>
         <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-bold text-emerald-800 ring-1 ring-emerald-200/80">
           UI v1
         </span>
@@ -624,7 +637,7 @@ const NeighborhoodUtilitiesSection = memo(function NeighborhoodUtilitiesSection(
           <li key={item.id} className={SUB_CARD + ' bg-slate-50/70'}>
             <p className="text-xs font-extrabold text-slate-900">{item.title}</p>
             <p className="mt-1 text-[11px] leading-relaxed text-slate-600">{item.description}</p>
-            {item.id === 'join-district-networks' ? (
+            {isNeighborhood && item.id === 'join-district-networks' ? (
               <a
                 href="#district-networks"
                 className={PRIMARY_CTA + ' mt-2 inline-flex !px-2.5 !py-1.5 !text-[10px] !bg-emerald-600 hover:!bg-emerald-500'}

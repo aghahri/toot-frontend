@@ -88,6 +88,44 @@ export const SPACE_BLUEPRINTS: readonly SpaceBlueprint[] = [
       { id: 'teacher-roles', title: 'جریان نقش‌محور مدرس/استاد', stage: 'foundation' },
       { id: 'assignments', title: 'تکلیف/ویدیو/ارزیابی', stage: 'planned' },
     ],
+    utilities: [
+      {
+        id: 'student-groups',
+        title: 'Student Groups',
+        description: 'گروه‌های دانشجویی برای تعامل کلاسی، گفتگوهای درسی و هماهنگی پروژه‌ها.',
+        cta: 'ورود به Student Groups',
+      },
+      {
+        id: 'teacher-channels',
+        title: 'Teacher Channels',
+        description: 'کانال‌های مدرسین برای اطلاع‌رسانی رسمی، برنامه کلاس و محتوای آموزشی.',
+        cta: 'مشاهده Teacher Channels',
+      },
+      {
+        id: 'homework-assignment-groups',
+        title: 'Homework & Assignment Groups',
+        description: 'ساختار گروهی برای پیگیری تکالیف، تحویل پروژه و همکاری آموزشی.',
+        cta: 'راه‌اندازی Assignment Group',
+      },
+      {
+        id: 'class-communities',
+        title: 'Class Communities',
+        description: 'کامیونیتی‌های کلاسی برای هر درس/دانشکده با فضای گفتگو و ارتباط پایدار.',
+        cta: 'ورود به Class Community',
+      },
+      {
+        id: 'verified-teacher-identity',
+        title: 'Verified Teacher / Professor identity',
+        description: 'زیرساخت هویت تاییدشده برای مدرس/استاد در مسیر نقش‌محور آموزشی.',
+        cta: 'مشاهده وضعیت تایید هویت',
+      },
+      {
+        id: 'live-video-class',
+        title: 'Future Live Class / Video Class support',
+        description: 'مسیر توسعه برای کلاس زنده و ویدیوکلاس در فازهای بعدی آموزشی.',
+        cta: 'بررسی Live Class Roadmap',
+      },
+    ],
   },
   {
     id: 'sports',
