@@ -3,6 +3,7 @@
  * Only these entry ids may be opened in the in-app web viewer (`/vitrin/web`).
  */
 export type VitrinCatalogEntry = {
+  key: 'BAMA_BANK' | 'BAMA_KHABAR' | 'BAMATEL' | 'NEIGHBORHOOD_MAP';
   id: string;
   title: string;
   subtitle: string;
@@ -13,6 +14,7 @@ export type VitrinCatalogEntry = {
 
 export const VITRIN_CATALOG: readonly VitrinCatalogEntry[] = [
   {
+    key: 'BAMA_KHABAR',
     id: 'bamakhabar',
     title: 'باماخبر',
     subtitle: 'سایت خبری محلات',
@@ -20,6 +22,7 @@ export const VITRIN_CATALOG: readonly VitrinCatalogEntry[] = [
     cardClass: 'from-amber-500/90 via-orange-500/85 to-rose-600/90 ring-amber-200/60',
   },
   {
+    key: 'NEIGHBORHOOD_MAP',
     id: 'iranregions',
     title: 'نقشه محلات ایران',
     subtitle: 'نقشه جغرافیایی محلات ایران',
@@ -27,6 +30,7 @@ export const VITRIN_CATALOG: readonly VitrinCatalogEntry[] = [
     cardClass: 'from-emerald-600/90 via-teal-600/85 to-cyan-700/90 ring-emerald-200/60',
   },
   {
+    key: 'BAMATEL',
     id: 'bamatel',
     title: 'سیم\u200cکارت محله',
     subtitle: 'خدمات سیم\u200cکارت و ارتباطات',
@@ -34,6 +38,7 @@ export const VITRIN_CATALOG: readonly VitrinCatalogEntry[] = [
     cardClass: 'from-violet-600/90 via-purple-600/85 to-fuchsia-700/90 ring-violet-200/60',
   },
   {
+    key: 'BAMA_BANK',
     id: 'bamabank',
     title: 'بامابانک',
     subtitle: 'خدمات مالی محله',
@@ -43,8 +48,10 @@ export const VITRIN_CATALOG: readonly VitrinCatalogEntry[] = [
 ] as const;
 
 const byId = new Map(VITRIN_CATALOG.map((e) => [e.id, e] as const));
+const byKey = new Map(VITRIN_CATALOG.map((e) => [e.key, e] as const));
 
 export function getVitrinEntryById(id: string | null | undefined): VitrinCatalogEntry | null {
   if (!id || typeof id !== 'string') return null;
-  return byId.get(id.trim()) ?? null;
+  const value = id.trim();
+  return byId.get(value) ?? byKey.get(value as VitrinCatalogEntry['key']) ?? null;
 }

@@ -16,7 +16,14 @@ type Ann = {
 };
 
 type PageData = { data: Ann[]; meta: { hasMore: boolean; limit: number; offset: number; total: number } };
+type VitrinCoreLink = {
+  key: 'BAMA_BANK' | 'BAMA_KHABAR' | 'BAMATEL' | 'NEIGHBORHOOD_MAP';
+  title: string;
+  subtitle: string;
+  url: string;
+};
 type PublicShowcaseData = {
+  coreLinks: VitrinCoreLink[];
   announcements: Array<{ id: string; title: string; body: string }>;
   featuredNetworks: Array<{ id: string; name: string }>;
   featuredGroups: Array<{ id: string; name: string }>;
@@ -25,6 +32,7 @@ type PublicShowcaseData = {
 
 export default function AdminShowcasePage() {
   const [rows, setRows] = useState<Ann[]>([]);
+  const [coreLinks, setCoreLinks] = useState<VitrinCoreLink[]>([]);
   const [publicShowcase, setPublicShowcase] = useState<PublicShowcaseData | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [title, setTitle] = useState('');
@@ -42,12 +50,14 @@ export default function AdminShowcasePage() {
     setLoading(true);
     setErr(null);
     try {
-      const [res, live] = await Promise.all([
+      const [res, live, core] = await Promise.all([
         apiFetch<PageData>('admin/announcements?limit=50&offset=0', { method: 'GET', token }),
         apiFetch<PublicShowcaseData>('showcase', { method: 'GET', token }),
+        apiFetch<VitrinCoreLink[]>('admin/vitrin-core-links', { method: 'GET', token }),
       ]);
       setRows(res.data);
       setPublicShowcase(live);
+      setCoreLinks(core);
     } catch (e) {
       setErr(e instanceof Error ? e.message : 'Failed');
     } finally {
@@ -114,6 +124,39 @@ export default function AdminShowcasePage() {
     }
   }
 
+  async function saveCoreLink(item: VitrinCoreLink) {
+    const token = getAccessToken();
+    if (!token) return;
+    setSaving(true);
+    setErr(null);
+    setMsg(null);
+    try {
+      await apiFetch(`admin/vitrin-core-links/${encodeURIComponent(item.key)}`, {
+        method: 'PATCH',
+        token,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: item.title.trim(),
+          subtitle: item.subtitle.trim(),
+          url: item.url.trim(),
+        }),
+      });
+      setMsg('Core vitrín link updated.');
+      void load();
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : 'Failed');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function updateCoreLinkDraft(
+    key: VitrinCoreLink['key'],
+    patch: Partial<Pick<VitrinCoreLink, 'title' | 'subtitle' | 'url'>>,
+  ) {
+    setCoreLinks((prev) => prev.map((row) => (row.key === key ? { ...row, ...patch } : row)));
+  }
+
   return (
     <div>
       <h1 className="text-xl font-bold text-white">Showcase / Vitrin</h1>
@@ -138,12 +181,51 @@ export default function AdminShowcasePage() {
         {loading ? <p className="mt-3 text-xs text-slate-500">Loading…</p> : null}
         {publicShowcase ? (
           <div className="mt-3 grid grid-cols-2 gap-2 text-xs text-slate-300 md:grid-cols-4">
+            <div className="rounded border border-slate-700 p-2">Core links: {publicShowcase.coreLinks.length}</div>
             <div className="rounded border border-slate-700 p-2">Live announcements: {publicShowcase.announcements.length}</div>
             <div className="rounded border border-slate-700 p-2">Featured networks: {publicShowcase.featuredNetworks.length}</div>
             <div className="rounded border border-slate-700 p-2">Featured groups: {publicShowcase.featuredGroups.length}</div>
             <div className="rounded border border-slate-700 p-2">Featured channels: {publicShowcase.featuredChannels.length}</div>
           </div>
         ) : null}
+      </div>
+
+      <div className="mt-8 rounded-lg border border-slate-800 bg-slate-900/40 p-4">
+        <h2 className="text-sm font-bold text-slate-300">Core vitrín links</h2>
+        <p className="mt-1 text-xs text-slate-500">Manage flagship destination boxes shown at the top of public vitrín.</p>
+        <div className="mt-3 space-y-3">
+          {coreLinks.map((row) => (
+            <div key={row.key} className="rounded border border-slate-700/70 bg-slate-950/40 p-3">
+              <p className="text-xs font-bold text-slate-400">{row.key}</p>
+              <input
+                value={row.title}
+                onChange={(e) => updateCoreLinkDraft(row.key, { title: e.target.value })}
+                className="mt-2 w-full rounded border border-slate-700 bg-slate-950 px-2 py-2 text-sm text-white"
+                placeholder="Title"
+              />
+              <input
+                value={row.subtitle}
+                onChange={(e) => updateCoreLinkDraft(row.key, { subtitle: e.target.value })}
+                className="mt-2 w-full rounded border border-slate-700 bg-slate-950 px-2 py-2 text-sm text-white"
+                placeholder="Subtitle"
+              />
+              <input
+                value={row.url}
+                onChange={(e) => updateCoreLinkDraft(row.key, { url: e.target.value })}
+                className="mt-2 w-full rounded border border-slate-700 bg-slate-950 px-2 py-2 text-sm text-white"
+                placeholder="https://..."
+              />
+              <button
+                type="button"
+                disabled={saving}
+                onClick={() => void saveCoreLink(row)}
+                className="mt-2 rounded border border-slate-600 px-3 py-1 text-xs text-slate-200 disabled:opacity-60"
+              >
+                Save
+              </button>
+            </div>
+          ))}
+        </div>
       </div>
 
       <div className="mt-8 rounded-lg border border-slate-800 bg-slate-900/40 p-4">
