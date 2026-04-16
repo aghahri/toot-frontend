@@ -727,20 +727,26 @@ export function VoiceCallProvider({ children }: { children: ReactNode }) {
     phaseRef.current = 'connecting';
     startConnectingWatchdog();
     try {
-      const ice = await loadIceServers();
-      iceServerSummaryRef.current = summarizeIceServersConfig(ice);
-      const pc = new RTCPeerConnection({ iceServers: ice });
-      callActivatedRef.current = false;
-      pcRef.current = pc;
-      wirePc(pc);
-
-      // Reuse stream pre-acquired from user gesture; fall back to getUserMedia if not available.
-      let stream = localStreamRef.current;
-      if (!stream || !stream.getAudioTracks().some((t) => t.readyState === 'live')) {
-        stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-        localStreamRef.current = stream;
+      // Use PC pre-created in startCall (user-gesture context). Fall back to creating a new
+      // one only if it wasn't set (shouldn't normally happen).
+      let pc: RTCPeerConnection;
+      const existingPc = pcRef.current;
+      if (existingPc && existingPc.signalingState !== 'closed') {
+        pc = existingPc;
+      } else {
+        const ice = await loadIceServers();
+        iceServerSummaryRef.current = summarizeIceServersConfig(ice);
+        pc = new RTCPeerConnection({ iceServers: ice });
+        callActivatedRef.current = false;
+        pcRef.current = pc;
+        let stream = localStreamRef.current;
+        if (!stream || !stream.getAudioTracks().some((t) => t.readyState === 'live')) {
+          stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+          localStreamRef.current = stream;
+        }
+        stream.getTracks().forEach((track) => pc.addTrack(track, stream!));
       }
-      stream.getTracks().forEach((track) => pc.addTrack(track, stream!));
+      wirePc(pc);
 
       const offer = await pc.createOffer();
       await pc.setLocalDescription(offer);
@@ -762,20 +768,25 @@ export function VoiceCallProvider({ children }: { children: ReactNode }) {
     phaseRef.current = 'connecting';
     startConnectingWatchdog();
     try {
-      const ice = await loadIceServers();
-      iceServerSummaryRef.current = summarizeIceServersConfig(ice);
-
-      // Reuse stream pre-acquired from user gesture; fall back to getUserMedia if not available.
-      let stream = localStreamRef.current;
-      if (!stream || !stream.getAudioTracks().some((t) => t.readyState === 'live')) {
-        stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-        localStreamRef.current = stream;
+      // Use PC pre-created in acceptIncoming (user-gesture context). Fall back to creating a
+      // new one only if it wasn't set (shouldn't normally happen).
+      let pc: RTCPeerConnection;
+      const existingPc = pcRef.current;
+      if (existingPc && existingPc.signalingState !== 'closed') {
+        pc = existingPc;
+      } else {
+        const ice = await loadIceServers();
+        iceServerSummaryRef.current = summarizeIceServersConfig(ice);
+        let stream = localStreamRef.current;
+        if (!stream || !stream.getAudioTracks().some((t) => t.readyState === 'live')) {
+          stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+          localStreamRef.current = stream;
+        }
+        pc = new RTCPeerConnection({ iceServers: ice });
+        callActivatedRef.current = false;
+        pcRef.current = pc;
+        stream.getTracks().forEach((track) => pc.addTrack(track, stream!));
       }
-
-      const pc = new RTCPeerConnection({ iceServers: ice });
-      callActivatedRef.current = false;
-      pcRef.current = pc;
-      stream.getTracks().forEach((track) => pc.addTrack(track, stream));
       wirePc(pc);
 
       if (pendingOfferSdpRef.current) {
@@ -986,9 +997,9 @@ export function VoiceCallProvider({ children }: { children: ReactNode }) {
       calleeMediaStartedRef.current = false;
       pendingOfferSdpRef.current = null;
 
-      // Acquire mic here — still inside the direct user-gesture activation frame.
-      // On iOS Safari getUserMedia must be initiated from user activation; socket
-      // event callbacks (where runCallerMedia runs) do not qualify.
+      // Acquire mic + pre-create RTCPeerConnection within user-gesture activation frame.
+      // On iOS Safari, getUserMedia AND addTrack/WebRTC audio ops must be initiated from
+      // user activation; socket event callbacks (where runCallerMedia runs) do not qualify.
       if (!localStreamRef.current?.getAudioTracks().some((t) => t.readyState === 'live')) {
         try {
           const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
@@ -998,6 +1009,21 @@ export function VoiceCallProvider({ children }: { children: ReactNode }) {
           goToEnded(getMediaErrorMessage(e), 20000);
           return;
         }
+      }
+      // Pre-create PC and add tracks now (user-gesture context) to avoid InvalidAccessError
+      // on iOS Safari when addTrack is called later from a socket callback.
+      try {
+        const ice = await loadIceServers();
+        iceServerSummaryRef.current = summarizeIceServersConfig(ice);
+        const preCreatedPc = new RTCPeerConnection({ iceServers: ice });
+        callActivatedRef.current = false;
+        pcRef.current = preCreatedPc;
+        const preStream = localStreamRef.current!;
+        preStream.getTracks().forEach((track) => preCreatedPc.addTrack(track, preStream));
+      } catch (e) {
+        console.error('[VoiceCall] pre-create PC (caller):', e instanceof Error ? `${e.name}: ${e.message}` : e);
+        goToEnded(getMediaErrorMessage(e), 20000);
+        return;
       }
 
       s.emit(
@@ -1048,9 +1074,9 @@ export function VoiceCallProvider({ children }: { children: ReactNode }) {
     if (!sid || !s || incomingActionBusy || phaseRef.current !== 'incoming') return;
     setIncomingActionBusy(true);
 
-    // Acquire mic here — still inside the direct user-gesture activation frame.
-    // On iOS Safari getUserMedia must be initiated from user activation; the
-    // call_accepted socket event (where runCalleeMedia runs) does not qualify.
+    // Acquire mic + pre-create RTCPeerConnection within user-gesture activation frame.
+    // On iOS Safari, getUserMedia AND addTrack/WebRTC audio ops must be initiated from
+    // user activation; socket event callbacks (where runCalleeMedia runs) do not qualify.
     if (!localStreamRef.current?.getAudioTracks().some((t) => t.readyState === 'live')) {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
@@ -1061,6 +1087,22 @@ export function VoiceCallProvider({ children }: { children: ReactNode }) {
         goToEnded(getMediaErrorMessage(e), 20000);
         return;
       }
+    }
+    // Pre-create PC and add tracks now (user-gesture context) to avoid InvalidAccessError
+    // on iOS Safari when addTrack is called later from a socket callback.
+    try {
+      const ice = await loadIceServers();
+      iceServerSummaryRef.current = summarizeIceServersConfig(ice);
+      const preCreatedPc = new RTCPeerConnection({ iceServers: ice });
+      callActivatedRef.current = false;
+      pcRef.current = preCreatedPc;
+      const preStream = localStreamRef.current!;
+      preStream.getTracks().forEach((track) => preCreatedPc.addTrack(track, preStream));
+    } catch (e) {
+      console.error('[VoiceCall] pre-create PC (callee):', e instanceof Error ? `${e.name}: ${e.message}` : e);
+      setIncomingActionBusy(false);
+      goToEnded(getMediaErrorMessage(e), 20000);
+      return;
     }
 
     s.emit('call_accept', { sessionId: sid }, (res: { ok?: boolean; code?: string }) => {
