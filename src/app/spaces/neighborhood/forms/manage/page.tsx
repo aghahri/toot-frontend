@@ -24,6 +24,13 @@ type FieldDraft = {
   options: string;
 };
 
+type NetworkOption = {
+  id: string;
+  name: string;
+  spaceCategory: string;
+  myRole?: 'NETWORK_ADMIN' | 'MEMBER' | null;
+};
+
 const CARD =
   'rounded-3xl border border-slate-200/90 bg-white p-5 sm:p-6 shadow-[0_10px_24px_rgba(15,23,42,0.06)]';
 const PRIMARY_CTA =
@@ -33,9 +40,11 @@ const SECONDARY_CTA =
 
 function NeighborhoodFormsManageInner() {
   const searchParams = useSearchParams();
-  const networkId = searchParams.get('networkId') ?? '';
+  const networkIdFromQuery = searchParams.get('networkId') ?? '';
 
   const [forms, setForms] = useState<ManageFormRow[]>([]);
+  const [networkOptions, setNetworkOptions] = useState<NetworkOption[]>([]);
+  const [selectedNetworkId, setSelectedNetworkId] = useState(networkIdFromQuery);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [fields, setFields] = useState<FieldDraft[]>([
@@ -44,15 +53,43 @@ function NeighborhoodFormsManageInner() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+
+  const canSubmit = !!selectedNetworkId && !saving;
+
+  function validateCreatePayload() {
+    if (!selectedNetworkId) return 'لطفا ابتدا شبکه محله را انتخاب کنید.';
+    if (!title.trim()) return 'عنوان فرم الزامی است.';
+    if (fields.length === 0) return 'حداقل یک فیلد لازم است.';
+    for (const [idx, field] of fields.entries()) {
+      if (!field.key.trim()) return `کلید فیلد ${idx + 1} الزامی است.`;
+      if (!field.label.trim()) return `عنوان فیلد ${idx + 1} الزامی است.`;
+      if (field.type === 'single_choice' || field.type === 'multi_choice') {
+        const options = field.options
+          .split(',')
+          .map((x) => x.trim())
+          .filter(Boolean);
+        if (options.length < 2) return `فیلد ${idx + 1}: حداقل دو گزینه لازم است.`;
+      }
+    }
+    return null;
+  }
 
   async function loadManage() {
-    if (!networkId) return;
+    if (!selectedNetworkId) {
+      setForms([]);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
-    setError(null);
+    setError((prev) => (prev?.includes('شبکه') ? null : prev));
     try {
       const token = getAccessToken();
-      if (!token) return;
-      const res = await apiFetch<ManageFormRow[]>(`networks/${networkId}/forms/manage`, {
+      if (!token) {
+        setError('برای مدیریت فرم‌ها باید وارد شوید.');
+        return;
+      }
+      const res = await apiFetch<ManageFormRow[]>(`networks/${selectedNetworkId}/forms/manage`, {
         method: 'GET',
         token,
       });
@@ -65,19 +102,62 @@ function NeighborhoodFormsManageInner() {
   }
 
   useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      const token = getAccessToken();
+      if (!token) {
+        setError('برای مدیریت فرم‌ها باید وارد شوید.');
+        setLoading(false);
+        return;
+      }
+      try {
+        const allNetworks = await apiFetch<NetworkOption[]>('networks', { method: 'GET', token });
+        const adminNeighborhood = allNetworks.filter(
+          (n) => n.spaceCategory === 'NEIGHBORHOOD' && n.myRole === 'NETWORK_ADMIN',
+        );
+        if (cancelled) return;
+        setNetworkOptions(adminNeighborhood);
+        if (!selectedNetworkId && adminNeighborhood[0]) {
+          setSelectedNetworkId(adminNeighborhood[0].id);
+        }
+        if (!adminNeighborhood.length) {
+          setError('شما در حال حاضر ادمین هیچ شبکه محله‌ای نیستید.');
+          setLoading(false);
+        }
+      } catch (e) {
+        if (!cancelled) {
+          setError(e instanceof Error ? e.message : 'بارگذاری شبکه‌ها ممکن نیست');
+          setLoading(false);
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
     void loadManage();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [networkId]);
+  }, [selectedNetworkId]);
 
   async function createForm(e: FormEvent) {
     e.preventDefault();
-    if (!networkId) return;
+    const validationError = validateCreatePayload();
+    if (validationError) {
+      setError(validationError);
+      return;
+    }
     setSaving(true);
     setError(null);
+    setSuccess(null);
     try {
       const token = getAccessToken();
-      if (!token) return;
-      await apiFetch(`networks/${networkId}/forms`, {
+      if (!token) {
+        setError('برای ایجاد فرم باید وارد شوید.');
+        return;
+      }
+      await apiFetch(`networks/${selectedNetworkId}/forms`, {
         method: 'POST',
         token,
         headers: { 'Content-Type': 'application/json' },
@@ -102,6 +182,7 @@ function NeighborhoodFormsManageInner() {
       });
       setTitle('');
       setDescription('');
+      setSuccess('فرم با موفقیت ایجاد شد.');
       await loadManage();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'ایجاد فرم ممکن نیست');
@@ -113,8 +194,15 @@ function NeighborhoodFormsManageInner() {
   async function mutate(formId: string, action: 'publish' | 'unpublish' | 'close') {
     try {
       const token = getAccessToken();
-      if (!token) return;
-      await apiFetch(`networks/${networkId}/forms/${formId}/${action}`, {
+      if (!token) {
+        setError('برای مدیریت فرم باید وارد شوید.');
+        return;
+      }
+      if (!selectedNetworkId) {
+        setError('لطفا ابتدا شبکه محله را انتخاب کنید.');
+        return;
+      }
+      await apiFetch(`networks/${selectedNetworkId}/forms/${formId}/${action}`, {
         method: 'POST',
         token,
       });
@@ -129,13 +217,33 @@ function NeighborhoodFormsManageInner() {
       <main className="mx-auto w-full max-w-md px-4 pb-12 pt-4 sm:pb-14" dir="rtl">
         <div className="mb-4 flex items-center justify-between gap-2">
           <h1 className="text-lg font-extrabold text-slate-900">مدیریت Neighborhood Forms</h1>
-          <Link href={`/spaces/neighborhood/forms?networkId=${encodeURIComponent(networkId)}`} className={SECONDARY_CTA}>
+          <Link href={`/spaces/neighborhood/forms${selectedNetworkId ? `?networkId=${encodeURIComponent(selectedNetworkId)}` : ''}`} className={SECONDARY_CTA}>
             بازگشت
           </Link>
         </div>
 
         <section className={CARD}>
           <h2 className="text-sm font-extrabold text-slate-900">ایجاد فرم جدید</h2>
+          <div className="mt-3">
+            <label className="mb-1 block text-xs font-bold text-slate-700">شبکه محله (اجباری)</label>
+            <select
+              value={selectedNetworkId}
+              onChange={(e) => setSelectedNetworkId(e.target.value)}
+              className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm outline-none focus:border-emerald-300"
+            >
+              <option value="">انتخاب شبکه</option>
+              {networkOptions.map((n) => (
+                <option key={n.id} value={n.id}>
+                  {n.name}
+                </option>
+              ))}
+            </select>
+            {!selectedNetworkId ? (
+              <p className="mt-1 text-xs font-semibold text-amber-700">
+                بدون انتخاب شبکه، دکمه ایجاد فرم غیرفعال می‌ماند.
+              </p>
+            ) : null}
+          </div>
           <form onSubmit={createForm} className="mt-3 space-y-2.5">
             <input
               className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm"
@@ -213,7 +321,7 @@ function NeighborhoodFormsManageInner() {
               >
                 افزودن فیلد
               </button>
-              <button type="submit" className={PRIMARY_CTA} disabled={saving}>
+              <button type="submit" className={PRIMARY_CTA} disabled={!canSubmit}>
                 {saving ? 'در حال ایجاد...' : 'ایجاد فرم'}
               </button>
             </div>
@@ -224,6 +332,7 @@ function NeighborhoodFormsManageInner() {
           <h2 className="text-sm font-extrabold text-slate-900">فرم‌های شبکه</h2>
           {loading ? <p className="mt-2 text-sm text-slate-500">در حال بارگذاری…</p> : null}
           {error ? <p className="mt-2 text-sm font-semibold text-red-700">{error}</p> : null}
+          {success ? <p className="mt-2 text-sm font-semibold text-emerald-700">{success}</p> : null}
           <ul className="mt-3 space-y-2.5">
             {forms.map((form) => (
               <li key={form.id} className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
@@ -252,7 +361,7 @@ function NeighborhoodFormsManageInner() {
                       </button>
                     </>
                   ) : null}
-                  <Link href={`/spaces/neighborhood/forms/${form.id}/responses?networkId=${encodeURIComponent(networkId)}`} className={SECONDARY_CTA}>
+                  <Link href={`/spaces/neighborhood/forms/${form.id}/responses?networkId=${encodeURIComponent(selectedNetworkId)}`} className={SECONDARY_CTA}>
                     پاسخ‌ها
                   </Link>
                 </div>
