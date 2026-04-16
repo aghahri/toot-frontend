@@ -102,12 +102,33 @@ export default function SpacesOverviewPage() {
 
   return (
     <AuthGate>
-      <main className="mx-auto w-full max-w-lg px-4 pb-10 pt-3" dir="rtl">
-        <header className="mb-4">
-          <h1 className="text-xl font-extrabold tracking-tight text-slate-900">Spaces</h1>
-          <p className="mt-1 text-sm text-slate-600">
-            مرکز اکوسیستم شما؛ بر اساس علاقه‌ها، شبکه‌ها و گروه‌های مرتبط را کشف کنید.
+      <main className="mx-auto w-full max-w-lg px-4 pb-12 pt-4 sm:pb-14" dir="rtl">
+        <header className="mb-5 overflow-hidden rounded-3xl border border-slate-200/80 bg-gradient-to-br from-indigo-600 via-violet-700 to-slate-900 p-5 text-white shadow-lg ring-1 ring-inset ring-white/20">
+          <p className="inline-flex rounded-full bg-white/15 px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-[0.16em] text-white/90">
+            Toot Spaces
           </p>
+          <h1 className="mt-3 text-2xl font-black tracking-tight">اکوسیستم‌های تخصصی توت</h1>
+          <p className="mt-2 text-sm leading-relaxed text-white/90">
+            Spaces ستون سوم محصول است: یک سطح حرفه‌ای برای ساخت دنیاهای تخصصی و توسعه‌ی شبکه‌های هدفمند.
+          </p>
+          <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2">
+            <Link
+              href="#flagship-spaces"
+              className="rounded-2xl bg-white px-4 py-2.5 text-center text-xs font-extrabold text-indigo-700 shadow-sm transition hover:bg-slate-100"
+            >
+              ورود به Flagship Spaces
+            </Link>
+            <button
+              type="button"
+              onClick={() => {
+                setDraftPrefs(preferredSpaces);
+                setEditOpen(true);
+              }}
+              className="rounded-2xl border border-white/35 bg-white/10 px-4 py-2.5 text-xs font-extrabold text-white transition hover:bg-white/20"
+            >
+              تنظیم علاقه‌مندی‌ها
+            </button>
+          </div>
         </header>
 
         {loading ? (
@@ -115,37 +136,37 @@ export default function SpacesOverviewPage() {
         ) : error ? (
           <p className="text-sm font-semibold text-red-700">{error}</p>
         ) : (
-          <div className="space-y-5">
-            <section className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm">
+          <div className="space-y-6">
+            <section className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm sm:p-5">
               <h2 className="text-sm font-extrabold text-slate-900">مدل Spaces در توت</h2>
               <p className="mt-1 text-xs leading-relaxed text-slate-600">
                 Spaces سومین ستون توت است: چت برای ارتباط، ویترین برای مقصد/سرویس، و Spaces برای اکوسیستم‌های تخصصی.
               </p>
-              <ol className="mt-3 grid gap-2 text-xs sm:grid-cols-3">
-                <li className="rounded-xl bg-slate-50 p-3">
-                  <p className="font-extrabold text-slate-800">1) انتخاب Space</p>
+              <ol className="mt-3 grid gap-2.5 text-xs sm:grid-cols-3">
+                <li className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                  <p className="font-extrabold text-slate-800">1) Space</p>
                   <p className="mt-1 text-slate-600">هدف تخصصی‌تان را مشخص کنید (محله، آموزش، ورزش، گیمینگ، کسب‌وکار).</p>
                 </li>
-                <li className="rounded-xl bg-slate-50 p-3">
-                  <p className="font-extrabold text-slate-800">2) عضویت در Network</p>
+                <li className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                  <p className="font-extrabold text-slate-800">2) Network</p>
                   <p className="mt-1 text-slate-600">شبکه‌ی مرتبط را پیدا کنید و عضو شوید تا زمینه عملیاتی شما مشخص شود.</p>
                 </li>
-                <li className="rounded-xl bg-slate-50 p-3">
-                  <p className="font-extrabold text-slate-800">3) فعالیت در Group/Channel</p>
+                <li className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                  <p className="font-extrabold text-slate-800">3) Group / Channel</p>
                   <p className="mt-1 text-slate-600">پس از عضویت شبکه، در گروه‌ها و کانال‌های مرتبط همکاری و گفتگو کنید.</p>
                 </li>
               </ol>
             </section>
 
-            <section className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm">
+            <section id="flagship-spaces" className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm sm:p-5">
               <h2 className="text-sm font-extrabold text-slate-900">Flagship Spaces</h2>
               <p className="mt-1 text-xs text-slate-500">پایه‌های اصلی اکوسیستم Spaces با مسیر رشد قابلیت‌های تخصصی.</p>
-              <ul className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <ul className="mt-3 grid grid-cols-1 gap-3.5 sm:grid-cols-2">
                 {SPACE_BLUEPRINTS.map((space) => (
                   <li key={space.id}>
                     <Link
                       href={`/spaces/${space.mappedCategory}`}
-                      className={`block rounded-2xl bg-gradient-to-br p-4 text-white shadow-sm ring-2 ring-inset transition hover:shadow-md ${space.accentClass}`}
+                      className={`block rounded-2xl bg-gradient-to-br p-4 text-white shadow-sm ring-2 ring-inset transition hover:scale-[1.01] hover:shadow-md active:scale-[0.99] ${space.accentClass}`}
                     >
                       <div className="flex items-center justify-between gap-2">
                         <p className="text-base font-extrabold">{space.titleFa}</p>
@@ -161,6 +182,7 @@ export default function SpacesOverviewPage() {
                           </span>
                         ))}
                       </div>
+                      <p className="mt-3 text-[11px] font-extrabold text-white/90">ورود به این Space ←</p>
                     </Link>
                   </li>
                 ))}
