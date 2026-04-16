@@ -1,7 +1,9 @@
 'use client';
 
 import Link from 'next/link';
+import { useEffect, useMemo, useState } from 'react';
 import { AuthGate } from '@/components/AuthGate';
+import { apiFetch } from '@/lib/api';
 import { VITRIN_CATALOG } from '@/config/vitrinCatalog';
 
 function VitrinGlyph({ id }: { id: string }) {
@@ -41,12 +43,70 @@ function VitrinGlyph({ id }: { id: string }) {
 }
 
 export default function VitrinPage() {
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [data, setData] = useState<ShowcasePayload | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const res = await apiFetch<ShowcasePayload>('showcase', { method: 'GET' });
+        if (active) setData(res);
+      } catch (e) {
+        if (active) setError(e instanceof Error ? e.message : 'خطا در دریافت ویترین');
+      } finally {
+        if (active) setLoading(false);
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const publishedAnnouncements = useMemo(() => data?.announcements ?? [], [data]);
+  const featuredNetworks = useMemo(() => data?.featuredNetworks ?? [], [data]);
+  const featuredGroups = useMemo(() => data?.featuredGroups ?? [], [data]);
+  const featuredChannels = useMemo(() => data?.featuredChannels ?? [], [data]);
+
   return (
     <AuthGate>
       <main className="mx-auto w-full max-w-md px-4 pb-6 pt-2" dir="rtl">
         <p className="mb-4 text-sm leading-relaxed text-slate-600">
-          خدمات و محتوای منتخب مرتبط با محله؛ برای مشاهده هر مورد، روی کارت بزنید.
+          محتوای زنده‌ی ویترین از تنظیمات جاری سیستم بارگذاری می‌شود.
         </p>
+
+        {loading ? <p className="mb-4 text-sm text-slate-500">در حال بارگذاری ویترین…</p> : null}
+        {error ? <p className="mb-4 rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p> : null}
+
+        <section className="mb-6 rounded-2xl border border-slate-200 bg-white p-4">
+          <h2 className="text-sm font-extrabold text-slate-900">اطلاعیه‌های زنده</h2>
+          {publishedAnnouncements.length === 0 ? (
+            <p className="mt-2 text-xs text-slate-500">فعلاً اطلاعیه‌ی منتشرشده‌ای وجود ندارد.</p>
+          ) : (
+            <ul className="mt-3 space-y-2">
+              {publishedAnnouncements.map((item) => (
+                <li key={item.id} className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                  <p className="text-sm font-bold text-slate-900">{item.title}</p>
+                  <p className="mt-1 text-xs leading-relaxed text-slate-700">{item.body}</p>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+
+        <section className="mb-6 rounded-2xl border border-slate-200 bg-white p-4">
+          <h2 className="text-sm font-extrabold text-slate-900">فضاهای برجسته</h2>
+          <div className="mt-3 space-y-3">
+            <FeaturedList title="شبکه‌ها" items={featuredNetworks} hrefBase="/networks" />
+            <FeaturedList title="گروه‌ها" items={featuredGroups} hrefBase="/groups" />
+            <FeaturedList title="کانال‌ها" items={featuredChannels} hrefBase="/channels" />
+          </div>
+        </section>
+
+        <p className="mb-3 text-xs text-slate-500">سرویس‌های منتخب</p>
         <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           {VITRIN_CATALOG.map((entry) => (
             <li key={entry.id}>
@@ -73,5 +133,57 @@ export default function VitrinPage() {
         </ul>
       </main>
     </AuthGate>
+  );
+}
+
+type ShowcaseAnnouncement = {
+  id: string;
+  title: string;
+  body: string;
+};
+
+type ShowcaseNode = {
+  id: string;
+  name: string;
+  description: string | null;
+};
+
+type ShowcasePayload = {
+  announcements: ShowcaseAnnouncement[];
+  featuredNetworks: ShowcaseNode[];
+  featuredGroups: ShowcaseNode[];
+  featuredChannels: ShowcaseNode[];
+};
+
+function FeaturedList({
+  title,
+  items,
+  hrefBase,
+}: {
+  title: string;
+  items: ShowcaseNode[];
+  hrefBase: '/networks' | '/groups' | '/channels';
+}) {
+  return (
+    <div>
+      <p className="text-xs font-bold text-slate-600">{title}</p>
+      {items.length === 0 ? (
+        <p className="mt-1 text-xs text-slate-500">موردی برای نمایش وجود ندارد.</p>
+      ) : (
+        <ul className="mt-2 space-y-2">
+          {items.slice(0, 4).map((item) => (
+            <li key={item.id}>
+              <Link
+                href={`${hrefBase}/${encodeURIComponent(item.id)}`}
+                className="block rounded-lg border border-slate-200 px-3 py-2 text-xs text-slate-800 hover:bg-slate-50"
+              >
+                <p className="font-semibold">{item.name}</p>
+                {item.description ? <p className="mt-1 line-clamp-2 text-slate-500">{item.description}</p> : null}
+              </Link>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   );
 }
