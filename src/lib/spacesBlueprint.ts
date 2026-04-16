@@ -141,6 +141,44 @@ export const SPACE_BLUEPRINTS: readonly SpaceBlueprint[] = [
       { id: 'coach-structures', title: 'ساختار مربی/تیم', stage: 'foundation' },
       { id: 'training-tools', title: 'ابزار تمرین و برنامه', stage: 'planned' },
     ],
+    utilities: [
+      {
+        id: 'team-finder',
+        title: 'Team Finder',
+        description: 'فضای کشف بازیکن و تیم برای تکمیل سریع ترکیب و شروع فعالیت مشترک.',
+        cta: 'یافتن تیم',
+      },
+      {
+        id: 'coach-channels',
+        title: 'Coach Channels',
+        description: 'کانال‌های مربیان برای هماهنگی تمرین، برنامه‌ریزی فنی و اطلاع‌رسانی رسمی.',
+        cta: 'ورود به Coach Channel',
+      },
+      {
+        id: 'training-groups',
+        title: 'Training Groups',
+        description: 'گروه‌های تمرینی برای پیگیری جلسات، تمرین‌های تیمی و هماهنگی روزانه.',
+        cta: 'شروع Training Group',
+      },
+      {
+        id: 'match-planning',
+        title: 'Match Planning',
+        description: 'ابزار اولیه برنامه‌ریزی مسابقه برای زمان‌بندی، هماهنگی و آماده‌سازی تیم.',
+        cta: 'برنامه‌ریزی Match',
+      },
+      {
+        id: 'club-communities',
+        title: 'Club Communities',
+        description: 'کامیونیتی‌های باشگاهی برای ارتباط هواداران، اعضا و تیم‌های اجرایی.',
+        cta: 'ورود به Club Community',
+      },
+      {
+        id: 'athlete-communities',
+        title: 'Athlete Communities',
+        description: 'جامعه ورزشکاران برای شبکه‌سازی حرفه‌ای، اشتراک تجربه و تعامل تخصصی.',
+        cta: 'پیوستن به Athlete Community',
+      },
+    ],
   },
   {
     id: 'gaming',
