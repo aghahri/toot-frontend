@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { notFound, useParams, useRouter } from 'next/navigation';
 import { AuthGate } from '@/components/AuthGate';
@@ -534,79 +534,10 @@ function SpaceDetailInner() {
           <p className="text-sm font-semibold text-red-700">{error}</p>
         ) : data ? (
           <div className="space-y-6">
-            {blueprint ? (
-              <section className={SECTION_CARD}>
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <h2 className="text-sm font-extrabold text-slate-900">{blueprint.titleFa}</h2>
-                  <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-bold text-slate-700">
-                    {blueprint.badge}
-                  </span>
-                </div>
-                <p className="mt-1 text-xs leading-relaxed text-slate-600">{blueprint.summaryFa}</p>
-                <p className="mt-1 text-[11px] font-bold text-slate-700">{blueprint.valueFa}</p>
-                <div className="mt-3 grid gap-2 sm:grid-cols-3">
-                  <div className={SUB_CARD}>
-                    <p className="text-[10px] font-bold text-slate-500">گام 1</p>
-                    <p className="mt-1 text-xs font-semibold text-slate-800">شبکه مرتبط را انتخاب/عضو شوید</p>
-                  </div>
-                  <div className={SUB_CARD}>
-                    <p className="text-[10px] font-bold text-slate-500">گام 2</p>
-                    <p className="mt-1 text-xs font-semibold text-slate-800">گروه اجتماعی مناسب را بسازید/بپیوندید</p>
-                  </div>
-                  <div className={SUB_CARD}>
-                    <p className="text-[10px] font-bold text-slate-500">گام 3</p>
-                    <p className="mt-1 text-xs font-semibold text-slate-800">در کانال‌ها ابزار/گفتگو تخصصی را ادامه دهید</p>
-                  </div>
-                </div>
-                <div className="mt-3 flex flex-wrap gap-1.5">
-                  {blueprint.capabilities.map((cap) => (
-                    <span
-                      key={cap.id}
-                      className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[10px] text-slate-700"
-                    >
-                      {cap.title} · {capabilityStageLabel(cap.stage)}
-                    </span>
-                  ))}
-                </div>
-              </section>
-            ) : null}
+            {blueprint ? <BlueprintIntroSection blueprint={blueprint} /> : null}
 
             {isNeighborhood && blueprint?.utilities?.length ? (
-              <section className={SECTION_CARD}>
-                <div className="mb-3 flex items-center justify-between gap-2">
-                  <h2 className="text-sm font-extrabold text-slate-900">Neighborhood Utility Blocks</h2>
-                  <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-bold text-emerald-800 ring-1 ring-emerald-200/80">
-                    UI v1
-                  </span>
-                </div>
-                <p className="text-[11px] text-slate-500">
-                  این بلوک‌ها نسخه‌ی اولیه رابط کاربری هستند و برای فاز بعدی به سرویس‌های عملیاتی متصل می‌شوند.
-                </p>
-                <ul className="mt-3 grid gap-2.5 sm:grid-cols-2">
-                  {blueprint.utilities.map((item) => (
-                    <li key={item.id} className={SUB_CARD + ' bg-slate-50/70'}>
-                      <p className="text-xs font-extrabold text-slate-900">{item.title}</p>
-                      <p className="mt-1 text-[11px] leading-relaxed text-slate-600">{item.description}</p>
-                      {item.id === 'join-district-networks' ? (
-                        <a
-                          href="#district-networks"
-                          className={PRIMARY_CTA + ' mt-2 inline-flex !px-2.5 !py-1.5 !text-[10px] !bg-emerald-600 hover:!bg-emerald-500'}
-                        >
-                          {item.cta}
-                        </a>
-                      ) : (
-                        <button
-                          type="button"
-                          className={SECONDARY_CTA + ' mt-2 inline-flex cursor-not-allowed !px-2.5 !py-1.5 !text-[10px] text-slate-500'}
-                          aria-disabled
-                        >
-                          {item.cta} (coming soon)
-                        </button>
-                      )}
-                    </li>
-                  ))}
-                </ul>
-              </section>
+              <NeighborhoodUtilitiesSection utilities={blueprint.utilities} />
             ) : null}
 
             {isNeighborhood ? (
@@ -628,6 +559,93 @@ function SpaceDetailInner() {
     </AuthGate>
   );
 }
+
+const BlueprintIntroSection = memo(function BlueprintIntroSection({
+  blueprint,
+}: {
+  blueprint: NonNullable<ReturnType<typeof SPACE_BLUEPRINTS.find>>;
+}) {
+  return (
+    <section className={SECTION_CARD}>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 className="text-sm font-extrabold text-slate-900">{blueprint.titleFa}</h2>
+        <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-bold text-slate-700">
+          {blueprint.badge}
+        </span>
+      </div>
+      <p className="mt-1 text-xs leading-relaxed text-slate-600">{blueprint.summaryFa}</p>
+      <p className="mt-1 text-[11px] font-bold text-slate-700">{blueprint.valueFa}</p>
+      <div className="mt-3 grid gap-2 sm:grid-cols-3">
+        <div className={SUB_CARD}>
+          <p className="text-[10px] font-bold text-slate-500">گام 1</p>
+          <p className="mt-1 text-xs font-semibold text-slate-800">شبکه مرتبط را انتخاب/عضو شوید</p>
+        </div>
+        <div className={SUB_CARD}>
+          <p className="text-[10px] font-bold text-slate-500">گام 2</p>
+          <p className="mt-1 text-xs font-semibold text-slate-800">گروه اجتماعی مناسب را بسازید/بپیوندید</p>
+        </div>
+        <div className={SUB_CARD}>
+          <p className="text-[10px] font-bold text-slate-500">گام 3</p>
+          <p className="mt-1 text-xs font-semibold text-slate-800">در کانال‌ها ابزار/گفتگو تخصصی را ادامه دهید</p>
+        </div>
+      </div>
+      <div className="mt-3 flex flex-wrap gap-1.5">
+        {blueprint.capabilities.map((cap) => (
+          <span
+            key={cap.id}
+            className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[10px] text-slate-700"
+          >
+            {cap.title} · {capabilityStageLabel(cap.stage)}
+          </span>
+        ))}
+      </div>
+    </section>
+  );
+});
+
+const NeighborhoodUtilitiesSection = memo(function NeighborhoodUtilitiesSection({
+  utilities,
+}: {
+  utilities: NonNullable<ReturnType<typeof SPACE_BLUEPRINTS.find>>['utilities'];
+}) {
+  return (
+    <section className={SECTION_CARD}>
+      <div className="mb-3 flex items-center justify-between gap-2">
+        <h2 className="text-sm font-extrabold text-slate-900">Neighborhood Utility Blocks</h2>
+        <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-bold text-emerald-800 ring-1 ring-emerald-200/80">
+          UI v1
+        </span>
+      </div>
+      <p className="text-[11px] text-slate-500">
+        این بلوک‌ها نسخه‌ی اولیه رابط کاربری هستند و برای فاز بعدی به سرویس‌های عملیاتی متصل می‌شوند.
+      </p>
+      <ul className="mt-3 grid gap-2.5 sm:grid-cols-2">
+        {(utilities ?? []).map((item) => (
+          <li key={item.id} className={SUB_CARD + ' bg-slate-50/70'}>
+            <p className="text-xs font-extrabold text-slate-900">{item.title}</p>
+            <p className="mt-1 text-[11px] leading-relaxed text-slate-600">{item.description}</p>
+            {item.id === 'join-district-networks' ? (
+              <a
+                href="#district-networks"
+                className={PRIMARY_CTA + ' mt-2 inline-flex !px-2.5 !py-1.5 !text-[10px] !bg-emerald-600 hover:!bg-emerald-500'}
+              >
+                {item.cta}
+              </a>
+            ) : (
+              <button
+                type="button"
+                className={SECONDARY_CTA + ' mt-2 inline-flex cursor-not-allowed !px-2.5 !py-1.5 !text-[10px] text-slate-500'}
+                aria-disabled
+              >
+                {item.cta} (coming soon)
+              </button>
+            )}
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+});
 
 export default function SpaceDetailPage() {
   return (

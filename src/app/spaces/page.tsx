@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { AuthGate } from '@/components/AuthGate';
 import { getAccessToken } from '@/lib/auth';
@@ -100,6 +100,15 @@ export default function SpacesOverviewPage() {
     }
   }
 
+  const openEdit = useCallback(() => {
+    setDraftPrefs(preferredSpaces);
+    setEditOpen(true);
+  }, [preferredSpaces]);
+
+  const closeEdit = useCallback(() => {
+    setEditOpen(false);
+  }, []);
+
   function toggleDraftSpace(k: UserSpaceKey) {
     setDraftPrefs((prev) => {
       if (prev.includes(k)) return prev.filter((x) => x !== k);
@@ -126,14 +135,7 @@ export default function SpacesOverviewPage() {
             >
               ورود به Flagship Spaces
             </Link>
-            <button
-              type="button"
-              onClick={() => {
-                setDraftPrefs(preferredSpaces);
-                setEditOpen(true);
-              }}
-              className="rounded-2xl border border-white/35 bg-white/10 px-4 py-2.5 text-xs font-extrabold text-white transition hover:bg-white/20"
-            >
+            <button type="button" onClick={openEdit} className="rounded-2xl border border-white/35 bg-white/10 px-4 py-2.5 text-xs font-extrabold text-white transition hover:bg-white/20">
               تنظیم علاقه‌مندی‌ها
             </button>
           </div>
@@ -145,67 +147,16 @@ export default function SpacesOverviewPage() {
           <p className="text-sm font-semibold text-red-700">{error}</p>
         ) : (
           <div className="space-y-6">
-            <section className={SECTION_CARD}>
-              <h2 className="text-sm font-extrabold text-slate-900">مدل Spaces در توت</h2>
-              <p className="mt-1 text-xs leading-relaxed text-slate-600">
-                Spaces سومین ستون توت است: چت برای ارتباط، ویترین برای مقصد/سرویس، و Spaces برای اکوسیستم‌های تخصصی.
-              </p>
-              <ol className="mt-3 grid gap-2.5 text-xs sm:grid-cols-3">
-                <li className={SUB_CARD}>
-                  <p className="font-extrabold text-slate-800">1) Space</p>
-                  <p className="mt-1 text-slate-600">هدف تخصصی‌تان را مشخص کنید (محله، آموزش، ورزش، گیمینگ، کسب‌وکار).</p>
-                </li>
-                <li className={SUB_CARD}>
-                  <p className="font-extrabold text-slate-800">2) Network</p>
-                  <p className="mt-1 text-slate-600">شبکه‌ی مرتبط را پیدا کنید و عضو شوید تا زمینه عملیاتی شما مشخص شود.</p>
-                </li>
-                <li className={SUB_CARD}>
-                  <p className="font-extrabold text-slate-800">3) Group / Channel</p>
-                  <p className="mt-1 text-slate-600">پس از عضویت شبکه، در گروه‌ها و کانال‌های مرتبط همکاری و گفتگو کنید.</p>
-                </li>
-              </ol>
-            </section>
+            <SpacesModelSection />
 
-            <section id="flagship-spaces" className={SECTION_CARD}>
-              <h2 className="text-sm font-extrabold text-slate-900">Flagship Spaces</h2>
-              <p className="mt-1 text-xs text-slate-500">پایه‌های اصلی اکوسیستم Spaces با مسیر رشد قابلیت‌های تخصصی.</p>
-              <ul className="mt-3 grid grid-cols-1 gap-3.5 sm:grid-cols-2">
-                {SPACE_BLUEPRINTS.map((space) => (
-                  <li key={space.id}>
-                    <Link
-                      href={`/spaces/${space.mappedCategory}`}
-                      className={`block rounded-3xl bg-gradient-to-br p-4 text-white shadow-md ring-2 ring-inset transition hover:scale-[1.01] hover:shadow-lg active:scale-[0.99] ${space.accentClass}`}
-                    >
-                      <div className="flex items-center justify-between gap-2">
-                        <p className="text-base font-extrabold">{space.titleFa}</p>
-                        <span className="rounded-full bg-white/20 px-2 py-0.5 text-[10px] font-bold">{space.badge}</span>
-                      </div>
-                      <p className="mt-1 text-[11px] text-white/90">{space.titleEn}</p>
-                      <p className="mt-2 text-[12px] leading-relaxed text-white/95">{space.summaryFa}</p>
-                      <p className="mt-2 text-[11px] font-bold text-white/85">{space.valueFa}</p>
-                      <div className="mt-3 flex flex-wrap gap-1.5">
-                        {space.capabilities.slice(0, 2).map((cap) => (
-                          <span key={cap.id} className="rounded-full bg-white/20 px-2 py-0.5 text-[10px]">
-                            {cap.title} · {capabilityStageLabel(cap.stage)}
-                          </span>
-                        ))}
-                      </div>
-                      <p className="mt-3 text-[11px] font-extrabold text-white/90">ورود به این Space ←</p>
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            </section>
+            <FlagshipSpacesSection />
 
             <section className={SECTION_CARD}>
               <div className="mb-3 flex items-center justify-between">
                 <h2 className="text-sm font-extrabold text-slate-900">My Spaces</h2>
                 <button
                   type="button"
-                  onClick={() => {
-                    setDraftPrefs(preferredSpaces);
-                    setEditOpen(true);
-                  }}
+                  onClick={openEdit}
                   className={SECONDARY_CTA}
                 >
                   ویرایش علاقه‌ها
@@ -334,19 +285,11 @@ export default function SpacesOverviewPage() {
               <h2 className="text-sm font-extrabold text-slate-900">Explore All Spaces</h2>
               <div className="mt-3 grid grid-cols-2 gap-2">
                 {USER_SPACE_KEYS.map((k) => (
-                  <button
-                    key={k}
-                    type="button"
-                    onClick={() => {
-                      setDraftPrefs(preferredSpaces);
-                      setEditOpen(true);
-                    }}
-                    className={`rounded-2xl px-2.5 py-2.5 text-xs font-bold ring-1 transition ${
-                      preferredSet.has(k)
-                        ? `${USER_SPACE_META[k].accent} ring-2`
-                        : 'bg-slate-50 text-slate-700 ring-slate-200 hover:bg-slate-100'
-                    }`}
-                  >
+                  <button key={k} type="button" onClick={openEdit} className={`rounded-2xl px-2.5 py-2.5 text-xs font-bold ring-1 transition ${
+                    preferredSet.has(k)
+                      ? `${USER_SPACE_META[k].accent} ring-2`
+                      : 'bg-slate-50 text-slate-700 ring-slate-200 hover:bg-slate-100'
+                  }`}>
                     <span className="ms-1" aria-hidden>
                       {USER_SPACE_META[k].emoji}
                     </span>
@@ -365,7 +308,7 @@ export default function SpacesOverviewPage() {
                 <h3 className="text-sm font-extrabold text-slate-900">ویرایش علاقه‌ها</h3>
                 <button
                   type="button"
-                  onClick={() => setEditOpen(false)}
+                  onClick={closeEdit}
                   className={SECONDARY_CTA + ' !rounded-full !px-2.5 !py-1.5 !text-xs !font-bold !border-transparent'}
                 >
                   بستن
@@ -397,7 +340,7 @@ export default function SpacesOverviewPage() {
               <div className="mt-3 flex items-center justify-end gap-2">
                 <button
                   type="button"
-                  onClick={() => setEditOpen(false)}
+                  onClick={closeEdit}
                   className={SECONDARY_CTA + ' !rounded-full !px-3.5 !py-2'}
                 >
                   انصراف
@@ -418,3 +361,63 @@ export default function SpacesOverviewPage() {
     </AuthGate>
   );
 }
+
+const SpacesModelSection = memo(function SpacesModelSection() {
+  return (
+    <section className={SECTION_CARD}>
+      <h2 className="text-sm font-extrabold text-slate-900">مدل Spaces در توت</h2>
+      <p className="mt-1 text-xs leading-relaxed text-slate-600">
+        Spaces سومین ستون توت است: چت برای ارتباط، ویترین برای مقصد/سرویس، و Spaces برای اکوسیستم‌های تخصصی.
+      </p>
+      <ol className="mt-3 grid gap-2.5 text-xs sm:grid-cols-3">
+        <li className={SUB_CARD}>
+          <p className="font-extrabold text-slate-800">1) Space</p>
+          <p className="mt-1 text-slate-600">هدف تخصصی‌تان را مشخص کنید (محله، آموزش، ورزش، گیمینگ، کسب‌وکار).</p>
+        </li>
+        <li className={SUB_CARD}>
+          <p className="font-extrabold text-slate-800">2) Network</p>
+          <p className="mt-1 text-slate-600">شبکه‌ی مرتبط را پیدا کنید و عضو شوید تا زمینه عملیاتی شما مشخص شود.</p>
+        </li>
+        <li className={SUB_CARD}>
+          <p className="font-extrabold text-slate-800">3) Group / Channel</p>
+          <p className="mt-1 text-slate-600">پس از عضویت شبکه، در گروه‌ها و کانال‌های مرتبط همکاری و گفتگو کنید.</p>
+        </li>
+      </ol>
+    </section>
+  );
+});
+
+const FlagshipSpacesSection = memo(function FlagshipSpacesSection() {
+  return (
+    <section id="flagship-spaces" className={SECTION_CARD}>
+      <h2 className="text-sm font-extrabold text-slate-900">Flagship Spaces</h2>
+      <p className="mt-1 text-xs text-slate-500">پایه‌های اصلی اکوسیستم Spaces با مسیر رشد قابلیت‌های تخصصی.</p>
+      <ul className="mt-3 grid grid-cols-1 gap-3.5 sm:grid-cols-2">
+        {SPACE_BLUEPRINTS.map((space) => (
+          <li key={space.id}>
+            <Link
+              href={`/spaces/${space.mappedCategory}`}
+              className={`block rounded-3xl bg-gradient-to-br p-4 text-white shadow-md ring-2 ring-inset transition hover:scale-[1.01] hover:shadow-lg active:scale-[0.99] ${space.accentClass}`}
+            >
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-base font-extrabold">{space.titleFa}</p>
+                <span className="rounded-full bg-white/20 px-2 py-0.5 text-[10px] font-bold">{space.badge}</span>
+              </div>
+              <p className="mt-1 text-[11px] text-white/90">{space.titleEn}</p>
+              <p className="mt-2 text-[12px] leading-relaxed text-white/95">{space.summaryFa}</p>
+              <p className="mt-2 text-[11px] font-bold text-white/85">{space.valueFa}</p>
+              <div className="mt-3 flex flex-wrap gap-1.5">
+                {space.capabilities.slice(0, 2).map((cap) => (
+                  <span key={cap.id} className="rounded-full bg-white/20 px-2 py-0.5 text-[10px]">
+                    {cap.title} · {capabilityStageLabel(cap.stage)}
+                  </span>
+                ))}
+              </div>
+              <p className="mt-3 text-[11px] font-extrabold text-white/90">ورود به این Space ←</p>
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+});
