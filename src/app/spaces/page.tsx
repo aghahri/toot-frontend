@@ -28,6 +28,14 @@ const SPACE_DETAIL_MAP: Partial<Record<UserSpaceKey, string>> = {
   technology: 'TECH',
 };
 
+const SECTION_CARD =
+  'rounded-3xl border border-slate-200/80 bg-white p-5 shadow-[0_10px_24px_rgba(15,23,42,0.06)]';
+const SUB_CARD = 'rounded-2xl border border-slate-200 bg-slate-50 p-3.5';
+const PRIMARY_CTA =
+  'rounded-2xl bg-slate-900 px-4 py-2.5 text-xs font-extrabold text-white shadow-sm transition hover:bg-slate-800 active:scale-[0.99]';
+const SECONDARY_CTA =
+  'rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-extrabold text-slate-700 transition hover:bg-slate-50 active:scale-[0.99]';
+
 export default function SpacesOverviewPage() {
   const [preferredSpaces, setPreferredSpaces] = useState<UserSpaceKey[]>([]);
   const [personalized, setPersonalized] = useState<SuggestionBlock[]>([]);
@@ -137,28 +145,28 @@ export default function SpacesOverviewPage() {
           <p className="text-sm font-semibold text-red-700">{error}</p>
         ) : (
           <div className="space-y-6">
-            <section className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm sm:p-5">
+            <section className={SECTION_CARD}>
               <h2 className="text-sm font-extrabold text-slate-900">مدل Spaces در توت</h2>
               <p className="mt-1 text-xs leading-relaxed text-slate-600">
                 Spaces سومین ستون توت است: چت برای ارتباط، ویترین برای مقصد/سرویس، و Spaces برای اکوسیستم‌های تخصصی.
               </p>
               <ol className="mt-3 grid gap-2.5 text-xs sm:grid-cols-3">
-                <li className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                <li className={SUB_CARD}>
                   <p className="font-extrabold text-slate-800">1) Space</p>
                   <p className="mt-1 text-slate-600">هدف تخصصی‌تان را مشخص کنید (محله، آموزش، ورزش، گیمینگ، کسب‌وکار).</p>
                 </li>
-                <li className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                <li className={SUB_CARD}>
                   <p className="font-extrabold text-slate-800">2) Network</p>
                   <p className="mt-1 text-slate-600">شبکه‌ی مرتبط را پیدا کنید و عضو شوید تا زمینه عملیاتی شما مشخص شود.</p>
                 </li>
-                <li className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                <li className={SUB_CARD}>
                   <p className="font-extrabold text-slate-800">3) Group / Channel</p>
                   <p className="mt-1 text-slate-600">پس از عضویت شبکه، در گروه‌ها و کانال‌های مرتبط همکاری و گفتگو کنید.</p>
                 </li>
               </ol>
             </section>
 
-            <section id="flagship-spaces" className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm sm:p-5">
+            <section id="flagship-spaces" className={SECTION_CARD}>
               <h2 className="text-sm font-extrabold text-slate-900">Flagship Spaces</h2>
               <p className="mt-1 text-xs text-slate-500">پایه‌های اصلی اکوسیستم Spaces با مسیر رشد قابلیت‌های تخصصی.</p>
               <ul className="mt-3 grid grid-cols-1 gap-3.5 sm:grid-cols-2">
@@ -166,14 +174,14 @@ export default function SpacesOverviewPage() {
                   <li key={space.id}>
                     <Link
                       href={`/spaces/${space.mappedCategory}`}
-                      className={`block rounded-2xl bg-gradient-to-br p-4 text-white shadow-sm ring-2 ring-inset transition hover:scale-[1.01] hover:shadow-md active:scale-[0.99] ${space.accentClass}`}
+                      className={`block rounded-3xl bg-gradient-to-br p-4 text-white shadow-md ring-2 ring-inset transition hover:scale-[1.01] hover:shadow-lg active:scale-[0.99] ${space.accentClass}`}
                     >
                       <div className="flex items-center justify-between gap-2">
                         <p className="text-base font-extrabold">{space.titleFa}</p>
                         <span className="rounded-full bg-white/20 px-2 py-0.5 text-[10px] font-bold">{space.badge}</span>
                       </div>
                       <p className="mt-1 text-[11px] text-white/90">{space.titleEn}</p>
-                      <p className="mt-2 text-xs leading-relaxed text-white/95">{space.summaryFa}</p>
+                      <p className="mt-2 text-[12px] leading-relaxed text-white/95">{space.summaryFa}</p>
                       <p className="mt-2 text-[11px] font-bold text-white/85">{space.valueFa}</p>
                       <div className="mt-3 flex flex-wrap gap-1.5">
                         {space.capabilities.slice(0, 2).map((cap) => (
@@ -189,7 +197,7 @@ export default function SpacesOverviewPage() {
               </ul>
             </section>
 
-            <section className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm">
+            <section className={SECTION_CARD}>
               <div className="mb-3 flex items-center justify-between">
                 <h2 className="text-sm font-extrabold text-slate-900">My Spaces</h2>
                 <button
@@ -198,13 +206,13 @@ export default function SpacesOverviewPage() {
                     setDraftPrefs(preferredSpaces);
                     setEditOpen(true);
                   }}
-                  className="rounded-full border border-slate-200 px-3 py-1 text-xs font-bold text-slate-700 hover:bg-slate-50"
+                  className={SECONDARY_CTA}
                 >
                   ویرایش علاقه‌ها
                 </button>
               </div>
               {preferredSpaces.length === 0 ? (
-                <div className="rounded-xl bg-slate-50 px-3 py-4 text-center">
+                <div className={SUB_CARD + ' text-center'}>
                   <p className="text-sm font-semibold text-slate-700">علاقه‌ای انتخاب نشده است</p>
                   <p className="mt-1 text-xs text-slate-500">
                     برای شخصی‌سازی Spaces علاقه‌های خود را انتخاب کنید.
@@ -225,7 +233,7 @@ export default function SpacesOverviewPage() {
               )}
             </section>
 
-            <section className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm">
+            <section className={SECTION_CARD}>
               <h2 className="text-sm font-extrabold text-slate-900">پیشنهادهای شخصی‌سازی‌شده</h2>
               <p className="mt-1 text-xs text-slate-500">بر اساس علاقه‌ها و اجتماع‌های موجود در توت</p>
               {personalized.length === 0 ? (
@@ -233,9 +241,9 @@ export default function SpacesOverviewPage() {
               ) : (
                 <div className="mt-3 space-y-3">
                   {personalized.map((block) => (
-                    <article key={block.key} className="rounded-xl border border-slate-200/80 p-3">
+                    <article key={block.key} className={SUB_CARD}>
                       <div className="mb-2 flex items-center gap-2">
-                        <span className="text-lg" aria-hidden>
+                        <span className="text-xl" aria-hidden>
                           {USER_SPACE_META[block.key].emoji}
                         </span>
                         <h3 className="text-sm font-extrabold text-slate-900">
@@ -243,7 +251,7 @@ export default function SpacesOverviewPage() {
                         </h3>
                       </div>
                       <div className="space-y-2 text-xs">
-                        <div className="rounded-lg bg-slate-50 p-2">
+                        <div className="rounded-xl bg-white p-2.5">
                           <p className="mb-1 font-bold text-slate-700">شبکه‌های برتر</p>
                           {block.networks.length === 0 ? (
                             <p className="text-slate-400">شبکه‌ای پیدا نشد</p>
@@ -260,7 +268,7 @@ export default function SpacesOverviewPage() {
                           )}
                         </div>
                         <div className="grid grid-cols-2 gap-2">
-                          <div className="rounded-lg bg-slate-50 p-2">
+                          <div className="rounded-xl bg-white p-2.5">
                             <p className="mb-1 font-bold text-slate-700">گروه‌های اجتماعی</p>
                             {block.groups.length === 0 ? (
                               <p className="text-slate-400">موردی نیست</p>
@@ -276,7 +284,7 @@ export default function SpacesOverviewPage() {
                               </ul>
                             )}
                           </div>
-                          <div className="rounded-lg bg-slate-50 p-2">
+                          <div className="rounded-xl bg-white p-2.5">
                             <p className="mb-1 font-bold text-slate-700">کانال‌ها</p>
                             {block.channels.length === 0 ? (
                               <p className="text-slate-400">موردی نیست</p>
@@ -304,13 +312,13 @@ export default function SpacesOverviewPage() {
                                   )}&returnTo=spaces`
                                 : '/groups/new?kind=community&returnTo=spaces'
                             }
-                            className="text-[11px] font-bold text-emerald-700 hover:underline"
+                            className={PRIMARY_CTA + ' !px-3 !py-1.5 !text-[11px] !bg-emerald-700 hover:!bg-emerald-600'}
                           >
                             ساخت گروه اجتماعی
                           </Link>
                           <Link
                             href={`/spaces/${SPACE_DETAIL_MAP[block.key]}`}
-                            className="text-[11px] font-bold text-sky-700 hover:underline"
+                            className={SECONDARY_CTA + ' !px-3 !py-1.5 !text-[11px]'}
                           >
                             مشاهده جزئیات فضا ←
                           </Link>
@@ -322,7 +330,7 @@ export default function SpacesOverviewPage() {
               )}
             </section>
 
-            <section className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm">
+            <section className={SECTION_CARD}>
               <h2 className="text-sm font-extrabold text-slate-900">Explore All Spaces</h2>
               <div className="mt-3 grid grid-cols-2 gap-2">
                 {USER_SPACE_KEYS.map((k) => (
@@ -333,7 +341,7 @@ export default function SpacesOverviewPage() {
                       setDraftPrefs(preferredSpaces);
                       setEditOpen(true);
                     }}
-                    className={`rounded-xl px-2 py-2 text-xs font-bold ring-1 transition ${
+                    className={`rounded-2xl px-2.5 py-2.5 text-xs font-bold ring-1 transition ${
                       preferredSet.has(k)
                         ? `${USER_SPACE_META[k].accent} ring-2`
                         : 'bg-slate-50 text-slate-700 ring-slate-200 hover:bg-slate-100'
@@ -352,13 +360,13 @@ export default function SpacesOverviewPage() {
 
         {editOpen ? (
           <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/35 p-3" dir="rtl">
-            <div className="w-full max-w-lg rounded-2xl bg-white p-4 shadow-xl">
+            <div className="w-full max-w-lg rounded-3xl bg-white p-5 shadow-2xl">
               <div className="mb-2 flex items-center justify-between">
                 <h3 className="text-sm font-extrabold text-slate-900">ویرایش علاقه‌ها</h3>
                 <button
                   type="button"
                   onClick={() => setEditOpen(false)}
-                  className="rounded-full px-2 py-1 text-xs font-bold text-slate-500 hover:bg-slate-100"
+                  className={SECONDARY_CTA + ' !rounded-full !px-2.5 !py-1.5 !text-xs !font-bold !border-transparent'}
                 >
                   بستن
                 </button>
@@ -372,7 +380,7 @@ export default function SpacesOverviewPage() {
                       key={k}
                       type="button"
                       onClick={() => toggleDraftSpace(k)}
-                      className={`rounded-xl px-2 py-2 text-xs font-bold ring-1 transition ${
+                    className={`rounded-2xl px-2.5 py-2.5 text-xs font-bold ring-1 transition ${
                         selected
                           ? `${USER_SPACE_META[k].accent} ring-2`
                           : 'bg-slate-50 text-slate-700 ring-slate-200 hover:bg-slate-100'
@@ -390,7 +398,7 @@ export default function SpacesOverviewPage() {
                 <button
                   type="button"
                   onClick={() => setEditOpen(false)}
-                  className="rounded-full border border-slate-200 px-3 py-1.5 text-xs font-bold text-slate-700"
+                  className={SECONDARY_CTA + ' !rounded-full !px-3.5 !py-2'}
                 >
                   انصراف
                 </button>
@@ -398,7 +406,7 @@ export default function SpacesOverviewPage() {
                   type="button"
                   disabled={prefsSaving}
                   onClick={() => void savePreferredSpaces()}
-                  className="rounded-full bg-slate-900 px-3 py-1.5 text-xs font-bold text-white disabled:opacity-60"
+                  className={PRIMARY_CTA + ' !rounded-full !px-3.5 !py-2 disabled:opacity-60'}
                 >
                   {prefsSaving ? 'در حال ذخیره...' : 'ذخیره'}
                 </button>
