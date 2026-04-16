@@ -209,6 +209,44 @@ export const SPACE_BLUEPRINTS: readonly SpaceBlueprint[] = [
       { id: 'team-roles', title: 'نقش‌های تیمی', stage: 'foundation' },
       { id: 'workflow-tools', title: 'ابزارهای گردش‌کار', stage: 'planned' },
     ],
+    utilities: [
+      {
+        id: 'startup-groups',
+        title: 'Startup Groups',
+        description: 'گروه‌های استارتاپی برای شکل‌دهی تیم اولیه، MVP و هماهنگی رشد.',
+        cta: 'ورود به Startup Groups',
+      },
+      {
+        id: 'hiring-boards',
+        title: 'Hiring Boards',
+        description: 'بردهای جذب نیرو برای انتشار فرصت‌ها و اتصال سریع کارجو و تیم‌ها.',
+        cta: 'بازکردن Hiring Board',
+      },
+      {
+        id: 'team-collaboration',
+        title: 'Team Collaboration',
+        description: 'فضای همکاری تیمی برای هماهنگی روزانه، پیگیری کارها و هم‌افزایی.',
+        cta: 'شروع Team Collaboration',
+      },
+      {
+        id: 'industry-networks',
+        title: 'Industry Networks',
+        description: 'شبکه‌های تخصصی صنعت برای ارتباط حرفه‌ای و تبادل دانش حوزه‌ای.',
+        cta: 'ورود به Industry Network',
+      },
+      {
+        id: 'founder-clubs',
+        title: 'Founder Clubs',
+        description: 'کلوپ‌های بنیان‌گذاران برای گفتگوهای استراتژیک و رشد کسب‌وکار.',
+        cta: 'پیوستن به Founder Club',
+      },
+      {
+        id: 'announcement-channels',
+        title: 'Announcement Channels',
+        description: 'کانال‌های اطلاع‌رسانی رسمی برای خبرهای تیم، محصول و فرصت‌های همکاری.',
+        cta: 'مشاهده Announcement Channel',
+      },
+    ],
   },
 ];
 
