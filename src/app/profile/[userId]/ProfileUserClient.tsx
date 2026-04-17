@@ -9,7 +9,8 @@ import { apiFetch } from '@/lib/api';
 import { FeedPostCard } from '@/components/home/FeedPostCard';
 import { FeedEmptyState } from '@/components/home/FeedEmptyState';
 import { PostReplySheet } from '@/components/home/PostReplySheet';
-import type { FeedPost } from '@/components/home/feed-types';
+import type { FeedPost, ProfileReplyFeedRow } from '@/components/home/feed-types';
+import { ProfileReplyRow } from '@/components/home/ProfileReplyRow';
 import { normalizeFeedPost } from '@/lib/feed-normalize';
 import { useVoiceCall } from '@/context/VoiceCallContext';
 
@@ -25,6 +26,8 @@ export type PublicUserProfile = {
   postCount: number;
   isSelf: boolean;
   isFollowing: boolean;
+  /** Present when API supports it (non-USER global role). */
+  isStaff?: boolean;
 };
 
 type FollowMutationResult = {
@@ -36,13 +39,13 @@ type FollowMutationResult = {
 
 function ProfilePostsSkeleton() {
   return (
-    <div className="divide-y divide-slate-100 px-2" dir="rtl">
+    <div className="divide-y divide-[var(--border-soft)] px-0" dir="rtl">
       {[0, 1].map((i) => (
         <div key={i} className="flex gap-3 py-3">
-          <div className="h-11 w-11 shrink-0 animate-pulse rounded-full bg-slate-200" />
+          <div className="h-11 w-11 shrink-0 animate-pulse rounded-full bg-[var(--surface-strong)]" />
           <div className="flex-1 space-y-2">
-            <div className="h-3 w-32 animate-pulse rounded bg-slate-100" />
-            <div className="h-3 w-full animate-pulse rounded bg-slate-100" />
+            <div className="h-3 w-32 animate-pulse rounded bg-[var(--surface-strong)]" />
+            <div className="h-3 w-full animate-pulse rounded bg-[var(--surface-soft)]" />
           </div>
         </div>
       ))}
@@ -54,7 +57,13 @@ type ProfileUserClientProps = {
   userId: string;
 };
 
-type ProfilePostTab = 'posts' | 'photos' | 'videos';
+type ProfileContentTab = 'posts' | 'replies' | 'media';
+
+function formatJoinedDate(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  return d.toLocaleDateString('fa-IR', { year: 'numeric', month: 'short', day: 'numeric' });
+}
 
 export function ProfileUserClient({ userId }: ProfileUserClientProps) {
   const router = useRouter();
@@ -68,7 +77,11 @@ export function ProfileUserClient({ userId }: ProfileUserClientProps) {
   const [dmBusy, setDmBusy] = useState(false);
   const [dmError, setDmError] = useState<string | null>(null);
   const [replyPost, setReplyPost] = useState<FeedPost | null>(null);
-  const [postTab, setPostTab] = useState<ProfilePostTab>('posts');
+  const [postTab, setPostTab] = useState<ProfileContentTab>('posts');
+  const [profileReplies, setProfileReplies] = useState<ProfileReplyFeedRow[]>([]);
+  const [repliesLoading, setRepliesLoading] = useState(false);
+  const [repliesError, setRepliesError] = useState<string | null>(null);
+  const [repliesLoaded, setRepliesLoaded] = useState(false);
   const viewerUserId = getCurrentUserIdFromAccessToken();
 
   const loadProfile = useCallback(async () => {
@@ -114,10 +127,41 @@ export function ProfileUserClient({ userId }: ProfileUserClientProps) {
     [userId],
   );
 
+  const loadProfileReplies = useCallback(async () => {
+    const t = getAccessToken();
+    if (!t) return;
+    setRepliesLoading(true);
+    setRepliesError(null);
+    try {
+      const data = await apiFetch<ProfileReplyFeedRow[]>(
+        `posts/user/${encodeURIComponent(userId)}/replies`,
+        { method: 'GET', token: t },
+      );
+      setProfileReplies(data);
+    } catch (e) {
+      setRepliesError(e instanceof Error ? e.message : 'خطا در بارگذاری پاسخ‌ها');
+    } finally {
+      setRepliesLoading(false);
+      setRepliesLoaded(true);
+    }
+  }, [userId]);
+
   useEffect(() => {
     void loadProfile();
     void loadPosts();
   }, [loadProfile, loadPosts]);
+
+  useEffect(() => {
+    setRepliesLoaded(false);
+    setProfileReplies([]);
+    setRepliesError(null);
+    setPostTab('posts');
+  }, [userId]);
+
+  useEffect(() => {
+    if (postTab !== 'replies' || repliesLoaded || repliesLoading) return;
+    void loadProfileReplies();
+  }, [postTab, repliesLoaded, repliesLoading, loadProfileReplies]);
 
   const patchPost = useCallback((postId: string, patch: Partial<FeedPost>) => {
     setPosts((prev) => prev.map((x) => (x.id === postId ? { ...x, ...patch } : x)));
@@ -126,36 +170,43 @@ export function ProfileUserClient({ userId }: ProfileUserClientProps) {
   const onReplied = useCallback(
     (postId: string, replyCount: number) => {
       patchPost(postId, { replyCount });
+      if (repliesLoaded) void loadProfileReplies();
     },
-    [patchPost],
+    [patchPost, repliesLoaded, loadProfileReplies],
   );
+
+  const openThreadFromReply = useCallback(async (parentPostId: string) => {
+    const t = getAccessToken();
+    if (!t) return;
+    try {
+      const raw = await apiFetch<FeedPost>(`posts/${encodeURIComponent(parentPostId)}`, {
+        method: 'GET',
+        token: t,
+      });
+      setReplyPost(normalizeFeedPost(raw));
+    } catch {
+      /* sheet stays closed */
+    }
+  }, []);
 
   const removePost = useCallback((postId: string) => {
     setPosts((prev) => prev.filter((p) => p.id !== postId));
   }, []);
 
-  const photoPosts = useMemo(
+  const mediaPosts = useMemo(
     () =>
       posts.filter((p) => {
-        if (p.media.length === 0) return !!p.mediaUrl;
-        return p.media.some(
-          (m) => m.type === 'IMAGE' || (typeof m.mimeType === 'string' && m.mimeType.startsWith('image/')),
-        );
+        if (p.mediaUrl) return true;
+        return p.media.some((m) => {
+          if (m.type === 'IMAGE' || m.type === 'VIDEO') return true;
+          const mt = typeof m.mimeType === 'string' ? m.mimeType : '';
+          return mt.startsWith('image/') || mt.startsWith('video/');
+        });
       }),
     [posts],
   );
 
-  const videoPosts = useMemo(
-    () =>
-      posts.filter((p) =>
-        p.media.some(
-          (m) => m.type === 'VIDEO' || (typeof m.mimeType === 'string' && m.mimeType.startsWith('video/')),
-        ),
-      ),
-    [posts],
-  );
-
-  const visiblePosts = postTab === 'photos' ? photoPosts : postTab === 'videos' ? videoPosts : posts;
+  const visiblePosts = postTab === 'media' ? mediaPosts : posts;
 
   async function onToggleFollow() {
     if (!profile || profile.isSelf) return;
@@ -213,12 +264,12 @@ export function ProfileUserClient({ userId }: ProfileUserClientProps) {
   return (
     <AuthGate>
       <div className="theme-page-bg min-h-[60dvh] pb-28" dir="rtl">
-        <header className="sticky top-14 z-[16] w-full min-w-0 max-w-[100vw] overflow-x-hidden border-b border-slate-200/70 bg-white/95 shadow-[0_1px_0_rgba(0,0,0,0.04)] backdrop-blur-md">
+        <header className="sticky top-14 z-[16] w-full min-w-0 max-w-[100vw] overflow-x-hidden border-b border-[var(--border-soft)] bg-[var(--card-bg)]/95 shadow-[0_1px_0_rgba(0,0,0,0.04)] backdrop-blur-md">
           <div className="mx-auto flex min-h-[48px] max-w-lg items-center gap-2 px-3 py-2.5">
             <button
               type="button"
               onClick={() => router.back()}
-              className="flex h-10 min-w-[2.5rem] items-center justify-center rounded-full text-sm font-bold text-slate-700 transition hover:bg-slate-100 active:bg-slate-200"
+              className="flex h-10 min-w-[2.5rem] items-center justify-center rounded-full text-sm font-bold text-[var(--text-secondary)] transition hover:bg-[var(--surface-soft)] active:bg-[var(--surface-strong)]"
               aria-label="بازگشت"
             >
               <span className="text-lg leading-none" aria-hidden>
@@ -226,11 +277,11 @@ export function ProfileUserClient({ userId }: ProfileUserClientProps) {
               </span>
             </button>
             <div className="min-w-0 flex-1 text-right">
-              <div className="truncate text-[15px] font-extrabold leading-tight text-slate-900">
+              <div className="truncate text-[15px] font-extrabold leading-tight text-[var(--text-primary)]">
                 {profile?.name ?? 'پروفایل'}
               </div>
               {profile ? (
-                <div className="truncate text-[12px] font-medium text-slate-500" dir="ltr">
+                <div className="truncate text-[12px] font-medium text-[var(--text-secondary)]" dir="ltr">
                   @{profile.username}
                 </div>
               ) : null}
@@ -251,76 +302,86 @@ export function ProfileUserClient({ userId }: ProfileUserClientProps) {
               </button>
             </div>
           ) : !profile ? (
-            <div className="py-12 text-center text-sm text-slate-500">در حال بارگذاری…</div>
+            <div className="py-12 text-center text-sm text-[var(--text-secondary)]">در حال بارگذاری…</div>
           ) : (
             <>
-              <section className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm ring-1 ring-slate-100/80">
-                <div className="flex flex-col items-center gap-4 px-4 pb-2 pt-6 text-center sm:flex-row sm:items-start sm:text-right">
+              <section className="theme-border-soft overflow-hidden rounded-2xl border bg-[var(--card-bg)] shadow-sm ring-1 ring-[var(--border-soft)]">
+                <div className="flex flex-row items-start gap-4 px-4 pb-1 pt-6 text-right">
+                  <div className="min-w-0 flex-1 pt-0.5">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h1 className="line-clamp-2 min-w-0 text-[1.4rem] font-extrabold leading-snug tracking-tight text-[var(--text-primary)]">
+                        {profile.name}
+                      </h1>
+                      {profile.isStaff ? (
+                        <span
+                          className="shrink-0 rounded-full bg-[var(--accent-soft)] px-2 py-0.5 text-[10px] font-extrabold text-[var(--accent-hover)] ring-1 ring-[var(--accent-ring)]"
+                          title="عضو تیم یا مدیر"
+                        >
+                          تیم
+                        </span>
+                      ) : null}
+                    </div>
+                    <p className="mt-1 truncate text-[14px] font-semibold text-[var(--text-secondary)]" dir="ltr">
+                      {handle}
+                    </p>
+                    {profile.bio ? (
+                      <p className="mt-3 whitespace-pre-wrap break-words text-[14px] leading-relaxed text-[var(--text-primary)]">
+                        {profile.bio}
+                      </p>
+                    ) : (
+                      <p className="mt-3 text-[13px] text-[var(--text-secondary)]">بیوگرافی ثبت نشده است.</p>
+                    )}
+                    <p className="mt-3 flex flex-wrap items-center justify-start gap-x-2 gap-y-1 text-[13px] text-[var(--text-secondary)]">
+                      <span>
+                        <strong className="tabular-nums text-[var(--text-primary)]">{profile.followerCount}</strong>{' '}
+                        دنبال‌کننده
+                      </span>
+                      <span className="text-[var(--text-secondary)]" aria-hidden>
+                        ·
+                      </span>
+                      <span>
+                        <strong className="tabular-nums text-[var(--text-primary)]">{profile.followingCount}</strong>{' '}
+                        دنبال‌شده
+                      </span>
+                      <span className="text-[var(--text-secondary)]" aria-hidden>
+                        ·
+                      </span>
+                      <span className="min-w-0">
+                        عضویت از <time dateTime={profile.createdAt}>{formatJoinedDate(profile.createdAt)}</time>
+                      </span>
+                    </p>
+                    <p className="mt-1 text-[12px] text-[var(--text-secondary)]">
+                      <strong className="tabular-nums text-[var(--text-primary)]">{profile.postCount}</strong> پست منتشر
+                      شده
+                    </p>
+                  </div>
                   <div className="shrink-0">
                     {profile.avatar ? (
                       <img
                         src={profile.avatar}
                         alt=""
-                        className="h-[5.5rem] w-[5.5rem] rounded-full object-cover ring-4 ring-slate-100 shadow-sm"
+                        className="h-24 w-24 rounded-full object-cover shadow-md ring-4 ring-[var(--accent-ring)] sm:h-28 sm:w-28"
                       />
                     ) : (
-                      <div className="flex h-[5.5rem] w-[5.5rem] items-center justify-center rounded-full bg-gradient-to-br from-sky-500 to-slate-700 text-3xl font-extrabold text-white ring-4 ring-slate-100 shadow-sm">
+                      <div className="flex h-24 w-24 items-center justify-center rounded-full bg-gradient-to-br from-[var(--accent)] to-slate-700 text-3xl font-extrabold text-white shadow-md ring-4 ring-[var(--accent-ring)] sm:h-28 sm:w-28">
                         {profile.name.trim().slice(0, 1) || '?'}
                       </div>
                     )}
                   </div>
-                  <div className="min-w-0 flex-1 sm:pt-1">
-                    <h1 className="text-[1.35rem] font-extrabold leading-tight tracking-tight text-slate-900">
-                      {profile.name}
-                    </h1>
-                    <p className="mt-1 text-[14px] font-medium text-slate-500" dir="ltr">
-                      {handle}
-                    </p>
-                    {profile.bio ? (
-                      <p className="mt-3 whitespace-pre-wrap text-[14px] leading-relaxed text-slate-700">
-                        {profile.bio}
-                      </p>
-                    ) : (
-                      <p className="mt-3 text-[12px] text-slate-400">بیوگرافی ثبت نشده.</p>
-                    )}
-                  </div>
                 </div>
 
-                <div className="mx-4 my-4 flex items-stretch justify-around rounded-xl bg-slate-50/90 py-3 ring-1 ring-slate-100">
-                  <div className="flex min-w-0 flex-1 flex-col items-center justify-center text-center">
-                    <div className="text-[1.125rem] font-extrabold tabular-nums text-slate-900">
-                      {profile.postCount}
-                    </div>
-                    <div className="mt-0.5 text-[11px] font-bold text-slate-500">پست</div>
-                  </div>
-                  <div className="w-px shrink-0 bg-slate-200" aria-hidden />
-                  <div className="flex min-w-0 flex-1 flex-col items-center justify-center text-center">
-                    <div className="text-[1.125rem] font-extrabold tabular-nums text-slate-900">
-                      {profile.followerCount}
-                    </div>
-                    <div className="mt-0.5 text-[11px] font-bold text-slate-500">دنبال‌کننده</div>
-                  </div>
-                  <div className="w-px shrink-0 bg-slate-200" aria-hidden />
-                  <div className="flex min-w-0 flex-1 flex-col items-center justify-center text-center">
-                    <div className="text-[1.125rem] font-extrabold tabular-nums text-slate-900">
-                      {profile.followingCount}
-                    </div>
-                    <div className="mt-0.5 text-[11px] font-bold text-slate-500">دنبال‌شده</div>
-                  </div>
-                </div>
-
-                <div className="space-y-2 border-t border-slate-100 px-4 pb-4 pt-3">
+                <div className="space-y-2 border-t border-[var(--border-soft)] px-4 pb-4 pt-3">
                   {profile.isSelf ? (
                     <>
                       <Link
                         href="/profile/edit"
-                        className="flex min-h-[46px] w-full items-center justify-center rounded-full bg-[var(--accent)] text-sm font-extrabold text-white transition hover:bg-[var(--accent-hover)]"
+                        className="flex min-h-[48px] w-full items-center justify-center rounded-full bg-[var(--accent)] text-sm font-extrabold text-[var(--accent-contrast)] transition hover:bg-[var(--accent-hover)]"
                       >
                         ویرایش پروفایل
                       </Link>
                       <Link
                         href="/profile/saved"
-                        className="theme-border-soft flex min-h-[44px] w-full items-center justify-center gap-2 rounded-full border bg-white text-sm font-extrabold text-slate-800 shadow-sm transition hover:bg-slate-50"
+                        className="theme-border-soft flex min-h-[44px] w-full items-center justify-center gap-2 rounded-full border bg-[var(--card-bg)] text-sm font-extrabold text-[var(--text-primary)] shadow-sm transition hover:bg-[var(--surface-soft)]"
                       >
                         <span aria-hidden>📑</span>
                         نشان‌شده‌ها
@@ -333,10 +394,10 @@ export function ProfileUserClient({ userId }: ProfileUserClientProps) {
                           type="button"
                           disabled={followBusy}
                           onClick={() => void onToggleFollow()}
-                          className={`flex min-h-[46px] min-w-0 w-full shrink-0 items-center justify-center rounded-full text-sm font-extrabold transition disabled:opacity-60 sm:flex-1 ${
+                          className={`flex min-h-[48px] min-w-0 w-full shrink-0 items-center justify-center rounded-full text-sm font-extrabold transition disabled:opacity-60 sm:flex-1 ${
                             profile.isFollowing
-                              ? 'border-2 border-slate-300 bg-white text-slate-900 hover:bg-slate-50'
-                              : 'bg-[var(--accent)] text-white hover:bg-[var(--accent-hover)]'
+                              ? 'theme-border-soft border-2 bg-[var(--card-bg)] text-[var(--text-primary)] hover:bg-[var(--surface-soft)]'
+                              : 'bg-[var(--accent)] text-[var(--accent-contrast)] hover:bg-[var(--accent-hover)]'
                           }`}
                         >
                           {followBusy
@@ -349,7 +410,7 @@ export function ProfileUserClient({ userId }: ProfileUserClientProps) {
                           type="button"
                           disabled={dmBusy || followBusy}
                           onClick={() => void onOpenDirectMessage()}
-                          className="flex min-h-[46px] min-w-0 flex-1 basis-[calc(50%-0.25rem)] items-center justify-center rounded-full border-2 border-emerald-600 bg-white text-sm font-extrabold text-emerald-700 shadow-sm transition hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-55"
+                          className="flex min-h-[48px] min-w-0 flex-1 basis-[calc(50%-0.25rem)] items-center justify-center rounded-full border-2 border-emerald-600 bg-[var(--card-bg)] text-sm font-extrabold text-emerald-700 shadow-sm transition hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-55"
                           aria-label={`پیام خصوصی به ${profile.name}`}
                         >
                           {dmBusy ? '…' : 'پیام'}
@@ -363,7 +424,7 @@ export function ProfileUserClient({ userId }: ProfileUserClientProps) {
                               : undefined
                           }
                           onClick={() => startVoiceCall({ targetUserId: profile.id })}
-                          className="flex min-h-[46px] min-w-0 flex-1 basis-[calc(50%-0.25rem)] items-center justify-center rounded-full border-2 border-[var(--accent)] bg-white text-sm font-extrabold text-[var(--accent-hover)] shadow-sm transition hover:bg-[var(--accent-soft)] disabled:cursor-not-allowed disabled:opacity-55"
+                          className="flex min-h-[48px] min-w-0 flex-1 basis-[calc(50%-0.25rem)] items-center justify-center rounded-full border-2 border-[var(--accent)] bg-[var(--card-bg)] text-sm font-extrabold text-[var(--accent-hover)] shadow-sm transition hover:bg-[var(--accent-soft)] disabled:cursor-not-allowed disabled:opacity-55"
                           aria-label={`تماس صوتی با ${profile.name}`}
                         >
                           تماس
@@ -377,45 +438,69 @@ export function ProfileUserClient({ userId }: ProfileUserClientProps) {
                 </div>
               </section>
 
-              <div className="mb-2 mt-10 border-b border-slate-200/90 px-1 pb-2">
-                <div className="flex items-end justify-between gap-2">
-                  <div className="min-w-0">
-                    <h2 className="text-base font-extrabold text-slate-900">پست‌ها</h2>
-                    <p className="mt-0.5 text-[11px] leading-relaxed text-slate-500">
-                      نوشته‌های منتشرشدهٔ این کاربر در فید
-                    </p>
-                  </div>
-                  <span className="shrink-0 text-[12px] font-semibold tabular-nums text-slate-500">
-                    {profile.postCount}
-                  </span>
-                </div>
-                <div className="mt-3 grid grid-cols-3 gap-1 rounded-xl bg-slate-100/80 p-1">
-                  {([
-                    { id: 'posts', label: 'پست‌ها', count: posts.length },
-                    { id: 'photos', label: 'عکس‌ها', count: photoPosts.length },
-                    { id: 'videos', label: 'ویدیوها', count: videoPosts.length },
-                  ] as const).map((tabItem) => (
+              <div className="mt-6 border-b border-[var(--border-soft)] px-1 pb-2 pt-1">
+                <div className="grid grid-cols-3 gap-1 rounded-xl bg-[var(--surface-soft)] p-1 ring-1 ring-[var(--border-soft)]">
+                  {(
+                    [
+                      { id: 'posts' as const, label: 'پست‌ها', count: posts.length },
+                      {
+                        id: 'replies' as const,
+                        label: 'پاسخ‌ها',
+                        count: repliesLoaded ? profileReplies.length : repliesLoading ? '…' : 0,
+                      },
+                      { id: 'media' as const, label: 'رسانه', count: mediaPosts.length },
+                    ] as const
+                  ).map((tabItem) => (
                     <button
                       key={tabItem.id}
                       type="button"
                       onClick={() => setPostTab(tabItem.id)}
-                      className={`rounded-lg px-2 py-2 text-xs font-bold transition ${
+                      className={`rounded-lg px-2 py-2.5 text-xs font-extrabold transition ${
                         postTab === tabItem.id
-                          ? 'bg-white text-[var(--accent-hover)] shadow-sm ring-1 ring-[var(--accent-ring)]'
-                          : 'text-slate-600 hover:bg-white/70'
+                          ? 'bg-[var(--card-bg)] text-[var(--accent-hover)] shadow-sm ring-1 ring-[var(--accent-ring)]'
+                          : 'text-[var(--text-secondary)] hover:bg-[var(--card-bg)]/80'
                       }`}
                     >
                       {tabItem.label}
-                      <span className="ms-1 text-[10px] tabular-nums text-slate-500">{tabItem.count}</span>
+                      <span className="ms-1 text-[10px] tabular-nums opacity-80">{tabItem.count}</span>
                     </button>
                   ))}
                 </div>
               </div>
 
-              {postsLoading ? (
+              {postTab === 'replies' ? (
+                repliesLoading && profileReplies.length === 0 && !repliesError ? (
+                  <ProfilePostsSkeleton />
+                ) : repliesError ? (
+                  <div className="mt-3 rounded-xl border border-red-100 bg-red-50/80 px-4 py-4 text-center text-sm font-semibold text-red-700">
+                    {repliesError}
+                    <button
+                      type="button"
+                      onClick={() => void loadProfileReplies()}
+                      className="mt-3 block w-full rounded-full bg-slate-900 py-2 text-xs font-bold text-white"
+                    >
+                      تلاش دوباره
+                    </button>
+                  </div>
+                ) : profileReplies.length === 0 ? (
+                  <div className="mt-4">
+                    <FeedEmptyState
+                      title="پاسخی در فید نیست"
+                      description="پاسخ‌های این کاربر به پست‌های دیگر اینجا دیده می‌شود. وقتی در گفتگوهای پست شرکت کند، این بخش پر می‌شود."
+                      icon="💬"
+                    />
+                  </div>
+                ) : (
+                  <div className="theme-border-soft mt-3 overflow-hidden rounded-xl border bg-[var(--card-bg)]">
+                    {profileReplies.map((row) => (
+                      <ProfileReplyRow key={row.reply.id} row={row} onOpenThread={openThreadFromReply} />
+                    ))}
+                  </div>
+                )
+              ) : postsLoading ? (
                 <ProfilePostsSkeleton />
               ) : postsError ? (
-                <div className="rounded-xl border border-red-100 bg-red-50/80 px-4 py-4 text-center text-sm font-semibold text-red-700">
+                <div className="mt-3 rounded-xl border border-red-100 bg-red-50/80 px-4 py-4 text-center text-sm font-semibold text-red-700">
                   {postsError}
                   <button
                     type="button"
@@ -426,25 +511,21 @@ export function ProfileUserClient({ userId }: ProfileUserClientProps) {
                   </button>
                 </div>
               ) : visiblePosts.length === 0 ? (
-                <FeedEmptyState
-                  title={
-                    postTab === 'posts'
-                      ? 'هنوز پستی نیست'
-                      : postTab === 'photos'
-                        ? 'عکسی وجود ندارد'
-                        : 'ویدیویی وجود ندارد'
-                  }
-                  description={
-                    postTab === 'posts'
-                      ? 'وقتی این کاربر پست بگذارد، اینجا نمایش داده می‌شود.'
-                      : postTab === 'photos'
-                        ? 'پست‌های دارای تصویر در این بخش نمایش داده می‌شوند.'
-                        : 'پست‌های دارای ویدیو در این بخش نمایش داده می‌شوند.'
-                  }
-                  icon="✦"
-                />
+                <div className="mt-4">
+                  <FeedEmptyState
+                    title={
+                      postTab === 'posts' ? 'هنوز پستی نیست' : 'رسانه‌ای برای نمایش نیست'
+                    }
+                    description={
+                      postTab === 'posts'
+                        ? 'وقتی این کاربر پست بگذارد، اینجا مثل فید خانه نمایش داده می‌شود.'
+                        : 'پست‌های دارای تصویر یا ویدیو در این تب جمع می‌شوند.'
+                    }
+                    icon={postTab === 'posts' ? '✦' : '🖼'}
+                  />
+                </div>
               ) : (
-                <div className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm">
+                <div className="theme-card-bg theme-border-soft mt-3 overflow-hidden rounded-xl border">
                   {visiblePosts.map((p) => (
                     <FeedPostCard
                       key={p.id}

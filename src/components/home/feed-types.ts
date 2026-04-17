@@ -41,6 +41,17 @@ export type PostReplyItem = {
   user: { id: string; name: string; avatar: string | null; username?: string | null };
 };
 
+/** Profile “Replies” tab: a reply plus parent post preview (from GET posts/user/:id/replies). */
+export type ProfileReplyFeedRow = {
+  reply: PostReplyItem;
+  parentPost: {
+    id: string;
+    text: string;
+    createdAt: string;
+    user: { id: string; name: string; avatar: string | null; username?: string | null };
+  };
+};
+
 export type CreatePostReplyResponse = PostEngagementSnapshot & {
   reply: PostReplyItem;
 };
