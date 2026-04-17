@@ -2049,10 +2049,10 @@ async function uploadSelectedFile(token: string): Promise<string | null> {
               </div>
             </div>
           ) : (
-            <div className="flex items-center gap-2.5 px-3 py-2">
+            <div className="flex items-center gap-2 px-2.5 py-1.5">
               <Link
                 href="/direct"
-                className="theme-text-primary flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition hover:bg-[var(--surface-soft)] active:bg-[var(--surface-strong)]"
+                className="theme-text-primary flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition hover:bg-[var(--surface-soft)] active:bg-[var(--surface-strong)]"
                 aria-label="بازگشت"
               >
                 <span className="text-xl font-semibold leading-none text-slate-800" aria-hidden>
@@ -2060,7 +2060,7 @@ async function uploadSelectedFile(token: string): Promise<string | null> {
                 </span>
               </Link>
 
-              <div className="theme-surface-strong relative h-10 w-10 shrink-0 overflow-hidden rounded-full ring-2 ring-white/70">
+              <div className="theme-surface-strong relative h-9 w-9 shrink-0 overflow-hidden rounded-full ring-2 ring-white/70">
                 {peerDisplay.avatar ? (
                   <img
                     src={peerDisplay.avatar}
@@ -2075,7 +2075,7 @@ async function uploadSelectedFile(token: string): Promise<string | null> {
               </div>
 
               <div className="min-w-0 flex-1 text-right">
-                <h1 className="theme-text-primary truncate text-[16px] font-bold leading-tight">
+                <h1 className="theme-text-primary truncate text-[15px] font-bold leading-tight">
                   {peerDisplay.name}
                 </h1>
                 <p className={`mt-0.5 truncate text-[11px] ${headerStatusLine.className}`}>
@@ -2093,7 +2093,7 @@ async function uploadSelectedFile(token: string): Promise<string | null> {
                 aria-label="تماس صوتی"
                 disabled={!canStartVoiceCall}
                 onClick={() => startVoiceCall({ conversationId })}
-                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-slate-600 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40"
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-slate-600 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40"
               >
                 <span className="text-lg" aria-hidden>
                   📞
@@ -2107,7 +2107,7 @@ async function uploadSelectedFile(token: string): Promise<string | null> {
                   setSearchQuery('');
                   setSearchHits([]);
                 }}
-                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-slate-600 transition hover:bg-slate-100"
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-slate-600 transition hover:bg-slate-100"
               >
                 <span className="text-base" aria-hidden>
                   🔍
@@ -2120,7 +2120,7 @@ async function uploadSelectedFile(token: string): Promise<string | null> {
                   setStarredSheetOpen(true);
                   void loadStarredSheet();
                 }}
-                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-slate-600 transition hover:bg-slate-100"
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-slate-600 transition hover:bg-slate-100"
               >
                 <span className="text-base" aria-hidden>
                   ★
@@ -2134,7 +2134,7 @@ async function uploadSelectedFile(token: string): Promise<string | null> {
                   void loadMessages();
                 }}
                 disabled={loading}
-                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-slate-600 transition hover:bg-slate-100 disabled:opacity-40"
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-slate-600 transition hover:bg-slate-100 disabled:opacity-40"
               >
                 <span className={`text-lg ${loading ? 'animate-pulse' : ''}`} aria-hidden>
                   ↻
@@ -2226,6 +2226,10 @@ async function uploadSelectedFile(token: string): Promise<string | null> {
                   !prevMsg || calendarDayKey(prevMsg.createdAt) !== calendarDayKey(msg.createdAt);
                 const showUnreadDivider =
                   readAnchorIndex >= 0 && i === readAnchorIndex + 1 && !!lastReadMessageId;
+                const isConsecutiveFromSameSender =
+                  !!prevMsg &&
+                  prevMsg.senderId === msg.senderId &&
+                  !showDayDivider;
 
                 return (
                   <Fragment key={msg.id}>
@@ -2245,7 +2249,9 @@ async function uploadSelectedFile(token: string): Promise<string | null> {
                     ) : null}
                   <div
                     id={`direct-msg-${msg.id}`}
-                    className={`flex ${mine ? 'justify-end' : 'justify-start'}`}
+                    className={`flex ${mine ? 'justify-end' : 'justify-start'} ${
+                      isConsecutiveFromSameSender ? 'mt-1' : 'mt-2'
+                    }`}
                     onContextMenu={(e) => {
                       const t = e.target;
                       if (t instanceof Element && t.closest('a[href], [data-direct-msg-actions]')) return;
@@ -2301,7 +2307,9 @@ async function uploadSelectedFile(token: string): Promise<string | null> {
                     }}
                   >
                     <div
-                      className={`relative max-w-[88%] rounded-[1.15rem] px-3.5 py-2.5 shadow-[0_1px_2px_rgba(0,0,0,0.06)] ${
+                      className={`relative max-w-[88%] rounded-[1.15rem] px-3.5 ${
+                        isConsecutiveFromSameSender ? 'py-2' : 'py-2.5'
+                      } shadow-[0_1px_2px_rgba(0,0,0,0.06)] ${
                         deleted
                           ? mine
                             ? rowSelected
@@ -2323,14 +2331,20 @@ async function uploadSelectedFile(token: string): Promise<string | null> {
                           : ''
                       }`}
                     >
-                      <div className="mb-1.5 flex items-center justify-between gap-2 text-[11px]">
-                        <span
-                          className={`min-w-0 truncate font-medium ${
-                            mine ? 'text-white/75' : 'text-slate-500'
-                          }`}
-                        >
-                          {msg.sender.name}
-                        </span>
+                      <div className={`flex items-center justify-between gap-2 text-[11px] ${
+                        isConsecutiveFromSameSender ? 'mb-1' : 'mb-1.5'
+                      }`}>
+                        {!isConsecutiveFromSameSender ? (
+                          <span
+                            className={`min-w-0 truncate font-medium ${
+                              mine ? 'text-white/75' : 'text-slate-500'
+                            }`}
+                          >
+                            {msg.sender.name}
+                          </span>
+                        ) : (
+                          <span className="min-w-0" />
+                        )}
                         {!msg.isDeleted && !isSelectionMode ? (
                           <div className="relative shrink-0" data-direct-msg-actions>
                             <button
@@ -2671,7 +2685,7 @@ async function uploadSelectedFile(token: string): Promise<string | null> {
                       </div>
 
                       {!deleted && (msg.reactions?.length ?? 0) > 0 ? (
-                        <div className="mt-1.5 flex flex-wrap gap-1" dir="ltr">
+                        <div className="mt-1 flex flex-wrap gap-1" dir="ltr">
                           {(msg.reactions ?? []).map((r) => {
                             const self = myUserId != null && r.userIds.includes(myUserId);
                             return (
@@ -2726,7 +2740,7 @@ async function uploadSelectedFile(token: string): Promise<string | null> {
         ) : null}
 
         <div
-          className="theme-panel-bg theme-border-soft sticky bottom-0 z-20 border-t px-3 pt-2 shadow-[0_-2px_12px_rgba(0,0,0,0.05)] backdrop-blur-md"
+          className="theme-panel-bg theme-border-soft sticky bottom-0 z-20 border-t px-2.5 pt-2 shadow-[0_-1px_8px_rgba(0,0,0,0.05)] backdrop-blur-md"
           style={{
             paddingBottom: `calc(max(0.75rem, env(safe-area-inset-bottom)) + ${composerKeyboardInset}px)`,
           }}

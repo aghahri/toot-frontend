@@ -1165,10 +1165,10 @@ export default function GroupThreadPage() {
               </div>
             </div>
           ) : (
-            <div className="flex items-center gap-2.5 px-3 py-2">
+            <div className="flex items-center gap-2 px-2.5 py-1.5">
               <Link
                 href={backHref}
-                className="theme-text-primary flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition hover:bg-[var(--surface-soft)] active:bg-[var(--surface-strong)]"
+                className="theme-text-primary flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition hover:bg-[var(--surface-soft)] active:bg-[var(--surface-strong)]"
                 aria-label="بازگشت"
               >
                 <span className="text-xl font-semibold leading-none text-slate-800" aria-hidden>
@@ -1176,14 +1176,14 @@ export default function GroupThreadPage() {
                 </span>
               </Link>
 
-              <div className="theme-surface-strong relative h-10 w-10 shrink-0 overflow-hidden rounded-full ring-2 ring-white/70">
+              <div className="theme-surface-strong relative h-9 w-9 shrink-0 overflow-hidden rounded-full ring-2 ring-white/70">
                 <span className="flex h-full w-full items-center justify-center text-sm font-bold text-slate-600">
                   {groupInitial}
                 </span>
               </div>
 
               <Link href={`/groups/${groupId}/info`} className="min-w-0 flex-1 text-right">
-                <h1 className="theme-text-primary truncate text-[16px] font-bold leading-tight">
+                <h1 className="theme-text-primary truncate text-[15px] font-bold leading-tight">
                   {groupName || 'گروه'}
                 </h1>
                 <p
@@ -1208,7 +1208,7 @@ export default function GroupThreadPage() {
                   setSearchHits([]);
                   setSearchHighlightIndex(0);
                 }}
-                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-slate-600 transition hover:bg-slate-100"
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-slate-600 transition hover:bg-slate-100"
               >
                 <span className="text-base" aria-hidden>
                   🔍
@@ -1219,7 +1219,7 @@ export default function GroupThreadPage() {
                 title="رفرش پیام‌ها"
                 onClick={() => void reloadMessages()}
                 disabled={loading}
-                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-slate-600 transition hover:bg-slate-100 disabled:opacity-40"
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-slate-600 transition hover:bg-slate-100 disabled:opacity-40"
               >
                 <span className={`text-lg ${loading ? 'animate-pulse' : ''}`} aria-hidden>
                   ↻
@@ -1269,7 +1269,16 @@ export default function GroupThreadPage() {
         {error ? (
           <div className="px-3 pt-3">
             <Card>
-              <div className="text-sm font-semibold text-red-600">{error}</div>
+              <div className="flex items-center justify-between gap-2">
+                <div className="text-sm font-semibold text-red-600">{error}</div>
+                <button
+                  type="button"
+                  onClick={() => void reloadMessages()}
+                  className="rounded-lg border border-red-200 bg-red-50 px-2.5 py-1 text-[11px] font-bold text-red-700 transition hover:bg-red-100"
+                >
+                  تلاش دوباره
+                </button>
+              </div>
             </Card>
           </div>
         ) : null}
@@ -1311,6 +1320,10 @@ export default function GroupThreadPage() {
                 !prevMsg || calendarDayKey(prevMsg.createdAt) !== calendarDayKey(m.createdAt);
               const showUnreadDivider =
                 readAnchorIndex >= 0 && i === readAnchorIndex + 1 && !!lastReadMessageId;
+              const isConsecutiveFromSameSender =
+                !!prevMsg &&
+                prevMsg.senderId === m.senderId &&
+                !showDayDivider;
 
               return (
                 <Fragment key={m.id}>
@@ -1330,7 +1343,9 @@ export default function GroupThreadPage() {
                   ) : null}
                   <div
                     id={`group-msg-${m.id}`}
-                    className={`flex ${mine ? 'justify-end' : 'justify-start'}`}
+                    className={`flex ${mine ? 'justify-end' : 'justify-start'} ${
+                      isConsecutiveFromSameSender ? 'mt-1' : 'mt-2'
+                    }`}
                     onContextMenu={(e) => {
                       const t = e.target;
                       if (t instanceof Element && t.closest('a[href], [data-group-msg-actions]')) return;
@@ -1386,7 +1401,9 @@ export default function GroupThreadPage() {
                     }}
                   >
                     <div
-                      className={`relative max-w-[88%] rounded-[1.15rem] px-3.5 py-2.5 shadow-[0_1px_2px_rgba(0,0,0,0.06)] ${
+                      className={`relative max-w-[88%] rounded-[1.15rem] px-3.5 ${
+                        isConsecutiveFromSameSender ? 'py-2' : 'py-2.5'
+                      } shadow-[0_1px_2px_rgba(0,0,0,0.06)] ${
                         deleted
                           ? mine
                             ? rowSelected
@@ -1408,14 +1425,20 @@ export default function GroupThreadPage() {
                           : ''
                       }`}
                     >
-                      <div className="mb-1.5 flex items-center justify-between gap-2 text-[11px]">
-                        <span
-                          className={`min-w-0 truncate font-medium ${
-                            mine ? 'text-white/75' : 'text-slate-500'
-                          }`}
-                        >
-                          {m.sender.name}
-                        </span>
+                      <div className={`flex items-center justify-between gap-2 text-[11px] ${
+                        isConsecutiveFromSameSender ? 'mb-1' : 'mb-1.5'
+                      }`}>
+                        {!isConsecutiveFromSameSender ? (
+                          <span
+                            className={`min-w-0 truncate font-medium ${
+                              mine ? 'text-white/75' : 'text-slate-500'
+                            }`}
+                          >
+                            {m.sender.name}
+                          </span>
+                        ) : (
+                          <span className="min-w-0" />
+                        )}
                         {!deleted && !isSelectionMode ? (
                           <div className="relative shrink-0" data-group-msg-actions>
                             <button
@@ -1637,7 +1660,7 @@ export default function GroupThreadPage() {
                       </div>
 
                       {!deleted && (m.reactions?.length ?? 0) > 0 ? (
-                        <div className="mt-1.5 flex flex-wrap gap-1" dir="ltr">
+                        <div className="mt-1 flex flex-wrap gap-1" dir="ltr">
                           {(m.reactions ?? []).map((r) => (
                             <button
                               key={r.emoji}
@@ -1674,7 +1697,7 @@ export default function GroupThreadPage() {
         </div>
 
         <div
-          className={`theme-panel-bg theme-border-soft sticky bottom-0 z-20 border-t px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2 shadow-[0_-2px_12px_rgba(0,0,0,0.05)] backdrop-blur-md ${
+          className={`theme-panel-bg theme-border-soft sticky bottom-0 z-20 border-t px-2.5 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2 shadow-[0_-1px_8px_rgba(0,0,0,0.05)] backdrop-blur-md ${
             isSelectionMode ? 'pointer-events-none opacity-50' : ''
           }`}
         >
@@ -1940,7 +1963,11 @@ export default function GroupThreadPage() {
               <button
                 type="submit"
                 disabled={
-                  sending || voicePhase === 'recording' || voicePhase === 'sending' || isSelectionMode
+                  sending ||
+                  voicePhase === 'recording' ||
+                  voicePhase === 'sending' ||
+                  isSelectionMode ||
+                  (!text.trim() && !file)
                 }
                 aria-busy={sending}
                 className="inline-flex h-10 min-w-[4.25rem] shrink-0 items-center justify-center rounded-xl bg-[var(--accent)] px-3.5 text-sm font-semibold text-[var(--accent-contrast)] shadow-sm transition hover:bg-[var(--accent-hover)] disabled:cursor-not-allowed disabled:opacity-50 sm:h-11 sm:min-w-[4.5rem] sm:rounded-2xl sm:px-4"
