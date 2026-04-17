@@ -2,11 +2,11 @@
 
 import type { FeedTabId } from './feed-types';
 
-const TABS: { id: FeedTabId; label: string }[] = [
-  { id: 'for-you', label: 'برای شما' },
-  { id: 'following', label: 'دنبال‌شده‌ها' },
-  { id: 'local', label: 'محلهٔ من' },
-  { id: 'networks', label: 'شبکه‌ها' },
+const TABS: { id: FeedTabId; label: string; hint: string }[] = [
+  { id: 'for-you', label: 'برای شما', hint: 'ترکیبی' },
+  { id: 'following', label: 'دنبال‌شده‌ها', hint: 'گراف دنبال‌کردن' },
+  { id: 'local', label: 'محلهٔ من', hint: 'نبض محلی' },
+  { id: 'networks', label: 'شبکه‌ها', hint: 'جامعه‌ها' },
 ];
 
 type FeedTabsProps = {
@@ -16,9 +16,9 @@ type FeedTabsProps = {
 
 export function FeedTabs({ active, onChange }: FeedTabsProps) {
   return (
-    <div className="w-full min-w-0 bg-white" dir="rtl">
+    <div className="theme-panel-bg w-full min-w-0" dir="rtl">
       <div
-        className="flex w-full min-w-0 touch-pan-x overflow-x-auto overflow-y-hidden overscroll-x-contain border-b border-slate-200/90"
+        className="theme-border-soft flex w-full min-w-0 touch-pan-x overflow-x-auto overflow-y-hidden overscroll-x-contain border-b"
         role="tablist"
         aria-label="بخش‌های فید"
       >
@@ -31,14 +31,17 @@ export function FeedTabs({ active, onChange }: FeedTabsProps) {
               role="tab"
               aria-selected={selected}
               onClick={() => onChange(t.id)}
-              className={`relative min-h-[48px] min-w-0 flex-1 px-1.5 py-3 text-center text-[13px] font-extrabold tracking-tight transition sm:px-1 ${
-                selected ? 'text-[var(--accent-hover)]' : 'text-slate-500 hover:text-slate-800'
+              className={`relative min-h-[52px] min-w-0 flex-1 px-1.5 py-2.5 text-center transition sm:px-1 ${
+                selected
+                  ? 'bg-[var(--accent-soft)] text-[var(--accent-hover)]'
+                  : 'theme-text-secondary hover:theme-text-primary'
               }`}
             >
-              <span className="block truncate">{t.label}</span>
+              <span className="block truncate text-[13px] font-extrabold tracking-tight">{t.label}</span>
+              <span className="mt-0.5 block truncate text-[10px] font-semibold opacity-80">{t.hint}</span>
               {selected ? (
                 <span
-                  className="absolute bottom-0 left-1/2 h-[3px] w-12 max-w-[72%] -translate-x-1/2 rounded-full bg-[var(--accent)]"
+                  className="absolute bottom-0 left-1/2 h-[3px] w-14 max-w-[75%] -translate-x-1/2 rounded-full bg-[var(--accent)]"
                   aria-hidden
                 />
               ) : null}

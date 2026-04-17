@@ -305,7 +305,7 @@ export function FeedPostCard({
   return (
     <article
       id={anchorId}
-      className={`theme-card-bg border-b border-slate-100/90 px-4 py-4 transition hover:bg-[var(--surface-soft)] ${
+      className={`theme-card-bg border-b border-slate-100/90 px-4 py-3.5 transition hover:bg-[var(--surface-soft)] ${
         isViewerRepostRow ? 'bg-emerald-50/40 ring-1 ring-inset ring-emerald-200/55' : ''
       } ${emphasize ? 'bg-sky-50/90 ring-2 ring-inset ring-sky-400/70' : ''}`}
       dir="rtl"
@@ -365,7 +365,7 @@ export function FeedPostCard({
         )}
 
         <div className="min-w-0 flex-1">
-          <div className="flex items-start justify-between gap-2 border-b border-slate-100/80 pb-2.5">
+          <div className="flex items-start justify-between gap-2 pb-1.5">
             <div className="min-w-0">
               <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
                 {authorProfileHref ? (
@@ -481,7 +481,7 @@ export function FeedPostCard({
           ) : null}
 
           {p.text ? (
-            <div className="mt-2.5 whitespace-pre-wrap text-[15px] leading-[1.58] text-slate-800">
+            <div className="mt-1.5 whitespace-pre-wrap text-[15px] leading-[1.58] text-slate-800">
               {p.text}
             </div>
           ) : null}
@@ -517,7 +517,7 @@ export function FeedPostCard({
           ) : null}
 
           <div
-            className="mt-4 flex max-w-md min-h-[44px] items-stretch justify-between gap-1.5 text-slate-500 sm:gap-2"
+            className="mt-3.5 flex max-w-md min-h-[44px] items-stretch justify-between gap-1.5 border-t border-slate-100/80 pt-2 text-slate-500 sm:gap-2"
             dir="ltr"
           >
             <button

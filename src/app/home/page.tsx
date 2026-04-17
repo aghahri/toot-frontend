@@ -31,6 +31,11 @@ function FeedSkeleton() {
   );
 }
 
+type TabFrame = {
+  title: string;
+  subtitle: string;
+};
+
 function HomePageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -195,6 +200,27 @@ function HomePageInner() {
     setFollowingPosts((prev) => prev.filter((x) => x.id !== postId));
   }, []);
 
+  const tabFrame: TabFrame =
+    tab === 'for-you'
+      ? {
+          title: 'برای شما',
+          subtitle: 'ترکیبی از پست‌های مرتبط، شبکه‌ها و کشف محتوا.',
+        }
+      : tab === 'following'
+        ? {
+            title: 'دنبال‌شده‌ها',
+            subtitle: 'فقط پست‌های افرادی که دنبال می‌کنید.',
+          }
+        : tab === 'local'
+          ? {
+              title: 'محلهٔ من',
+              subtitle: 'نبض محلی، فعالیت‌های نزدیک و روایت محله.',
+            }
+          : {
+              title: 'شبکه‌ها',
+              subtitle: 'پست‌های جامعه‌ها و شبکه‌های موضوعی شما.',
+            };
+
   return (
     <AuthGate>
       <div className="theme-page-bg theme-text-primary relative min-h-[60dvh] w-full min-w-0 max-w-[100vw]" dir="rtl">
@@ -206,6 +232,21 @@ function HomePageInner() {
         </div>
 
         <main className="theme-surface-soft mx-auto min-h-[40dvh] w-full max-w-lg pb-28">
+          <section className="theme-card-bg theme-border-soft mx-2 mt-2.5 rounded-2xl border px-3.5 py-3 shadow-sm">
+            <div className="flex items-start justify-between gap-2" dir="rtl">
+              <div className="min-w-0">
+                <p className="theme-text-primary truncate text-sm font-extrabold">{tabFrame.title}</p>
+                <p className="theme-text-secondary mt-1 text-[11px] leading-relaxed">{tabFrame.subtitle}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setComposeOpen(true)}
+                className="shrink-0 rounded-full bg-[var(--accent-soft)] px-3 py-1.5 text-[11px] font-bold text-[var(--accent-hover)] transition hover:bg-[var(--surface-strong)]"
+              >
+                پست جدید
+              </button>
+            </div>
+          </section>
           {postTargetMissed ? (
             <div className="mx-3 mb-3 rounded-2xl border border-amber-200/90 bg-amber-50/95 px-4 py-3 text-sm text-amber-950">
               <p className="font-bold">پست پیدا نشد یا دیگر در دسترس نیست.</p>
@@ -235,12 +276,12 @@ function HomePageInner() {
                 </div>
               ) : posts.length === 0 ? (
                 <FeedEmptyState
-                  title="هنوز پستی نیست"
-                  description="اولین پست محله یا شبکهٔ خود را بنویسید، یا فید را بعداً دوباره بررسی کنید."
+                  title="هنوز پستی در «برای شما» نیست"
+                  description="با انتشار اولین پست یا تعامل بیشتر، پیشنهادهای این بخش سریع‌تر شخصی می‌شود."
                   icon="✦"
                 />
               ) : (
-                <div className="theme-panel-bg overflow-hidden rounded-b-2xl shadow-sm ring-1 ring-slate-100/80">
+                <div className="theme-card-bg mx-2 mt-2 overflow-hidden rounded-2xl shadow-sm ring-1 ring-slate-100/80">
                   {posts.map((p) => (
                     <FeedPostCard
                       key={
@@ -290,11 +331,11 @@ function HomePageInner() {
               ) : followingPosts.length === 0 ? (
                 <FeedEmptyState
                   title="دنبال‌شده‌ها"
-                  description="هنوز پستی از کسانی که دنبال می‌کنید اینجا نیست. کاربران بیشتری را دنبال کنید یا بعداً دوباره بررسی کنید."
+                  description="هنوز پستی از دنبال‌شده‌ها ندارید. افراد بیشتری را دنبال کنید تا این فید فعال‌تر شود."
                   icon="◎"
                 />
               ) : (
-                <div className="theme-panel-bg overflow-hidden rounded-b-2xl shadow-sm ring-1 ring-slate-100/80">
+                <div className="theme-card-bg mx-2 mt-2 overflow-hidden rounded-2xl shadow-sm ring-1 ring-slate-100/80">
                   {followingPosts.map((p) => (
                     <FeedPostCard
                       key={p.id}
@@ -325,13 +366,13 @@ function HomePageInner() {
           ) : tab === 'local' ? (
             <FeedEmptyState
               title="محلهٔ من"
-              description="اخبار، رویدادها و کسب‌وکارهای نزدیک شما اینجا جمع می‌شود. این بخش پایهٔ کشف محلی توت است."
+              description="فعالیت‌های محلی، گروه‌های همسایگی و پست‌های نزدیک اینجا نمایش داده می‌شوند."
               icon="⌂"
             />
           ) : (
             <FeedEmptyState
               title="شبکه‌ها"
-              description="داستان شبکه‌های محلی و جامعه‌های توت اینجا نمایش داده می‌شود. هنوز در حال آماده‌سازی است."
+              description="پست‌های شبکه‌ها و جامعه‌هایی که عضو آن‌ها هستید اینجا جمع می‌شوند."
               icon="⬡"
             />
           )}
