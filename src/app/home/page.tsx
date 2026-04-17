@@ -33,9 +33,6 @@ function FeedSkeleton() {
 
 type TabFrame = {
   title: string;
-  subtitle: string;
-  badge: string;
-  badgeClassName: string;
 };
 
 const LOCAL_TOKENS = [
@@ -266,29 +263,17 @@ function HomePageInner() {
     tab === 'for-you'
       ? {
           title: 'برای شما',
-          subtitle: 'ترکیبی از پست‌های مرتبط، شبکه‌ها و کشف محتوا.',
-          badge: 'Algorithm Graph',
-          badgeClassName: 'bg-sky-50 text-sky-700 ring-sky-200/80',
         }
       : tab === 'following'
         ? {
             title: 'دنبال‌شده‌ها',
-            subtitle: 'فقط پست‌های افرادی که دنبال می‌کنید.',
-            badge: 'Social Graph',
-            badgeClassName: 'bg-violet-50 text-violet-700 ring-violet-200/80',
           }
         : tab === 'local'
           ? {
               title: 'محلهٔ من',
-              subtitle: 'نبض محلی، فعالیت‌های نزدیک و روایت محله.',
-              badge: 'Geographic Graph',
-              badgeClassName: 'bg-emerald-50 text-emerald-700 ring-emerald-200/80',
             }
           : {
               title: 'شبکه‌ها',
-              subtitle: 'پست‌های جامعه‌ها و شبکه‌های موضوعی شما.',
-              badge: 'Interest Graph',
-              badgeClassName: 'bg-amber-50 text-amber-700 ring-amber-200/80',
             };
 
   return (
@@ -306,20 +291,14 @@ function HomePageInner() {
             <div className="flex items-start justify-between gap-2" dir="rtl">
               <div className="min-w-0">
                 <p className="theme-text-primary truncate text-sm font-extrabold">{tabFrame.title}</p>
-                <p className="theme-text-secondary mt-1 text-[11px] leading-relaxed">{tabFrame.subtitle}</p>
               </div>
-              <div className="flex shrink-0 flex-col items-end gap-1.5">
-                <span className={`rounded-full px-2.5 py-1 text-[10px] font-bold ring-1 ${tabFrame.badgeClassName}`}>
-                  {tabFrame.badge}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setComposeOpen(true)}
-                  className="shrink-0 rounded-full bg-[var(--accent-soft)] px-3 py-1.5 text-[11px] font-bold text-[var(--accent-hover)] transition hover:bg-[var(--surface-strong)]"
-                >
-                  پست جدید
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={() => setComposeOpen(true)}
+                className="shrink-0 rounded-full bg-[var(--accent-soft)] px-3 py-1.5 text-[11px] font-bold text-[var(--accent-hover)] transition hover:bg-[var(--surface-strong)]"
+              >
+                پست جدید
+              </button>
             </div>
           </section>
           {postTargetMissed ? (

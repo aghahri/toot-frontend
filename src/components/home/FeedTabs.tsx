@@ -2,11 +2,11 @@
 
 import type { FeedTabId } from './feed-types';
 
-const TABS: { id: FeedTabId; label: string; hint: string }[] = [
-  { id: 'for-you', label: 'برای شما', hint: 'ترکیبی' },
-  { id: 'following', label: 'دنبال‌شده‌ها', hint: 'گراف دنبال‌کردن' },
-  { id: 'local', label: 'محلهٔ من', hint: 'نبض محلی' },
-  { id: 'networks', label: 'شبکه‌ها', hint: 'جامعه‌ها' },
+const TABS: { id: FeedTabId; label: string }[] = [
+  { id: 'for-you', label: 'برای شما' },
+  { id: 'following', label: 'دنبال‌شده‌ها' },
+  { id: 'local', label: 'محلهٔ من' },
+  { id: 'networks', label: 'شبکه‌ها' },
 ];
 
 type FeedTabsProps = {
@@ -38,7 +38,6 @@ export function FeedTabs({ active, onChange }: FeedTabsProps) {
               }`}
             >
               <span className="block truncate text-[13px] font-extrabold tracking-tight">{t.label}</span>
-              <span className="mt-0.5 block truncate text-[10px] font-semibold opacity-80">{t.hint}</span>
               {selected ? (
                 <span
                   className="absolute bottom-0 left-1/2 h-[3px] w-14 max-w-[75%] -translate-x-1/2 rounded-full bg-[var(--accent)]"
