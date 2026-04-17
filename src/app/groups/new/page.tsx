@@ -31,11 +31,15 @@ function CreateGroupPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const kind = (searchParams.get('kind') ?? '').toLowerCase();
+  const preset = (searchParams.get('preset') ?? '').trim().toLowerCase();
   const presetNetworkId = (searchParams.get('networkId') ?? '').trim();
   const spaceKey = (searchParams.get('spaceKey') ?? '').trim();
   const returnTo = (searchParams.get('returnTo') ?? '').trim().toLowerCase();
+  const isStudyPreset = preset === 'study';
+  const isClassPreset = preset === 'class';
+  const presetForcesCommunity = isStudyPreset || isClassPreset;
   const forceChatMode = kind === 'chat';
-  const forceCommunityMode = kind === 'community';
+  const forceCommunityMode = kind === 'community' || presetForcesCommunity;
   const forcedMode: CreateMode | null = forceCommunityMode ? 'network' : forceChatMode ? 'normal' : null;
   const isNeighborhoodFlow = spaceKey.toUpperCase() === 'NEIGHBORHOOD';
 
@@ -408,10 +412,18 @@ function CreateGroupPageInner() {
             {step === 'members'
               ? mode === 'normal'
                 ? 'ایجاد گروه چت — اعضا'
-                : 'ایجاد گروه اجتماعی — اعضا'
+                : isStudyPreset
+                  ? 'Create Study Group — اعضا'
+                  : isClassPreset
+                    ? 'Create Class Community — اعضا'
+                    : 'ایجاد گروه اجتماعی — اعضا'
               : mode === 'normal'
                 ? 'ایجاد گروه چت — جزئیات'
-                : 'ایجاد گروه اجتماعی — جزئیات'}
+                : isStudyPreset
+                  ? 'Create Study Group — جزئیات'
+                  : isClassPreset
+                    ? 'Create Class Community — جزئیات'
+                    : 'ایجاد گروه اجتماعی — جزئیات'}
           </h1>
         </header>
 
@@ -441,7 +453,11 @@ function CreateGroupPageInner() {
         <div className="mx-3 mt-3 rounded-xl border border-stone-200 bg-white px-3 py-2 text-[11px] text-stone-600">
           {mode === 'normal'
             ? 'گروه چت برای گفتگوی خصوصی چندنفره است و در فضاهای عمومی نمایش داده نمی‌شود.'
-            : 'گروه اجتماعی برای جامعه و فضا/شبکه است و در سطوح اجتماعی قابل کشف است.'}
+            : isStudyPreset
+              ? 'Study Group برای یادگیری همتا، بحث درسی و آمادگی آزمون است.'
+              : isClassPreset
+                ? 'Class Community برای دانشجویان یک کلاس/درس و هماهنگی متمرکز است.'
+                : 'گروه اجتماعی برای جامعه و فضا/شبکه است و در سطوح اجتماعی قابل کشف است.'}
         </div>
 
         {step === 'members' && mode === 'normal' ? (
@@ -614,8 +630,11 @@ function CreateGroupPageInner() {
             ) : null}
 
             <p className="mb-2 text-[11px] leading-relaxed text-stone-600">
-              اعضای فعال این شبکه را با نام، نام کاربری، ایمیل یا بخشی از شماره موبایل جستجو کنید (حداقل ۲ نویسه) — همان
-              رفتار جستجوی گفتگوی جدید.
+              {isStudyPreset
+                ? 'هم‌گروهی‌های مطالعه را از اعضای فعال همین شبکه آموزشی انتخاب کنید (حداقل ۲ نویسه).'
+                : isClassPreset
+                  ? 'اعضای کلاس را از اعضای فعال همین شبکه آموزشی انتخاب کنید (حداقل ۲ نویسه).'
+                  : 'اعضای فعال این شبکه را با نام، نام کاربری، ایمیل یا بخشی از شماره موبایل جستجو کنید (حداقل ۲ نویسه) — همان رفتار جستجوی گفتگوی جدید.'}
             </p>
             <input
               value={search}
@@ -736,7 +755,15 @@ function CreateGroupPageInner() {
               <input
                 value={groupName}
                 onChange={(e) => setGroupName(e.target.value)}
-                placeholder={mode === 'normal' ? 'مثلاً برنامه سفر دوستان' : 'مثلاً جامعه آموزش برنامه‌نویسی'}
+                placeholder={
+                  mode === 'normal'
+                    ? 'مثلاً برنامه سفر دوستان'
+                    : isStudyPreset
+                      ? 'مثلاً Exam Prep Group'
+                      : isClassPreset
+                        ? 'مثلاً Class Community - فیزیک ۱'
+                        : 'مثلاً جامعه آموزش برنامه‌نویسی'
+                }
                 minLength={2}
                 maxLength={100}
                 className="w-full rounded-xl border border-stone-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
@@ -748,7 +775,13 @@ function CreateGroupPageInner() {
               <textarea
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                placeholder="اختیاری"
+                placeholder={
+                  isStudyPreset
+                    ? 'Peer learning and discussion (اختیاری)'
+                    : isClassPreset
+                      ? 'Students of one course/class (اختیاری)'
+                      : 'اختیاری'
+                }
                 rows={3}
                 maxLength={500}
                 className="w-full resize-none rounded-xl border border-stone-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-sky-400 focus:ring-2 focus:ring-sky-100"

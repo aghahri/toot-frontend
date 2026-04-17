@@ -755,7 +755,7 @@ const EducationCapabilitySection = memo(function EducationCapabilitySection({
   const curatedGrowingCommunities = networks.slice(0, 4);
   const studyGroupHref = `/groups/new?kind=community&spaceKey=EDUCATION${memberNetworkId ? `&networkId=${encodeURIComponent(memberNetworkId)}` : ''}&returnTo=spaces&preset=study`;
   const classCommunityHref = `/groups/new?kind=community&spaceKey=EDUCATION${memberNetworkId ? `&networkId=${encodeURIComponent(memberNetworkId)}` : ''}&returnTo=spaces&preset=class`;
-  const teacherChannelHref = memberNetworkId ? `/networks/${memberNetworkId}` : '/spaces/EDUCATION';
+  const teacherChannelHref = `/channels/new?preset=teacher&spaceKey=EDUCATION${memberNetworkId ? `&networkId=${encodeURIComponent(memberNetworkId)}` : ''}`;
 
   return (
     <section className={SECTION_CARD}>
@@ -802,7 +802,7 @@ const EducationCapabilitySection = memo(function EducationCapabilitySection({
             <span className="rounded-full bg-white px-2 py-0.5 text-[10px] font-bold text-indigo-700 ring-1 ring-indigo-200/80">One-to-many</span>
           </div>
           <Link href={teacherChannelHref} className={SECONDARY_CTA + ' mt-2 inline-flex !px-3 !py-1.5 !text-[11px]'}>
-            {memberNetworkId ? 'ورود برای ساخت Teacher Channel' : 'ابتدا عضو یک شبکه آموزشی شوید'}
+            {memberNetworkId ? 'ساخت Teacher Channel' : 'ساخت Teacher Channel (نیازمند شبکه)'}
           </Link>
         </article>
       </div>
