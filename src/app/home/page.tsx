@@ -138,6 +138,11 @@ function extractSearchTokens(input: string) {
     .slice(0, 20);
 }
 
+function extractHashtagTokens(input: string) {
+  const raw = input.match(/#[^\s#]+/g) ?? [];
+  return raw.map((tag) => normalizeText(tag.replace(/^#+/, ''))).filter((tag) => tag.length >= 2);
+}
+
 function freshnessScore(createdAt: string) {
   const ageHours = Math.max(0, (Date.now() - new Date(createdAt).getTime()) / (1000 * 60 * 60));
   if (ageHours <= 6) return 4;
@@ -402,6 +407,25 @@ function HomePageInner() {
     [],
   );
 
+  const hasExplicitMembershipSignal = useCallback(
+    (text: string, memberships: NetworkMembership[]) => {
+      const normalizedText = normalizeText(text);
+      const hashtagTokens = new Set(extractHashtagTokens(text));
+      for (const membership of memberships) {
+        const membershipTokens = extractSearchTokens(
+          `${membership.name} ${membership.slug ?? ''} ${membership.description ?? ''}`,
+        ).filter((t) => t.length >= 3);
+        for (const token of membershipTokens) {
+          if (hashtagTokens.has(token)) return true;
+          // Strong literal mention in content is also explicit enough.
+          if (normalizedText.includes(token)) return true;
+        }
+      }
+      return false;
+    },
+    [],
+  );
+
   const rankedLocalRows = applyAuthorDiversity(
     [...allKnownPosts]
     .map((post) => {
@@ -438,14 +462,19 @@ function HomePageInner() {
         const text = `${post.text} ${post.user?.name ?? ''} ${post.user?.username ?? ''}`;
         const membershipScore = scoreMembershipMatch(text, joinedCommunityNetworks, 'networks');
         const generalNetworkScore = tokenScore(text, NETWORK_TOKENS);
+        const explicitMembershipSignal = hasExplicitMembershipSignal(text, joinedCommunityNetworks);
         const score = membershipScore * 5 + generalNetworkScore * 2 + freshnessScore(post.createdAt) + engagementScore(post);
-        return { post, score, membershipScore, generalNetworkScore };
+        return { post, score, membershipScore, generalNetworkScore, explicitMembershipSignal };
       })
-      .filter(({ membershipScore, generalNetworkScore }) => {
+      .filter(({ membershipScore, generalNetworkScore, explicitMembershipSignal }) => {
         // Networks is strict: membership-only is not enough.
+        if (explicitMembershipSignal && membershipScore >= 2) return true;
         return membershipScore >= 3 && generalNetworkScore >= 1;
       })
       .sort((a, b) => {
+        if (a.explicitMembershipSignal !== b.explicitMembershipSignal) {
+          return Number(b.explicitMembershipSignal) - Number(a.explicitMembershipSignal);
+        }
         if (a.score !== b.score) return b.score - a.score;
         return new Date(b.post.createdAt).getTime() - new Date(a.post.createdAt).getTime();
       }),
