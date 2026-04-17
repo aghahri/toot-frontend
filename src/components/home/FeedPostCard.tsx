@@ -305,7 +305,7 @@ export function FeedPostCard({
   return (
     <article
       id={anchorId}
-      className={`border-b border-slate-100/90 bg-white px-4 py-4 transition hover:bg-slate-50/80 ${
+      className={`theme-card-bg border-b border-slate-100/90 px-4 py-4 transition hover:bg-[var(--surface-soft)] ${
         isViewerRepostRow ? 'bg-emerald-50/40 ring-1 ring-inset ring-emerald-200/55' : ''
       } ${emphasize ? 'bg-sky-50/90 ring-2 ring-inset ring-sky-400/70' : ''}`}
       dir="rtl"

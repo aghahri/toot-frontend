@@ -2111,7 +2111,7 @@ async function uploadSelectedFile(token: string): Promise<string | null> {
           </div>
         ) : null}
 
-        <div className="flex-1 space-y-2.5 px-2.5 py-3 sm:px-3">
+        <div className="theme-surface-soft flex-1 space-y-2.5 px-2.5 py-3 sm:px-3">
           {loading ? (
             <Card>
               <div className="text-sm text-slate-700">در حال دریافت پیام‌ها...</div>

@@ -205,7 +205,7 @@ function HomePageInner() {
           </div>
         </div>
 
-        <main className="mx-auto min-h-[40dvh] w-full max-w-lg pb-28">
+        <main className="theme-surface-soft mx-auto min-h-[40dvh] w-full max-w-lg pb-28">
           {postTargetMissed ? (
             <div className="mx-3 mb-3 rounded-2xl border border-amber-200/90 bg-amber-50/95 px-4 py-3 text-sm text-amber-950">
               <p className="font-bold">پست پیدا نشد یا دیگر در دسترس نیست.</p>
@@ -240,7 +240,7 @@ function HomePageInner() {
                   icon="✦"
                 />
               ) : (
-                <div className="theme-card-bg overflow-hidden rounded-b-2xl shadow-sm ring-1 ring-slate-100/80">
+                <div className="theme-panel-bg overflow-hidden rounded-b-2xl shadow-sm ring-1 ring-slate-100/80">
                   {posts.map((p) => (
                     <FeedPostCard
                       key={
@@ -294,7 +294,7 @@ function HomePageInner() {
                   icon="◎"
                 />
               ) : (
-                <div className="theme-card-bg overflow-hidden rounded-b-2xl shadow-sm ring-1 ring-slate-100/80">
+                <div className="theme-panel-bg overflow-hidden rounded-b-2xl shadow-sm ring-1 ring-slate-100/80">
                   {followingPosts.map((p) => (
                     <FeedPostCard
                       key={p.id}
