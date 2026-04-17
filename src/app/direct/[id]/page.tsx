@@ -241,10 +241,13 @@ export default function DirectConversationPage() {
   const [sending, setSending] = useState(false);
   const sendLockRef = useRef(false);
   const [error, setError] = useState<string | null>(null);
+  const [showJumpToLatest, setShowJumpToLatest] = useState(false);
+  const [composerKeyboardInset, setComposerKeyboardInset] = useState(0);
   const threadEndRef = useRef<HTMLDivElement | null>(null);
   /** Last committed scrollY + scrollHeight (before the current paint grew the document). */
   const layoutScrollSnapshotRef = useRef({ scrollY: 0, scrollHeight: 0 });
   const wasLoadingRef = useRef(false);
+  const isNearBottomRef = useRef(true);
   const awaitingFirstLoadScrollRef = useRef(true);
   const forceScrollAfterLoadRef = useRef(false);
   const prevMessageTailRef = useRef<{
@@ -792,6 +795,12 @@ function scrollThreadEnd(behavior: ScrollBehavior = 'auto') {
   });
 }
 
+function refreshNearBottomState() {
+  const near = isWindowNearBottom(140);
+  isNearBottomRef.current = near;
+  setShowJumpToLatest(!near && messagesRef.current.length > 0);
+}
+
   function scheduleLayoutScrollSnapshot() {
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
@@ -965,9 +974,40 @@ function scrollThreadEnd(behavior: ScrollBehavior = 'auto') {
         scrollY: window.scrollY,
         scrollHeight: document.documentElement.scrollHeight,
       };
+      refreshNearBottomState();
     };
     window.addEventListener('scroll', onScroll, { passive: true });
+    onScroll();
     return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const vv = window.visualViewport;
+    if (!vv) return;
+    const onViewport = () => {
+      const inset = Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop));
+      setComposerKeyboardInset(inset > 0 ? inset : 0);
+    };
+    vv.addEventListener('resize', onViewport);
+    vv.addEventListener('scroll', onViewport);
+    onViewport();
+    return () => {
+      vv.removeEventListener('resize', onViewport);
+      vv.removeEventListener('scroll', onViewport);
+    };
+  }, []);
+
+  useEffect(() => {
+    const el = composeTextareaRef.current;
+    if (!el) return;
+    const onFocus = () => {
+      if (isNearBottomRef.current) {
+        setTimeout(() => scrollThreadEnd('auto'), 60);
+      }
+    };
+    el.addEventListener('focus', onFocus);
+    return () => el.removeEventListener('focus', onFocus);
   }, []);
 
   useLayoutEffect(() => {
@@ -1190,7 +1230,7 @@ useEffect(() => {
     onSocketConnect();
   }
 
-socket.on('direct_message', async (message: Message) => {
+  socket.on('direct_message', async (message: Message) => {
   if (message.conversationId !== conversationId) return;
 
   setMessages((prev) => {
@@ -1199,7 +1239,6 @@ socket.on('direct_message', async (message: Message) => {
     return [...prev, withDirectReactions(message)];
   });
 
-  // 👇 اینو اضافه کن (کلید حل مشکل)
       if (message.senderId !== myUserId) {
     try {
       await apiFetch(`direct/conversations/${conversationId}/seen`, {
@@ -1235,6 +1274,7 @@ socket.on('direct_message', async (message: Message) => {
       } else {
         setOtherTyping(false);
       }
+      refreshNearBottomState();
     },
   );
 socket.on(
@@ -2134,7 +2174,16 @@ async function uploadSelectedFile(token: string): Promise<string | null> {
         {error ? (
           <div className="px-3 pt-3">
             <Card>
-              <div className="text-sm font-semibold text-red-600">{error}</div>
+              <div className="flex items-center justify-between gap-2">
+                <div className="text-sm font-semibold text-red-600">{error}</div>
+                <button
+                  type="button"
+                  onClick={() => void loadMessages()}
+                  className="rounded-lg border border-red-200 bg-red-50 px-2.5 py-1 text-[11px] font-bold text-red-700 transition hover:bg-red-100"
+                >
+                  تلاش دوباره
+                </button>
+              </div>
             </Card>
           </div>
         ) : null}
@@ -2662,7 +2711,26 @@ async function uploadSelectedFile(token: string): Promise<string | null> {
           )}
         </div>
 
-        <div className="theme-panel-bg theme-border-soft sticky bottom-0 z-20 border-t px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2 shadow-[0_-2px_12px_rgba(0,0,0,0.05)] backdrop-blur-md">
+        {showJumpToLatest ? (
+          <button
+            type="button"
+            onClick={() => {
+              scrollThreadEnd('smooth');
+              refreshNearBottomState();
+            }}
+            className="fixed bottom-24 left-1/2 z-30 -translate-x-1/2 rounded-full border border-slate-200/90 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-lg transition hover:bg-slate-50"
+            dir="rtl"
+          >
+            پرش به جدیدترین پیام
+          </button>
+        ) : null}
+
+        <div
+          className="theme-panel-bg theme-border-soft sticky bottom-0 z-20 border-t px-3 pt-2 shadow-[0_-2px_12px_rgba(0,0,0,0.05)] backdrop-blur-md"
+          style={{
+            paddingBottom: `calc(max(0.75rem, env(safe-area-inset-bottom)) + ${composerKeyboardInset}px)`,
+          }}
+        >
           <form onSubmit={onSend} className="w-full min-w-0 space-y-2" dir="rtl">
             <input
               ref={fileInputRef}
