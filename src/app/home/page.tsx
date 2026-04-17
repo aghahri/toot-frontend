@@ -95,9 +95,33 @@ const NETWORK_TOKENS = [
   'class',
 ];
 
+const NEIGHBORHOOD_HINT_TOKENS = ['محله', 'منطقه', 'ناحیه', 'district', 'neighborhood', 'local'];
+const NETWORK_KIND_HINTS = {
+  EDUCATION: ['education', 'teacher', 'study', 'class', 'exam', 'course', 'آموزش', 'درس', 'کلاس', 'استاد'],
+  BUSINESS: ['business', 'startup', 'hiring', 'job', 'career', 'freelance', 'کسب', 'استارتاپ', 'استخدام', 'شغل'],
+  SPORTS: ['sports', 'team', 'club', 'match', 'coach', 'football', 'ورزش', 'تیم', 'باشگاه', 'مربی'],
+  GAMING: ['gaming', 'game', 'clan', 'squad', 'stream', 'esports', 'گیم', 'بازی', 'کلن', 'اسکاد'],
+};
+
+function normalizeText(input: string) {
+  return input
+    .toLowerCase()
+    .replace(/[‌‍]/g, ' ')
+    .replace(/[#@]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 function tokenScore(input: string, tokens: string[]) {
-  const normalized = input.toLowerCase();
+  const normalized = normalizeText(input);
   return tokens.reduce((acc, token) => (normalized.includes(token) ? acc + 1 : acc), 0);
+}
+
+function extractSearchTokens(input: string) {
+  return normalizeText(input)
+    .split(/[\s\-_/|,.()[\]{}:;!?]+/)
+    .filter((t) => t.length >= 2)
+    .slice(0, 20);
 }
 
 function HomePageInner() {
@@ -181,6 +205,12 @@ function HomePageInner() {
     if (tab !== 'following') return;
     void loadFollowingFeed();
   }, [tab, loadFollowingFeed]);
+
+  useEffect(() => {
+    if (tab !== 'local' && tab !== 'networks') return;
+    if (posts.length > 0 || followingPosts.length > 0) return;
+    void loadFeed({ silent: true });
+  }, [tab, posts.length, followingPosts.length, loadFeed]);
 
   useEffect(() => {
     const token = getAccessToken();
@@ -298,41 +328,82 @@ function HomePageInner() {
     return acc;
   }, []);
 
-  const localPosts = [...allKnownPosts]
-    .sort((a, b) => {
-      const aScore = tokenScore(`${a.text} ${a.user?.name ?? ''} ${a.user?.username ?? ''}`, LOCAL_TOKENS);
-      const bScore = tokenScore(`${b.text} ${b.user?.name ?? ''} ${b.user?.username ?? ''}`, LOCAL_TOKENS);
-      if (aScore !== bScore) return bScore - aScore;
-      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-    })
-    .filter((p) => tokenScore(`${p.text} ${p.user?.name ?? ''} ${p.user?.username ?? ''}`, LOCAL_TOKENS) > 0);
-
-  const networkPosts = [...allKnownPosts]
-    .sort((a, b) => {
-      const aScore = tokenScore(`${a.text} ${a.user?.name ?? ''} ${a.user?.username ?? ''}`, NETWORK_TOKENS);
-      const bScore = tokenScore(`${b.text} ${b.user?.name ?? ''} ${b.user?.username ?? ''}`, NETWORK_TOKENS);
-      if (aScore !== bScore) return bScore - aScore;
-      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-    })
-    .filter((p) => tokenScore(`${p.text} ${p.user?.name ?? ''} ${p.user?.username ?? ''}`, NETWORK_TOKENS) > 0);
-
   const joinedNeighborhoodNetworks = joinedNetworks.filter((n) => {
     const bucket = `${n.spaceCategory ?? ''} ${n.networkType ?? ''} ${n.alignedSpaceCategory ?? ''}`.toUpperCase();
-    return bucket.includes('NEIGHBORHOOD');
+    if (bucket.includes('NEIGHBORHOOD')) return true;
+    const text = `${n.name} ${n.description ?? ''}`;
+    return tokenScore(text, NEIGHBORHOOD_HINT_TOKENS) > 0;
   });
   const joinedCommunityNetworks = joinedNetworks.filter((n) => !joinedNeighborhoodNetworks.some((h) => h.id === n.id));
 
+  const scoreMembershipMatch = useCallback(
+    (text: string, memberships: NetworkMembership[], mode: 'local' | 'networks') => {
+      const normalizedText = normalizeText(text);
+      let best = 0;
+      for (const membership of memberships) {
+        const bag = `${membership.name} ${membership.slug ?? ''} ${membership.description ?? ''}`;
+        const tokens = extractSearchTokens(bag);
+        const directHits = tokens.reduce((acc, token) => (normalizedText.includes(token) ? acc + 1 : acc), 0);
+        let kindBonus = 0;
+        const hintBag = `${membership.spaceCategory ?? ''} ${membership.networkType ?? ''} ${membership.alignedSpaceCategory ?? ''}`.toUpperCase();
+        if (mode === 'local' && hintBag.includes('NEIGHBORHOOD')) kindBonus += 2;
+        if (mode === 'networks') {
+          if (hintBag.includes('EDUCATION')) kindBonus += tokenScore(normalizedText, NETWORK_KIND_HINTS.EDUCATION);
+          if (hintBag.includes('BUSINESS') || hintBag.includes('GENERAL')) kindBonus += tokenScore(normalizedText, NETWORK_KIND_HINTS.BUSINESS);
+          if (hintBag.includes('SPORT')) kindBonus += tokenScore(normalizedText, NETWORK_KIND_HINTS.SPORTS);
+          if (hintBag.includes('GAMING') || hintBag.includes('TECH')) kindBonus += tokenScore(normalizedText, NETWORK_KIND_HINTS.GAMING);
+        }
+        best = Math.max(best, directHits * 2 + kindBonus);
+      }
+      return best;
+    },
+    [],
+  );
+
+  const localPosts = [...allKnownPosts]
+    .map((post) => {
+      const text = `${post.text} ${post.user?.name ?? ''} ${post.user?.username ?? ''}`;
+      const membershipScore = scoreMembershipMatch(text, joinedNeighborhoodNetworks, 'local');
+      const generalLocalScore = tokenScore(text, LOCAL_TOKENS);
+      const score = membershipScore * 4 + generalLocalScore;
+      return { post, score };
+    })
+    .filter(({ score, post }) => {
+      const text = `${post.text} ${post.user?.name ?? ''} ${post.user?.username ?? ''}`;
+      const hasStrongMembership = scoreMembershipMatch(text, joinedNeighborhoodNetworks, 'local') >= 2;
+      return hasStrongMembership || score >= 3;
+    })
+    .sort((a, b) => {
+      if (a.score !== b.score) return b.score - a.score;
+      return new Date(b.post.createdAt).getTime() - new Date(a.post.createdAt).getTime();
+    })
+    .map((x) => x.post);
+
+  const networkPosts = [...allKnownPosts]
+    .map((post) => {
+      const text = `${post.text} ${post.user?.name ?? ''} ${post.user?.username ?? ''}`;
+      const membershipScore = scoreMembershipMatch(text, joinedCommunityNetworks, 'networks');
+      const generalNetworkScore = tokenScore(text, NETWORK_TOKENS);
+      const score = membershipScore * 4 + generalNetworkScore;
+      return { post, score };
+    })
+    .filter(({ score, post }) => {
+      const text = `${post.text} ${post.user?.name ?? ''} ${post.user?.username ?? ''}`;
+      const hasStrongMembership = scoreMembershipMatch(text, joinedCommunityNetworks, 'networks') >= 2;
+      return hasStrongMembership || score >= 3;
+    })
+    .sort((a, b) => {
+      if (a.score !== b.score) return b.score - a.score;
+      return new Date(b.post.createdAt).getTime() - new Date(a.post.createdAt).getTime();
+    })
+    .map((x) => x.post);
+
   const scoreStoryRelevance = useCallback(
     (story: StoryItem, opts: { mode: 'local' | 'networks' }) => {
-      const storyText = `${story.title} ${story.summary ?? ''} ${story.category ?? ''} ${story.source?.name ?? ''} ${story.locationText ?? ''}`.toLowerCase();
+      const storyText = `${story.title} ${story.summary ?? ''} ${story.category ?? ''} ${story.source?.name ?? ''} ${story.locationText ?? ''}`;
       const memberships = opts.mode === 'local' ? joinedNeighborhoodNetworks : joinedCommunityNetworks;
       if (!memberships.length) return 0;
-      const membershipMatch = memberships.reduce((best, n) => {
-        const bag = `${n.name} ${n.slug ?? ''} ${n.description ?? ''}`.toLowerCase();
-        const tokens = bag.split(/[\s\-_/|,.]+/).filter((t) => t.length >= 3).slice(0, 10);
-        const hits = tokens.reduce((acc, t) => (storyText.includes(t) ? acc + 1 : acc), 0);
-        return Math.max(best, hits);
-      }, 0);
+      const membershipMatch = scoreMembershipMatch(storyText, memberships, opts.mode);
       const kindBonus =
         opts.mode === 'local'
           ? story.storyKind === 'LOCAL'
@@ -345,29 +416,29 @@ function HomePageInner() {
       const freshness = story.freshnessScore ?? 0;
       const quality = story.quality?.qualityScore ?? 0;
       const duplicateRisk = story.quality?.duplicateRiskScore ?? 0;
-      const base = membershipMatch * 18 + kindBonus * 12 + trust * 0.12 + freshness * 0.12 + quality * 0.12 - duplicateRisk * 0.15;
+      const base = membershipMatch * 10 + kindBonus * 10 + trust * 0.12 + freshness * 0.12 + quality * 0.1 - duplicateRisk * 0.12;
       return Math.max(0, base);
     },
-    [joinedCommunityNetworks, joinedNeighborhoodNetworks],
+    [joinedCommunityNetworks, joinedNeighborhoodNetworks, scoreMembershipMatch],
   );
 
   const eligibleLocalStories = storyItems
     .map((story) => ({ story, score: scoreStoryRelevance(story, { mode: 'local' }) }))
-    .filter((x) => x.score >= 28)
+    .filter((x) => x.score >= 22)
     .sort((a, b) => b.score - a.score)
     .map((x) => x.story);
 
   const eligibleNetworkStories = storyItems
     .map((story) => ({ story, score: scoreStoryRelevance(story, { mode: 'networks' }) }))
-    .filter((x) => x.score >= 28)
+    .filter((x) => x.score >= 22)
     .sort((a, b) => b.score - a.score)
     .map((x) => x.story);
 
   function injectStoriesIntoFeed(basePosts: FeedPost[], stories: StoryItem[]) {
-    if (!basePosts.length || !stories.length) {
+    if (!stories.length) {
       return basePosts.map((post) => ({ kind: 'post' as const, post }));
     }
-    const maxStories = Math.max(1, Math.min(2, Math.floor(basePosts.length / 7)));
+    const maxStories = basePosts.length < 6 ? 1 : Math.max(1, Math.min(2, Math.floor(basePosts.length / 7)));
     const selectedStories: StoryItem[] = [];
     const seenSource = new Set<string>();
     const seenTitle = new Set<string>();
@@ -380,8 +451,15 @@ function HomePageInner() {
       seenTitle.add(title);
       if (selectedStories.length >= maxStories) break;
     }
+    if (!selectedStories.length) {
+      return basePosts.map((post) => ({ kind: 'post' as const, post }));
+    }
     const result: Array<{ kind: 'post'; post: FeedPost } | { kind: 'story'; story: StoryItem }> = [];
+    if (basePosts.length < 6) {
+      result.push({ kind: 'story', story: selectedStories[0] });
+    }
     let storyIdx = 0;
+    if (basePosts.length < 6) storyIdx = 1;
     for (let i = 0; i < basePosts.length; i += 1) {
       result.push({ kind: 'post', post: basePosts[i] });
       const interval = i < 7 ? 6 : 8;
