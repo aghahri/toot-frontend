@@ -23,6 +23,9 @@ export default function AdminStorySourcesPage() {
   const [rows, setRows] = useState<StorySource[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [ingestSummary, setIngestSummary] = useState<string | null>(null);
+  const [ingestingSourceId, setIngestingSourceId] = useState<string | null>(null);
+  const [ingestingAll, setIngestingAll] = useState(false);
   const [form, setForm] = useState({
     name: '',
     type: 'RSS' as StorySource['type'],
@@ -83,6 +86,41 @@ export default function AdminStorySourcesPage() {
     }
   };
 
+  const ingestSource = async (sourceId?: string) => {
+    const token = getAccessToken();
+    if (!token) return;
+    if (sourceId) setIngestingSourceId(sourceId);
+    else setIngestingAll(true);
+    setError(null);
+    setIngestSummary(null);
+    try {
+      const result = await apiFetch<{
+        imported?: number;
+        skipped?: number;
+        sourceCount?: number;
+      }>('admin/story/sources/ingest', {
+        method: 'POST',
+        token,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sourceId, limit: 12 }),
+      });
+      const imported = result.imported ?? 0;
+      const skipped = result.skipped ?? 0;
+      const sourceCount = result.sourceCount ?? (sourceId ? 1 : 0);
+      setIngestSummary(
+        sourceId
+          ? `Fetch done: ${imported} imported, ${skipped} duplicates/skipped.`
+          : `Fetched ${sourceCount} sources: ${imported} imported, ${skipped} duplicates/skipped.`,
+      );
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Ingestion failed');
+    } finally {
+      setIngestingSourceId(null);
+      setIngestingAll(false);
+    }
+  };
+
   const toggleActive = async (row: StorySource) => {
     const token = getAccessToken();
     if (!token) return;
@@ -107,6 +145,11 @@ export default function AdminStorySourcesPage() {
       {error ? (
         <p className="mt-4 rounded-lg border border-red-900/50 bg-red-950/30 px-3 py-2 text-sm text-red-300">
           {error}
+        </p>
+      ) : null}
+      {ingestSummary ? (
+        <p className="mt-3 rounded-lg border border-emerald-900/50 bg-emerald-950/30 px-3 py-2 text-sm text-emerald-300">
+          {ingestSummary}
         </p>
       ) : null}
 
@@ -173,6 +216,14 @@ export default function AdminStorySourcesPage() {
         >
           Add source
         </button>
+        <button
+          type="button"
+          disabled={ingestingAll}
+          onClick={() => void ingestSource(undefined)}
+          className="ms-2 mt-3 rounded-lg border border-sky-800 bg-sky-950/40 px-3 py-2 text-xs font-semibold text-sky-300 hover:bg-sky-900/40 disabled:opacity-50"
+        >
+          {ingestingAll ? 'Fetching…' : 'Fetch all active sources'}
+        </button>
       </section>
 
       {loading ? (
@@ -200,6 +251,14 @@ export default function AdminStorySourcesPage() {
                   }`}
                 >
                   {row.isActive ? 'Active' : 'Inactive'}
+                </button>
+                <button
+                  type="button"
+                  disabled={ingestingSourceId === row.id}
+                  onClick={() => void ingestSource(row.id)}
+                  className="rounded-lg border border-sky-800 bg-sky-950/40 px-2.5 py-1.5 text-xs font-semibold text-sky-300 hover:bg-sky-900/40 disabled:opacity-50"
+                >
+                  {ingestingSourceId === row.id ? 'Fetching…' : 'Fetch items'}
                 </button>
               </div>
             </li>
