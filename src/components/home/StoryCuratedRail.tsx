@@ -8,6 +8,8 @@ type StoryItem = {
   url: string | null;
   imageUrl?: string | null;
   publishedAt: string | null;
+  storyKind?: 'TODAY' | 'LOCAL' | 'NETWORK';
+  trustLabel?: string;
   source: { name: string };
 };
 
@@ -30,6 +32,12 @@ function scopeLabel(scope: 'today' | 'local' | 'networks') {
   if (scope === 'local') return 'محله من';
   if (scope === 'networks') return 'شبکه‌ها';
   return 'امروز';
+}
+
+function kindBadge(kind?: StoryItem['storyKind']) {
+  if (kind === 'LOCAL') return { label: 'Local', cls: 'bg-emerald-500/15 text-emerald-700' };
+  if (kind === 'NETWORK') return { label: 'Network', cls: 'bg-violet-500/15 text-violet-700' };
+  return { label: 'Today', cls: 'bg-sky-500/15 text-sky-700' };
 }
 
 export function StoryCuratedRail({
@@ -70,6 +78,7 @@ export function StoryCuratedRail({
           <div className="no-scrollbar overflow-x-auto px-3 pb-3">
             <div className="flex gap-2.5">
               {items.map((item) => {
+                const kind = kindBadge(item.storyKind);
                 const href = item.url?.trim() || null;
                 const CardRoot = href ? 'a' : 'div';
                 const cardProps = href
@@ -94,9 +103,12 @@ export function StoryCuratedRail({
                           loading="lazy"
                         />
                       ) : (
-                        <div className="flex h-full w-full items-center justify-center bg-[linear-gradient(135deg,var(--surface-soft),var(--surface-strong))]">
+                        <div className="flex h-full w-full flex-col items-center justify-center gap-1 bg-[linear-gradient(135deg,var(--surface-soft),var(--surface-strong))]">
                           <span className="rounded-full bg-black/10 px-2 py-0.5 text-[10px] font-bold text-[var(--text-secondary)]">
                             {item.category || 'Story'}
+                          </span>
+                          <span className="rounded-full border border-black/10 bg-black/5 px-2 py-0.5 text-[10px] font-semibold text-[var(--text-secondary)]">
+                            {item.source.name.slice(0, 18)}
                           </span>
                         </div>
                       )}
@@ -105,15 +117,28 @@ export function StoryCuratedRail({
                       </span>
                     </div>
                     <div className="px-2.5 py-2">
+                      <div className="mb-1 flex items-center gap-1.5">
+                        <span className={`rounded-full px-1.5 py-0.5 text-[9px] font-bold ${kind.cls}`}>
+                          {kind.label}
+                        </span>
+                        {item.trustLabel ? (
+                          <span className="rounded-full border border-[var(--border-soft)] px-1.5 py-0.5 text-[9px] font-semibold text-[var(--text-secondary)]">
+                            {item.trustLabel}
+                          </span>
+                        ) : null}
+                      </div>
                       <p className="line-clamp-2 text-[12px] font-bold text-[var(--text-primary)]">
                         {item.title}
                       </p>
                       <p className="mt-1 line-clamp-2 text-[11px] text-[var(--text-secondary)]">
                         {item.summary || 'گزیده کوتاه در دسترس نیست.'}
                       </p>
-                      <p className="mt-1.5 line-clamp-1 text-[10px] font-semibold text-[var(--accent-hover)]">
-                        منبع: {item.source.name}
-                      </p>
+                      <div className="mt-1.5 flex items-center justify-between gap-1">
+                        <p className="line-clamp-1 text-[10px] font-semibold text-[var(--accent-hover)]">
+                          {item.source.name}
+                        </p>
+                        <span className="text-[9px] text-[var(--text-secondary)]">{toRelativeFa(item.publishedAt)}</span>
+                      </div>
                     </div>
                   </CardRoot>
                 );

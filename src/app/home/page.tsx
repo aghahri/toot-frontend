@@ -44,6 +44,8 @@ type StoryItem = {
   url: string | null;
   imageUrl?: string | null;
   publishedAt: string | null;
+  storyKind?: 'TODAY' | 'LOCAL' | 'NETWORK';
+  trustLabel?: string;
   source: { name: string };
 };
 

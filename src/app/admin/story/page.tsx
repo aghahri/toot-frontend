@@ -10,6 +10,16 @@ type StoryCandidate = {
   summary: string | null;
   url: string | null;
   category: string | null;
+  storyKind?: 'TODAY' | 'LOCAL' | 'NETWORK';
+  trustLabel?: string;
+  quality?: {
+    qualityScore: number;
+    titleQualityScore: number;
+    mediaQualityScore: number;
+    localityScore: number;
+    duplicateRiskScore: number;
+  };
+  imageUrl?: string | null;
   status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'PUBLISHED';
   freshnessScore: number;
   trustScore: number;
@@ -34,6 +44,12 @@ export default function AdminStoryQueuePage() {
   const [loading, setLoading] = useState(true);
   const [running, setRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const kindChip = (kind?: StoryCandidate['storyKind']) => {
+    if (kind === 'LOCAL') return 'Local';
+    if (kind === 'NETWORK') return 'Network';
+    return 'Today';
+  };
 
   const load = async () => {
     const token = getAccessToken();
@@ -139,6 +155,21 @@ export default function AdminStoryQueuePage() {
             <li key={item.id} className="rounded-xl border border-slate-800 bg-slate-900/60 p-4">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0 flex-1">
+                  <div className="mb-1 flex items-center gap-1.5">
+                    <span className="rounded-full bg-slate-800 px-2 py-0.5 text-[10px] font-bold text-slate-200">
+                      {kindChip(item.storyKind)}
+                    </span>
+                    {item.trustLabel ? (
+                      <span className="rounded-full border border-slate-700 px-2 py-0.5 text-[10px] font-semibold text-slate-300">
+                        {item.trustLabel}
+                      </span>
+                    ) : null}
+                    {item.imageUrl ? (
+                      <span className="rounded-full border border-emerald-800 bg-emerald-950/40 px-2 py-0.5 text-[10px] font-semibold text-emerald-300">
+                        Media
+                      </span>
+                    ) : null}
+                  </div>
                   <p className="truncate text-base font-semibold text-slate-100">{item.title}</p>
                   <p className="mt-1 line-clamp-2 text-sm text-slate-400">
                     {item.summary || 'No summary'}
@@ -150,6 +181,12 @@ export default function AdminStoryQueuePage() {
                     Freshness {item.freshnessScore} · Trust {item.trustScore} · Relevance{' '}
                     {item.relevanceScore}
                   </p>
+                  {item.quality ? (
+                    <p className="mt-1 text-[11px] text-slate-500">
+                      Quality {item.quality.qualityScore} · Title {item.quality.titleQualityScore} · Locality{' '}
+                      {item.quality.localityScore} · DupRisk {item.quality.duplicateRiskScore}
+                    </p>
+                  ) : null}
                 </div>
                 <span className="rounded-full border border-slate-700 px-2.5 py-1 text-[11px] font-semibold text-slate-300">
                   {item.status}
