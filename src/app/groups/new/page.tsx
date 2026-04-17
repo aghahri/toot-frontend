@@ -49,10 +49,6 @@ function CreateGroupPageInner() {
   const [searching, setSearching] = useState(false);
   const [memberSearchError, setMemberSearchError] = useState<string | null>(null);
   const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const modeRef = useRef(mode);
-  const networkIdRef = useRef(networkId);
-  modeRef.current = mode;
-  networkIdRef.current = networkId;
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [selectedProfiles, setSelectedProfiles] = useState<Record<string, UserSearchHit>>({});
   const [groupName, setGroupName] = useState('');
@@ -181,23 +177,29 @@ function CreateGroupPageInner() {
       return;
     }
     const token = getAccessToken();
-    if (!token) return;
+    if (!token) {
+      setSearchHits([]);
+      setSearching(false);
+      setMemberSearchError('برای جستجوی اعضا باید وارد شوید.');
+      return;
+    }
 
     if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
     searchDebounceRef.current = setTimeout(() => {
       void (async () => {
-        const m = modeRef.current;
-        const nid = networkIdRef.current;
-        if (m === 'network' && !nid) {
+        if (mode === 'network' && !networkId) {
           setSearchHits([]);
           setSearching(false);
-          setMemberSearchError(null);
+          setMemberSearchError('ابتدا یک شبکه انتخاب کنید.');
           return;
         }
         setSearching(true);
         setMemberSearchError(null);
         try {
-          const netQ = m === 'network' && nid ? `&networkId=${encodeURIComponent(nid)}` : '';
+          const netQ =
+            mode === 'network' && networkId
+              ? `&networkId=${encodeURIComponent(networkId)}`
+              : '';
           const rows = await apiFetch<UserSearchHit[]>(
             `users/search?q=${encodeURIComponent(q)}&limit=30${netQ}`,
             { method: 'GET', token },
