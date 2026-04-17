@@ -37,7 +37,11 @@ function CreateGroupPageInner() {
   const returnTo = (searchParams.get('returnTo') ?? '').trim().toLowerCase();
   const isStudyPreset = preset === 'study';
   const isClassPreset = preset === 'class';
-  const presetForcesCommunity = isStudyPreset || isClassPreset;
+  const isHiringPreset = preset === 'hiring';
+  const isStartupPreset = preset === 'startup';
+  const isFreelancePreset = preset === 'freelance';
+  const isBusinessPreset = isHiringPreset || isStartupPreset || isFreelancePreset;
+  const presetForcesCommunity = isStudyPreset || isClassPreset || isBusinessPreset;
   const forceChatMode = kind === 'chat';
   const forceCommunityMode = kind === 'community' || presetForcesCommunity;
   const forcedMode: CreateMode | null = forceCommunityMode ? 'network' : forceChatMode ? 'normal' : null;
@@ -416,6 +420,12 @@ function CreateGroupPageInner() {
                   ? 'Study Group — اعضا'
                   : isClassPreset
                     ? 'Class Community — اعضا'
+                  : isHiringPreset
+                    ? 'Hiring Group — اعضا'
+                    : isStartupPreset
+                      ? 'Startup Community — اعضا'
+                      : isFreelancePreset
+                        ? 'Freelance Network — اعضا'
                     : 'ایجاد گروه اجتماعی — اعضا'
               : mode === 'normal'
                 ? 'ایجاد گروه چت — جزئیات'
@@ -423,6 +433,12 @@ function CreateGroupPageInner() {
                   ? 'Study Group — جزئیات'
                   : isClassPreset
                     ? 'Class Community — جزئیات'
+                    : isHiringPreset
+                      ? 'Hiring Group — جزئیات'
+                      : isStartupPreset
+                        ? 'Startup Community — جزئیات'
+                        : isFreelancePreset
+                          ? 'Freelance Network — جزئیات'
                     : 'ایجاد گروه اجتماعی — جزئیات'}
           </h1>
         </header>
@@ -457,6 +473,12 @@ function CreateGroupPageInner() {
               ? 'Study Group برای یادگیری همتا، بحث درسی و آمادگی آزمون است.'
               : isClassPreset
                 ? 'Class Community برای دانشجویان یک کلاس/درس و هماهنگی متمرکز است.'
+                : isHiringPreset
+                  ? 'Hiring Group برای فرصت‌های شغلی، جذب نیرو، ارجاع و گفتگوهای استخدامی است.'
+                  : isStartupPreset
+                    ? 'Startup Community برای بنیان‌گذارها و سازنده‌ها جهت شبکه‌سازی و رشد است.'
+                    : isFreelancePreset
+                      ? 'Freelance Network برای پروژه‌ها، لید مشتری و همکاری حرفه‌ای است.'
                 : 'گروه اجتماعی برای جامعه و فضا/شبکه است و در سطوح اجتماعی قابل کشف است.'}
         </div>
 
@@ -634,6 +656,12 @@ function CreateGroupPageInner() {
                 ? 'هم‌گروهی‌های مطالعه را از اعضای فعال همین شبکه آموزشی انتخاب کنید (حداقل ۲ نویسه).'
                 : isClassPreset
                   ? 'اعضای کلاس را از اعضای فعال همین شبکه آموزشی انتخاب کنید (حداقل ۲ نویسه).'
+                  : isHiringPreset
+                    ? 'اعضای حرفه‌ای مرتبط با جذب نیرو را از اعضای فعال شبکه انتخاب کنید (حداقل ۲ نویسه).'
+                    : isStartupPreset
+                      ? 'بنیان‌گذارها و همکارهای سازنده را از اعضای فعال شبکه انتخاب کنید (حداقل ۲ نویسه).'
+                      : isFreelancePreset
+                        ? 'اعضای فریلنسر و همکارهای پروژه‌ای را از اعضای فعال شبکه انتخاب کنید (حداقل ۲ نویسه).'
                   : 'اعضای فعال این شبکه را با نام، نام کاربری، ایمیل یا بخشی از شماره موبایل جستجو کنید (حداقل ۲ نویسه) — همان رفتار جستجوی گفتگوی جدید.'}
             </p>
             <input
@@ -762,7 +790,13 @@ function CreateGroupPageInner() {
                       ? 'مثلاً Exam Prep Group'
                       : isClassPreset
                         ? 'مثلاً Class Community - فیزیک ۱'
-                        : 'مثلاً جامعه آموزش برنامه‌نویسی'
+                        : isHiringPreset
+                          ? 'مثلاً Product Hiring Group'
+                          : isStartupPreset
+                            ? 'مثلاً Startup Builders Community'
+                            : isFreelancePreset
+                              ? 'مثلاً Freelance Opportunities Network'
+                              : 'مثلاً جامعه آموزش برنامه‌نویسی'
                 }
                 minLength={2}
                 maxLength={100}
@@ -780,6 +814,12 @@ function CreateGroupPageInner() {
                     ? 'Peer learning and discussion (اختیاری)'
                     : isClassPreset
                       ? 'Students of one course/class (اختیاری)'
+                      : isHiringPreset
+                        ? 'Recruiting, openings, referrals (اختیاری)'
+                        : isStartupPreset
+                          ? 'Founders, builders, growth (اختیاری)'
+                          : isFreelancePreset
+                            ? 'Gigs, projects, collaboration (اختیاری)'
                       : 'اختیاری'
                 }
                 rows={3}
@@ -811,6 +851,12 @@ function CreateGroupPageInner() {
                       ? 'ساخت Study Group'
                       : isClassPreset
                         ? 'ساخت Class Community'
+                        : isHiringPreset
+                          ? 'ساخت Hiring Group'
+                          : isStartupPreset
+                            ? 'ساخت Startup Community'
+                            : isFreelancePreset
+                              ? 'ساخت Freelance Network'
                         : 'ساخت گروه اجتماعی'}
                 </>
               )}

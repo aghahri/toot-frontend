@@ -20,6 +20,7 @@ function NewChannelPageInner() {
   const preset = (searchParams.get('preset') ?? '').trim().toLowerCase();
   const presetNetworkId = (searchParams.get('networkId') ?? '').trim();
   const isTeacherPreset = preset === 'teacher';
+  const isProfessionalPreset = preset === 'professional';
 
   const [networks, setNetworks] = useState<NetworkRow[]>([]);
   const [networkId, setNetworkId] = useState('');
@@ -82,7 +83,7 @@ function NewChannelPageInner() {
           name: name.trim(),
           description: description.trim() || undefined,
           networkId,
-          spaceCategory: 'EDUCATION',
+          spaceCategory: isTeacherPreset ? 'EDUCATION' : 'PUBLIC_GENERAL',
         }),
       });
       router.replace(`/channels/${created.id}?network=${encodeURIComponent(created.networkId)}`);
@@ -98,9 +99,16 @@ function NewChannelPageInner() {
       <main className="mx-auto w-full max-w-md px-4 pb-12 pt-4 sm:pb-14" dir="rtl">
         <div className="mb-4 flex items-center justify-between gap-2">
           <h1 className="text-lg font-extrabold text-slate-900">
-            {isTeacherPreset ? 'Teacher Channel — ساخت کانال آموزشی' : 'ساخت کانال'}
+            {isTeacherPreset
+              ? 'Teacher Channel — ساخت کانال آموزشی'
+              : isProfessionalPreset
+                ? 'Professional Channel — کانال حرفه‌ای'
+                : 'ساخت کانال'}
           </h1>
-          <Link href="/spaces/EDUCATION" className="rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-extrabold text-slate-700 transition hover:bg-slate-50">
+          <Link
+            href={isProfessionalPreset ? '/spaces/PUBLIC_GENERAL' : '/spaces/EDUCATION'}
+            className="rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-extrabold text-slate-700 transition hover:bg-slate-50"
+          >
             بازگشت
           </Link>
         </div>
@@ -109,6 +117,10 @@ function NewChannelPageInner() {
           {isTeacherPreset ? (
             <p className="mb-3 rounded-2xl bg-indigo-50 px-3 py-2 text-xs text-indigo-800 ring-1 ring-indigo-200/80">
               Teacher Channel برای انتشار درس، اعلان و آپدیت‌های آموزشی به‌صورت یک‌به‌چند.
+            </p>
+          ) : isProfessionalPreset ? (
+            <p className="mb-3 rounded-2xl bg-amber-50 px-3 py-2 text-xs text-amber-800 ring-1 ring-amber-200/80">
+              Professional Channel برای انتشار insightها، آپدیت‌های کاری و mentorship در جامعه حرفه‌ای.
             </p>
           ) : null}
 
@@ -142,7 +154,13 @@ function NewChannelPageInner() {
                 <input
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  placeholder={isTeacherPreset ? 'مثلاً Teacher Channel - ریاضی گسسته' : 'نام کانال'}
+                  placeholder={
+                    isTeacherPreset
+                      ? 'مثلاً Teacher Channel - ریاضی گسسته'
+                      : isProfessionalPreset
+                        ? 'مثلاً Industry Updates Channel'
+                        : 'نام کانال'
+                  }
                   className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
                 />
               </label>
@@ -153,7 +171,13 @@ function NewChannelPageInner() {
                   rows={3}
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
-                  placeholder={isTeacherPreset ? 'Lessons, notices, updates' : 'اختیاری'}
+                  placeholder={
+                    isTeacherPreset
+                      ? 'Lessons, notices, updates'
+                      : isProfessionalPreset
+                        ? 'Insights and announcements'
+                        : 'اختیاری'
+                  }
                   className="w-full resize-none rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
                 />
               </label>
@@ -164,7 +188,13 @@ function NewChannelPageInner() {
                 disabled={creating || !networkId || name.trim().length < 2}
                 className="w-full rounded-2xl bg-indigo-700 py-3 text-sm font-bold text-white shadow-md shadow-indigo-700/20 transition hover:bg-indigo-600 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                {creating ? 'در حال ساخت…' : isTeacherPreset ? 'ساخت Teacher Channel' : 'ساخت کانال'}
+                {creating
+                  ? 'در حال ساخت…'
+                  : isTeacherPreset
+                    ? 'ساخت Teacher Channel'
+                    : isProfessionalPreset
+                      ? 'ساخت Professional Channel'
+                      : 'ساخت کانال'}
               </button>
             </div>
           )}

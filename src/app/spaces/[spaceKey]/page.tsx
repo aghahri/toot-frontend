@@ -586,6 +586,14 @@ function SpaceDetailInner() {
                 memberNetworkId={displayNetworks.find((n) => n.isMember)?.id ?? null}
               />
             ) : null}
+            {spaceKey === 'PUBLIC_GENERAL' ? (
+              <BusinessCapabilitySection
+                groups={data.groups}
+                channels={data.channels}
+                networks={displayNetworks}
+                memberNetworkId={displayNetworks.find((n) => n.isMember)?.id ?? null}
+              />
+            ) : null}
             {spaceKey === 'NEIGHBORHOOD' ? <NeighborhoodFormsCapabilitySection /> : null}
 
             {isNeighborhood ? (
@@ -901,6 +909,278 @@ const EducationCapabilitySection = memo(function EducationCapabilitySection({
             )}
           </ul>
         </div>
+      </div>
+    </section>
+  );
+});
+
+const BusinessCapabilitySection = memo(function BusinessCapabilitySection({
+  groups,
+  channels,
+  networks,
+  memberNetworkId,
+}: {
+  groups: GroupRow[];
+  channels: ChannelRow[];
+  networks: Array<NetworkRow & { isMember?: boolean }>;
+  memberNetworkId: string | null;
+}) {
+  const businessTokens = [
+    'job',
+    'hire',
+    'hiring',
+    'career',
+    'startup',
+    'founder',
+    'business',
+    'marketing',
+    'sales',
+    'product',
+    'design',
+    'freelance',
+    'agency',
+    'remote',
+    'developer',
+    'work',
+    'career',
+    'job',
+    'استخدام',
+    'کاریابی',
+    'شغل',
+    'فریلنس',
+    'فریلنسر',
+    'استارتاپ',
+    'بنیان',
+    'کسب',
+    'مارکتینگ',
+    'فروش',
+    'محصول',
+    'طراح',
+    'توسعه',
+    'دورکار',
+    'پروژه',
+  ];
+  const hiringTokens = ['hire', 'hiring', 'job', 'career', 'talent', 'استخدام', 'شغل', 'کاریابی'];
+  const startupTokens = ['startup', 'founder', 'builder', 'venture', 'استارتاپ', 'بنیان', 'هم', 'رشد'];
+  const freelanceTokens = ['freelance', 'project', 'gig', 'remote', 'client', 'فریلنس', 'پروژه', 'دورکار'];
+  const professionalTokens = ['professional', 'industry', 'insight', 'mentor', 'business', 'حرفه', 'صنعت', 'منتور'];
+
+  function scoreByTokens(text: string, tokens: string[]) {
+    const normalized = text.toLowerCase();
+    return tokens.reduce((acc, token) => (normalized.includes(token) ? acc + 1 : acc), 0);
+  }
+
+  const rankedGroups = [...groups]
+    .sort((a, b) => {
+      const aScore =
+        scoreByTokens(`${a.name} ${a.description ?? ''}`, businessTokens) + scoreByTokens(`${a.name} ${a.description ?? ''}`, hiringTokens) + (a.joinable ? 1 : 0);
+      const bScore =
+        scoreByTokens(`${b.name} ${b.description ?? ''}`, businessTokens) + scoreByTokens(`${b.name} ${b.description ?? ''}`, hiringTokens) + (b.joinable ? 1 : 0);
+      return bScore - aScore;
+    })
+    .slice(0, 4);
+
+  const rankedStartupGroups = [...groups]
+    .sort((a, b) => {
+      const aScore = scoreByTokens(`${a.name} ${a.description ?? ''}`, startupTokens);
+      const bScore = scoreByTokens(`${b.name} ${b.description ?? ''}`, startupTokens);
+      return bScore - aScore;
+    })
+    .slice(0, 4);
+
+  const rankedChannels = [...channels]
+    .sort((a, b) => {
+      const aScore =
+        scoreByTokens(`${a.name} ${a.description ?? ''}`, businessTokens) + scoreByTokens(`${a.name} ${a.description ?? ''}`, professionalTokens);
+      const bScore =
+        scoreByTokens(`${b.name} ${b.description ?? ''}`, businessTokens) + scoreByTokens(`${b.name} ${b.description ?? ''}`, professionalTokens);
+      return bScore - aScore;
+    })
+    .slice(0, 4);
+
+  const rankedFreelanceNetworks = [...networks]
+    .sort((a, b) => {
+      const aScore =
+        scoreByTokens(`${a.name} ${a.description ?? ''}`, freelanceTokens) + scoreByTokens(`${a.name} ${a.description ?? ''}`, businessTokens) + (a.isMember ? 2 : 0);
+      const bScore =
+        scoreByTokens(`${b.name} ${b.description ?? ''}`, freelanceTokens) + scoreByTokens(`${b.name} ${b.description ?? ''}`, businessTokens) + (b.isMember ? 2 : 0);
+      return bScore - aScore;
+    })
+    .slice(0, 4);
+
+  const recommendedCommunities = [...networks]
+    .sort((a, b) => {
+      const aScore = scoreByTokens(`${a.name} ${a.description ?? ''}`, businessTokens) + (a.isMember ? 2 : 0);
+      const bScore = scoreByTokens(`${b.name} ${b.description ?? ''}`, businessTokens) + (b.isMember ? 2 : 0);
+      return bScore - aScore;
+    })
+    .slice(0, 4);
+
+  const hiringGroupHref = `/groups/new?kind=community&spaceKey=PUBLIC_GENERAL${memberNetworkId ? `&networkId=${encodeURIComponent(memberNetworkId)}` : ''}&returnTo=spaces&preset=hiring`;
+  const startupCommunityHref = `/groups/new?kind=community&spaceKey=PUBLIC_GENERAL${memberNetworkId ? `&networkId=${encodeURIComponent(memberNetworkId)}` : ''}&returnTo=spaces&preset=startup`;
+  const professionalChannelHref = `/channels/new?preset=professional&spaceKey=PUBLIC_GENERAL${memberNetworkId ? `&networkId=${encodeURIComponent(memberNetworkId)}` : ''}`;
+  const freelanceNetworkHref = `/groups/new?kind=community&spaceKey=PUBLIC_GENERAL${memberNetworkId ? `&networkId=${encodeURIComponent(memberNetworkId)}` : ''}&returnTo=spaces&preset=freelance`;
+
+  return (
+    <section className={SECTION_CARD}>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 className="text-lg font-black tracking-tight text-slate-900">Business Capability v1</h2>
+        <span className="rounded-full bg-amber-50 px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-[0.08em] text-amber-800 ring-1 ring-amber-200/80">
+          Work & Opportunity
+        </span>
+      </div>
+      <p className="mt-1 text-sm leading-relaxed text-slate-600">
+        اینجا لایه مدرن کامیونیتی برای کار، استخدام، همکاری و رشد حرفه‌ای است.
+      </p>
+
+      <div className="mt-4 grid gap-3 sm:grid-cols-2">
+        <article className={SUB_CARD + ' min-h-[11rem] bg-amber-50/60 ring-1 ring-amber-100'}>
+          <p className="text-sm font-extrabold text-slate-900">Create Hiring Group</p>
+          <p className="mt-1 text-[11px] leading-relaxed text-slate-600">Jobs, recruiting, referrals و hiring discussion در یک فضای متمرکز.</p>
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            <span className="rounded-full bg-white px-2 py-0.5 text-[10px] font-bold text-amber-700 ring-1 ring-amber-200/80">Hiring-ready</span>
+            <span className="rounded-full bg-white px-2 py-0.5 text-[10px] font-bold text-amber-700 ring-1 ring-amber-200/80">Talent network</span>
+          </div>
+          <Link href={hiringGroupHref} className={PRIMARY_CTA + ' mt-3 inline-flex !bg-amber-700 hover:!bg-amber-600 !px-3.5 !py-2 !text-[11px]'}>
+            ساخت Hiring Group
+          </Link>
+        </article>
+
+        <article className={SUB_CARD + ' min-h-[11rem] bg-amber-50/60 ring-1 ring-amber-100'}>
+          <p className="text-sm font-extrabold text-slate-900">Create Startup Community</p>
+          <p className="mt-1 text-[11px] leading-relaxed text-slate-600">Founders, builders, cofounders و startup networking برای رشد تیم و محصول.</p>
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            <span className="rounded-full bg-white px-2 py-0.5 text-[10px] font-bold text-amber-700 ring-1 ring-amber-200/80">Founder-led</span>
+            <span className="rounded-full bg-white px-2 py-0.5 text-[10px] font-bold text-amber-700 ring-1 ring-amber-200/80">Remote-friendly</span>
+          </div>
+          <Link href={startupCommunityHref} className={PRIMARY_CTA + ' mt-3 inline-flex !bg-amber-700 hover:!bg-amber-600 !px-3.5 !py-2 !text-[11px]'}>
+            ساخت Startup Community
+          </Link>
+        </article>
+
+        <article className={SUB_CARD + ' min-h-[11rem] bg-amber-50/60 ring-1 ring-amber-100'}>
+          <p className="text-sm font-extrabold text-slate-900">Create Professional Channel</p>
+          <p className="mt-1 text-[11px] leading-relaxed text-slate-600">Updates, insights, industry news و mentorship برای مخاطب حرفه‌ای.</p>
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            <span className="rounded-full bg-white px-2 py-0.5 text-[10px] font-bold text-amber-700 ring-1 ring-amber-200/80">High-signal</span>
+            <span className="rounded-full bg-white px-2 py-0.5 text-[10px] font-bold text-amber-700 ring-1 ring-amber-200/80">Industry flow</span>
+          </div>
+          <Link href={professionalChannelHref} className={SECONDARY_CTA + ' mt-3 inline-flex !px-3.5 !py-2 !text-[11px]'}>
+            {memberNetworkId ? 'ساخت Professional Channel' : 'ابتدا عضو یک شبکه کاری شوید'}
+          </Link>
+        </article>
+
+        <article className={SUB_CARD + ' min-h-[11rem] bg-amber-50/60 ring-1 ring-amber-100'}>
+          <p className="text-sm font-extrabold text-slate-900">Create Freelance Network</p>
+          <p className="mt-1 text-[11px] leading-relaxed text-slate-600">Gigs, projects, client leads و collaboration برای فریلنسرها و تیم‌های کوچک.</p>
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            <span className="rounded-full bg-white px-2 py-0.5 text-[10px] font-bold text-amber-700 ring-1 ring-amber-200/80">Deals soon</span>
+            <span className="rounded-full bg-white px-2 py-0.5 text-[10px] font-bold text-amber-700 ring-1 ring-amber-200/80">Marketplace next</span>
+          </div>
+          <Link href={freelanceNetworkHref} className={PRIMARY_CTA + ' mt-3 inline-flex !bg-amber-700 hover:!bg-amber-600 !px-3.5 !py-2 !text-[11px]'}>
+            ساخت Freelance Network
+          </Link>
+        </article>
+      </div>
+
+      <div className="mt-4 grid gap-3 sm:grid-cols-2">
+        <div className={SUB_CARD + ' min-h-[10.5rem]'}>
+          <h3 className="text-sm font-extrabold text-slate-900">Growing Startup Communities</h3>
+          <ul className="mt-2 space-y-1.5 text-[11px] text-slate-700">
+            {rankedStartupGroups.length === 0 ? (
+              <li className="rounded-xl bg-slate-100/70 px-2.5 py-2 text-slate-500">هنوز Startup Community برجسته‌ای ثبت نشده است.</li>
+            ) : (
+              rankedStartupGroups.map((g) => (
+                <li key={g.id} className="rounded-xl bg-white px-2.5 py-2 ring-1 ring-slate-200/80">
+                  <Link href={`/groups/${g.id}`} className="font-bold text-sky-700 hover:underline">
+                    {g.name}
+                  </Link>
+                </li>
+              ))
+            )}
+          </ul>
+        </div>
+
+        <div className={SUB_CARD + ' min-h-[10.5rem]'}>
+          <h3 className="text-sm font-extrabold text-slate-900">Active Hiring Groups</h3>
+          <ul className="mt-2 space-y-1.5 text-[11px] text-slate-700">
+            {rankedGroups.length === 0 ? (
+              <li className="rounded-xl bg-slate-100/70 px-2.5 py-2 text-slate-500">فعلاً گروه استخدامی فعالی برای نمایش پیدا نشد.</li>
+            ) : (
+              rankedGroups.map((g) => (
+                <li key={g.id} className="rounded-xl bg-white px-2.5 py-2 ring-1 ring-slate-200/80">
+                  <Link href={`/groups/${g.id}`} className="font-bold text-sky-700 hover:underline">
+                    {g.name}
+                  </Link>
+                </li>
+              ))
+            )}
+          </ul>
+        </div>
+
+        <div className={SUB_CARD + ' min-h-[10.5rem]'}>
+          <h3 className="text-sm font-extrabold text-slate-900">Professional Channels</h3>
+          <ul className="mt-2 space-y-1.5 text-[11px] text-slate-700">
+            {rankedChannels.length === 0 ? (
+              <li className="rounded-xl bg-slate-100/70 px-2.5 py-2 text-slate-500">Professional Channel برجسته‌ای موجود نیست.</li>
+            ) : (
+              rankedChannels.map((c) => (
+                <li key={c.id} className="rounded-xl bg-white px-2.5 py-2 ring-1 ring-slate-200/80">
+                  <Link href={`/channels/${c.id}?network=${encodeURIComponent(c.networkId)}`} className="font-bold text-sky-700 hover:underline">
+                    {c.name}
+                  </Link>
+                </li>
+              ))
+            )}
+          </ul>
+        </div>
+
+        <div className={SUB_CARD + ' min-h-[10.5rem]'}>
+          <h3 className="text-sm font-extrabold text-slate-900">Freelance Opportunities</h3>
+          <ul className="mt-2 space-y-1.5 text-[11px] text-slate-700">
+            {rankedFreelanceNetworks.length === 0 ? (
+              <li className="rounded-xl bg-slate-100/70 px-2.5 py-2 text-slate-500">فرصت فریلنس آماده نمایش نیست.</li>
+            ) : (
+              rankedFreelanceNetworks.map((n) => (
+                <li key={n.id} className="rounded-xl bg-white px-2.5 py-2 ring-1 ring-slate-200/80">
+                  <Link href={`/networks/${n.id}`} className="font-bold text-sky-700 hover:underline">
+                    {n.name}
+                  </Link>
+                </li>
+              ))
+            )}
+          </ul>
+        </div>
+      </div>
+
+      <div className="mt-3">
+        <h3 className="text-sm font-extrabold text-slate-900">Recommended Work Communities</h3>
+        <ul className="mt-2 grid gap-2 sm:grid-cols-2">
+          {recommendedCommunities.length === 0 ? (
+            <li className="rounded-xl bg-slate-100/70 px-2.5 py-2 text-[11px] text-slate-500">
+              هنوز کامیونیتی کاری پیشنهادی در این فضا موجود نیست.
+            </li>
+          ) : (
+            recommendedCommunities.map((n) => (
+              <li key={n.id} className="rounded-xl bg-white px-2.5 py-2 ring-1 ring-slate-200/80">
+                <Link href={`/networks/${n.id}`} className="text-[11px] font-bold text-sky-700 hover:underline">
+                  {n.name}
+                </Link>
+              </li>
+            ))
+          )}
+        </ul>
+      </div>
+
+      <div className="mt-4 flex flex-wrap gap-1.5">
+        {['Hiring-ready', 'Founder-led', 'Talent network', 'Remote-friendly', 'Deals soon', 'Marketplace next'].map((chip) => (
+          <span
+            key={chip}
+            className="rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-[10px] font-bold text-amber-800"
+          >
+            {chip}
+          </span>
+        ))}
       </div>
     </section>
   );
