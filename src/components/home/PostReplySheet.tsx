@@ -7,6 +7,8 @@ import { getAccessToken } from '@/lib/auth';
 import { apiFetch } from '@/lib/api';
 import { Button } from '@/components/ui/Button';
 import type { FeedPost, PostReplyItem } from './feed-types';
+import { MentionComposerField } from './MentionComposerField';
+import { renderPostTextWithLinks } from './render-post-text';
 
 function formatReplyTime(iso: string): string {
   const d = new Date(iso);
@@ -158,7 +160,7 @@ export function PostReplySheet({ post, open, onClose, onReplied }: PostReplyShee
 
         <div className="min-w-0 shrink-0 overflow-x-hidden border-b border-slate-50 px-4 py-3 text-sm text-slate-600">
           <p className="line-clamp-3 min-w-0 break-words [overflow-wrap:anywhere] whitespace-pre-wrap">
-            {post.text || '(بدون متن)'}
+            {post.text ? renderPostTextWithLinks(post.text) : '(بدون متن)'}
           </p>
         </div>
 
@@ -211,7 +213,7 @@ export function PostReplySheet({ post, open, onClose, onReplied }: PostReplyShee
                         <span className="text-slate-400">{formatReplyTime(r.createdAt)}</span>
                       </div>
                       <p className="mt-1 min-w-0 break-words [overflow-wrap:anywhere] whitespace-pre-wrap text-sm leading-relaxed text-slate-800">
-                        {r.text}
+                        {renderPostTextWithLinks(r.text)}
                       </p>
                     </div>
                   </li>
@@ -225,9 +227,9 @@ export function PostReplySheet({ post, open, onClose, onReplied }: PostReplyShee
           onSubmit={onSubmit}
           className="min-w-0 shrink-0 overflow-x-hidden border-t border-slate-100 bg-white p-4 pb-[max(1rem,env(safe-area-inset-bottom))]"
         >
-          <textarea
+          <MentionComposerField
             value={text}
-            onChange={(e) => setText(e.target.value)}
+            onChange={setText}
             placeholder="پاسخ خود را بنویسید…"
             disabled={submitting}
             rows={3}

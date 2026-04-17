@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/Button';
 import { apiFetch, getApiBaseUrl, getErrorMessageFromResponse } from '@/lib/api';
 import { buildMediaUrl } from '@/lib/media';
 import type { FeedPost } from './feed-types';
+import { MentionComposerField } from './MentionComposerField';
 
 type SelectedPreview = { id: string; file: File; previewUrl: string };
 
@@ -213,11 +214,11 @@ export function HomeComposeSheet({ open, onClose, onPostCreated }: HomeComposeSh
               onSubmit={onCreatePost}
               className="box-border min-w-0 space-y-4 p-4 pb-[max(2rem,env(safe-area-inset-bottom))]"
             >
-              <textarea
+              <MentionComposerField
                 value={text}
-                onChange={(e) => setText(e.target.value)}
-                placeholder="چه خبر از محله و شبکهٔ توت؟"
+                onChange={setText}
                 disabled={submitting}
+                placeholder="چه خبر از محله و شبکهٔ توت؟"
                 rows={5}
                 className="box-border max-w-full min-w-0 w-full resize-none rounded-2xl border border-slate-200 bg-slate-50/80 p-3.5 text-[15px] leading-relaxed text-slate-900 outline-none ring-0 transition [overflow-wrap:anywhere] focus:border-sky-400/50 focus:bg-white focus:ring-2 focus:ring-sky-100"
               />

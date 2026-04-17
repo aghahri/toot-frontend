@@ -5,6 +5,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { getAccessToken } from '@/lib/auth';
 import { apiFetch } from '@/lib/api';
 import type { FeedPost, PostEngagementSnapshot } from './feed-types';
+import { MentionComposerField } from './MentionComposerField';
+import { renderPostTextWithLinks } from './render-post-text';
 
 function formatFeedTime(iso: string): string {
   const d = new Date(iso);
@@ -34,32 +36,6 @@ function formatCount(n: number): string {
   }
   const m = v / 1_000_000;
   return `${m >= 10 ? Math.round(m) : m.toFixed(1).replace(/\.0$/, '')}M`;
-}
-
-function renderTextWithHashtags(text: string) {
-  const lines = text.split('\n');
-  return lines.map((line, lineIndex) => {
-    const parts = line.split(/(#[\p{L}\p{N}_]+)/gu);
-    return (
-      <span key={`line-${lineIndex}`}>
-        {parts.map((part, idx) => {
-          if (/^#[\p{L}\p{N}_]+$/u.test(part)) {
-            return (
-              <Link
-                key={`tag-${lineIndex}-${idx}`}
-                href={`/search?q=${encodeURIComponent(part)}`}
-                className="font-semibold text-[var(--accent-hover)] hover:underline"
-              >
-                {part}
-              </Link>
-            );
-          }
-          return <span key={`txt-${lineIndex}-${idx}`}>{part}</span>;
-        })}
-        {lineIndex < lines.length - 1 ? '\n' : null}
-      </span>
-    );
-  });
 }
 
 type FeedPostCardProps = {
@@ -472,11 +448,12 @@ export function FeedPostCard({
 
           {editOpen ? (
             <div className="mt-2.5 rounded-xl border border-slate-200 bg-slate-50/70 p-2.5">
-              <textarea
+              <MentionComposerField
                 value={editText}
-                onChange={(e) => setEditText(e.target.value)}
+                onChange={setEditText}
                 className="min-h-[5.5rem] w-full resize-y rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-200"
                 placeholder="متن پست"
+                rows={5}
               />
               <div className="mt-2 flex items-center justify-end gap-2">
                 <button
@@ -508,7 +485,7 @@ export function FeedPostCard({
 
           {p.text ? (
             <div className="mt-1.5 whitespace-pre-wrap text-[15px] leading-[1.58] text-slate-800">
-              {renderTextWithHashtags(p.text)}
+              {renderPostTextWithLinks(p.text)}
             </div>
           ) : null}
 
