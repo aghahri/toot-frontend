@@ -12,6 +12,8 @@ type Net = {
   slug: string | null;
   visibility: string;
   spaceCategory: string;
+  networkType?: string;
+  alignedSpaceCategory?: string | null;
   isFeatured: boolean;
   memberCount?: number;
 };
@@ -25,6 +27,8 @@ export default function AdminNetworkDetailPage() {
   const [description, setDescription] = useState('');
   const [visibility, setVisibility] = useState('PUBLIC');
   const [spaceCategory, setSpaceCategory] = useState('PUBLIC_GENERAL');
+  const [networkType, setNetworkType] = useState('GENERAL');
+  const [alignedSpaceCategory, setAlignedSpaceCategory] = useState('PUBLIC_GENERAL');
   const [isFeatured, setIsFeatured] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
@@ -43,6 +47,8 @@ export default function AdminNetworkDetailPage() {
         setDescription(n.description ?? '');
         setVisibility(n.visibility);
         setSpaceCategory(n.spaceCategory);
+        setNetworkType(n.networkType ?? 'GENERAL');
+        setAlignedSpaceCategory(n.alignedSpaceCategory ?? n.spaceCategory ?? 'PUBLIC_GENERAL');
         setIsFeatured(n.isFeatured);
       } catch (e) {
         if (!cancelled) setErr(e instanceof Error ? e.message : 'Error');
@@ -68,6 +74,8 @@ export default function AdminNetworkDetailPage() {
           description: description.trim() || null,
           visibility,
           spaceCategory,
+          networkType,
+          alignedSpaceCategory,
           isFeatured,
         }),
       });
@@ -87,6 +95,14 @@ export default function AdminNetworkDetailPage() {
       </button>
       <h1 className="mt-4 text-xl font-bold text-white">{row.name}</h1>
       <p className="mt-1 font-mono text-xs text-slate-500">{row.id}</p>
+      <div className="mt-2 flex flex-wrap gap-2 text-xs">
+        <span className="rounded bg-indigo-900/40 px-2 py-1 font-mono text-indigo-200">
+          type: {row.networkType ?? 'GENERAL'}
+        </span>
+        <span className="rounded bg-slate-800 px-2 py-1 font-mono text-slate-300">
+          aligned: {row.alignedSpaceCategory ?? '—'}
+        </span>
+      </div>
 
       <div className="mt-6 space-y-4 rounded-lg border border-slate-800 bg-slate-900/40 p-4">
         <label className="block text-sm">
@@ -123,6 +139,34 @@ export default function AdminNetworkDetailPage() {
           <select
             value={spaceCategory}
             onChange={(e) => setSpaceCategory(e.target.value)}
+            className="mt-1 w-full rounded border border-slate-700 bg-slate-950 px-2 py-2 text-white"
+          >
+            {['PUBLIC_GENERAL', 'NEIGHBORHOOD', 'EDUCATION', 'SPORT', 'TECH'].map((c) => (
+              <option key={c} value={c}>
+                {c}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="block text-sm">
+          <span className="text-slate-400">Network type</span>
+          <select
+            value={networkType}
+            onChange={(e) => setNetworkType(e.target.value)}
+            className="mt-1 w-full rounded border border-slate-700 bg-slate-950 px-2 py-2 text-white"
+          >
+            {['GENERAL', 'NEIGHBORHOOD', 'EDUCATION', 'BUSINESS', 'SPORTS', 'GAMING'].map((c) => (
+              <option key={c} value={c}>
+                {c}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="block text-sm">
+          <span className="text-slate-400">Aligned space category</span>
+          <select
+            value={alignedSpaceCategory}
+            onChange={(e) => setAlignedSpaceCategory(e.target.value)}
             className="mt-1 w-full rounded border border-slate-700 bg-slate-950 px-2 py-2 text-white"
           >
             {['PUBLIC_GENERAL', 'NEIGHBORHOOD', 'EDUCATION', 'SPORT', 'TECH'].map((c) => (
