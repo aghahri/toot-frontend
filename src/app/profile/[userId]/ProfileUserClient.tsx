@@ -311,12 +311,21 @@ export function ProfileUserClient({ userId }: ProfileUserClientProps) {
 
                 <div className="space-y-2 border-t border-slate-100 px-4 pb-4 pt-3">
                   {profile.isSelf ? (
-                    <Link
-                      href="/profile/edit"
-                      className="flex min-h-[46px] w-full items-center justify-center rounded-full bg-[var(--accent)] text-sm font-extrabold text-white transition hover:bg-[var(--accent-hover)]"
-                    >
-                      ویرایش پروفایل
-                    </Link>
+                    <>
+                      <Link
+                        href="/profile/edit"
+                        className="flex min-h-[46px] w-full items-center justify-center rounded-full bg-[var(--accent)] text-sm font-extrabold text-white transition hover:bg-[var(--accent-hover)]"
+                      >
+                        ویرایش پروفایل
+                      </Link>
+                      <Link
+                        href="/profile/saved"
+                        className="theme-border-soft flex min-h-[44px] w-full items-center justify-center gap-2 rounded-full border bg-white text-sm font-extrabold text-slate-800 shadow-sm transition hover:bg-slate-50"
+                      >
+                        <span aria-hidden>📑</span>
+                        نشان‌شده‌ها
+                      </Link>
+                    </>
                   ) : (
                     <>
                       <div className="flex flex-wrap gap-2">
