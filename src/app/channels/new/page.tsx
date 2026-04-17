@@ -98,7 +98,7 @@ function NewChannelPageInner() {
       <main className="mx-auto w-full max-w-md px-4 pb-12 pt-4 sm:pb-14" dir="rtl">
         <div className="mb-4 flex items-center justify-between gap-2">
           <h1 className="text-lg font-extrabold text-slate-900">
-            {isTeacherPreset ? 'Create Teacher Channel' : 'ساخت کانال'}
+            {isTeacherPreset ? 'Teacher Channel — ساخت کانال آموزشی' : 'ساخت کانال'}
           </h1>
           <Link href="/spaces/EDUCATION" className="rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-extrabold text-slate-700 transition hover:bg-slate-50">
             بازگشت
@@ -142,7 +142,7 @@ function NewChannelPageInner() {
                 <input
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  placeholder={isTeacherPreset ? 'مثلاً Teacher Channel - Algebra' : 'نام کانال'}
+                  placeholder={isTeacherPreset ? 'مثلاً Teacher Channel - ریاضی گسسته' : 'نام کانال'}
                   className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
                 />
               </label>

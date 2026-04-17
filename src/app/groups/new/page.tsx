@@ -413,16 +413,16 @@ function CreateGroupPageInner() {
               ? mode === 'normal'
                 ? 'ایجاد گروه چت — اعضا'
                 : isStudyPreset
-                  ? 'Create Study Group — اعضا'
+                  ? 'Study Group — اعضا'
                   : isClassPreset
-                    ? 'Create Class Community — اعضا'
+                    ? 'Class Community — اعضا'
                     : 'ایجاد گروه اجتماعی — اعضا'
               : mode === 'normal'
                 ? 'ایجاد گروه چت — جزئیات'
                 : isStudyPreset
-                  ? 'Create Study Group — جزئیات'
+                  ? 'Study Group — جزئیات'
                   : isClassPreset
-                    ? 'Create Class Community — جزئیات'
+                    ? 'Class Community — جزئیات'
                     : 'ایجاد گروه اجتماعی — جزئیات'}
           </h1>
         </header>
@@ -805,7 +805,13 @@ function CreateGroupPageInner() {
               ) : (
                 <>
                   <IconPlus className="h-5 w-5 stroke-[2.5]" />
-                  {mode === 'normal' ? 'ساخت گروه چت' : 'ساخت گروه اجتماعی'}
+                  {mode === 'normal'
+                    ? 'ساخت گروه چت'
+                    : isStudyPreset
+                      ? 'ساخت Study Group'
+                      : isClassPreset
+                        ? 'ساخت Class Community'
+                        : 'ساخت گروه اجتماعی'}
                 </>
               )}
             </button>

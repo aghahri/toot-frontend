@@ -845,7 +845,7 @@ const EducationCapabilitySection = memo(function EducationCapabilitySection({
             <span className="rounded-full bg-white px-2 py-0.5 text-[10px] font-bold text-indigo-700 ring-1 ring-indigo-200/80">One-to-many</span>
           </div>
           <Link href={teacherChannelHref} className={SECONDARY_CTA + ' mt-3 inline-flex !px-3.5 !py-2 !text-[11px]'}>
-            {memberNetworkId ? 'ساخت Teacher Channel' : 'ساخت Teacher Channel (نیازمند شبکه)'}
+            {memberNetworkId ? 'ساخت Teacher Channel' : 'ابتدا عضو شبکه آموزشی شوید'}
           </Link>
         </article>
       </div>
