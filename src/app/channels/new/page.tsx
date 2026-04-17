@@ -21,6 +21,7 @@ function NewChannelPageInner() {
   const presetNetworkId = (searchParams.get('networkId') ?? '').trim();
   const isTeacherPreset = preset === 'teacher';
   const isProfessionalPreset = preset === 'professional';
+  const isCoachPreset = preset === 'coach';
 
   const [networks, setNetworks] = useState<NetworkRow[]>([]);
   const [networkId, setNetworkId] = useState('');
@@ -83,7 +84,7 @@ function NewChannelPageInner() {
           name: name.trim(),
           description: description.trim() || undefined,
           networkId,
-          spaceCategory: isTeacherPreset ? 'EDUCATION' : 'PUBLIC_GENERAL',
+          spaceCategory: isTeacherPreset ? 'EDUCATION' : isCoachPreset ? 'SPORT' : 'PUBLIC_GENERAL',
         }),
       });
       router.replace(`/channels/${created.id}?network=${encodeURIComponent(created.networkId)}`);
@@ -103,10 +104,12 @@ function NewChannelPageInner() {
               ? 'Teacher Channel — ساخت کانال آموزشی'
               : isProfessionalPreset
                 ? 'Professional Channel — کانال حرفه‌ای'
+                : isCoachPreset
+                  ? 'Coach Channel — کانال مربی'
                 : 'ساخت کانال'}
           </h1>
           <Link
-            href={isProfessionalPreset ? '/spaces/PUBLIC_GENERAL' : '/spaces/EDUCATION'}
+            href={isProfessionalPreset ? '/spaces/PUBLIC_GENERAL' : isCoachPreset ? '/spaces/SPORT' : '/spaces/EDUCATION'}
             className="rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-extrabold text-slate-700 transition hover:bg-slate-50"
           >
             بازگشت
@@ -121,6 +124,10 @@ function NewChannelPageInner() {
           ) : isProfessionalPreset ? (
             <p className="mb-3 rounded-2xl bg-amber-50 px-3 py-2 text-xs text-amber-800 ring-1 ring-amber-200/80">
               Professional Channel برای انتشار insightها، آپدیت‌های کاری و mentorship در جامعه حرفه‌ای.
+            </p>
+          ) : isCoachPreset ? (
+            <p className="mb-3 rounded-2xl bg-orange-50 px-3 py-2 text-xs text-orange-800 ring-1 ring-orange-200/80">
+              Coach Channel برای نکات تمرینی، برنامه تیم و اعلان‌های ورزشی یک‌به‌چند.
             </p>
           ) : null}
 
@@ -159,6 +166,8 @@ function NewChannelPageInner() {
                       ? 'مثلاً Teacher Channel - ریاضی گسسته'
                       : isProfessionalPreset
                         ? 'مثلاً Industry Updates Channel'
+                        : isCoachPreset
+                          ? 'مثلاً Coach Channel - Team A'
                         : 'نام کانال'
                   }
                   className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
@@ -176,6 +185,8 @@ function NewChannelPageInner() {
                       ? 'Lessons, notices, updates'
                       : isProfessionalPreset
                         ? 'Insights and announcements'
+                        : isCoachPreset
+                          ? 'Training tips, matchday updates'
                         : 'اختیاری'
                   }
                   className="w-full resize-none rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
@@ -194,6 +205,8 @@ function NewChannelPageInner() {
                     ? 'ساخت Teacher Channel'
                     : isProfessionalPreset
                       ? 'ساخت Professional Channel'
+                      : isCoachPreset
+                        ? 'ساخت Coach Channel'
                       : 'ساخت کانال'}
               </button>
             </div>

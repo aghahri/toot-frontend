@@ -40,8 +40,12 @@ function CreateGroupPageInner() {
   const isHiringPreset = preset === 'hiring';
   const isStartupPreset = preset === 'startup';
   const isFreelancePreset = preset === 'freelance';
+  const isFanPreset = preset === 'fan';
+  const isTeamPreset = preset === 'team';
+  const isFitnessPreset = preset === 'fitness';
+  const isSportsPreset = isFanPreset || isTeamPreset || isFitnessPreset;
   const isBusinessPreset = isHiringPreset || isStartupPreset || isFreelancePreset;
-  const presetForcesCommunity = isStudyPreset || isClassPreset || isBusinessPreset;
+  const presetForcesCommunity = isStudyPreset || isClassPreset || isBusinessPreset || isSportsPreset;
   const forceChatMode = kind === 'chat';
   const forceCommunityMode = kind === 'community' || presetForcesCommunity;
   const forcedMode: CreateMode | null = forceCommunityMode ? 'network' : forceChatMode ? 'normal' : null;
@@ -426,6 +430,12 @@ function CreateGroupPageInner() {
                       ? 'Startup Community — اعضا'
                       : isFreelancePreset
                         ? 'Freelance Network — اعضا'
+                        : isFanPreset
+                          ? 'Fan Group — اعضا'
+                          : isTeamPreset
+                            ? 'Team Community — اعضا'
+                            : isFitnessPreset
+                              ? 'Fitness Circle — اعضا'
                     : 'ایجاد گروه اجتماعی — اعضا'
               : mode === 'normal'
                 ? 'ایجاد گروه چت — جزئیات'
@@ -439,6 +449,12 @@ function CreateGroupPageInner() {
                         ? 'Startup Community — جزئیات'
                         : isFreelancePreset
                           ? 'Freelance Network — جزئیات'
+                          : isFanPreset
+                            ? 'Fan Group — جزئیات'
+                            : isTeamPreset
+                              ? 'Team Community — جزئیات'
+                              : isFitnessPreset
+                                ? 'Fitness Circle — جزئیات'
                     : 'ایجاد گروه اجتماعی — جزئیات'}
           </h1>
         </header>
@@ -479,6 +495,12 @@ function CreateGroupPageInner() {
                     ? 'Startup Community برای بنیان‌گذارها و سازنده‌ها جهت شبکه‌سازی و رشد است.'
                     : isFreelancePreset
                       ? 'Freelance Network برای پروژه‌ها، لید مشتری و همکاری حرفه‌ای است.'
+                  : isFanPreset
+                    ? 'Fan Group برای اجتماع هواداران تیم/باشگاه/بازیکن است.'
+                    : isTeamPreset
+                      ? 'Team Community برای تیم‌های واقعی، باشگاه‌های آماتور و اسکادها است.'
+                      : isFitnessPreset
+                        ? 'Fitness Circle برای دویدن، باشگاه، دوچرخه‌سواری و تمرین گروهی است.'
                 : 'گروه اجتماعی برای جامعه و فضا/شبکه است و در سطوح اجتماعی قابل کشف است.'}
         </div>
 
@@ -662,6 +684,12 @@ function CreateGroupPageInner() {
                       ? 'بنیان‌گذارها و همکارهای سازنده را از اعضای فعال شبکه انتخاب کنید (حداقل ۲ نویسه).'
                       : isFreelancePreset
                         ? 'اعضای فریلنسر و همکارهای پروژه‌ای را از اعضای فعال شبکه انتخاب کنید (حداقل ۲ نویسه).'
+                        : isFanPreset
+                          ? 'هواداران فعال را از اعضای شبکه انتخاب کنید تا اجتماع طرفداری شکل بگیرد (حداقل ۲ نویسه).'
+                          : isTeamPreset
+                            ? 'اعضای تیم/باشگاه را از شبکه انتخاب کنید تا Team Community منسجم بسازید (حداقل ۲ نویسه).'
+                            : isFitnessPreset
+                              ? 'هم‌تمرینی‌ها را از اعضای شبکه انتخاب کنید (دویدن، باشگاه، دوچرخه) (حداقل ۲ نویسه).'
                   : 'اعضای فعال این شبکه را با نام، نام کاربری، ایمیل یا بخشی از شماره موبایل جستجو کنید (حداقل ۲ نویسه) — همان رفتار جستجوی گفتگوی جدید.'}
             </p>
             <input
@@ -796,6 +824,12 @@ function CreateGroupPageInner() {
                             ? 'مثلاً Startup Builders Community'
                             : isFreelancePreset
                               ? 'مثلاً Freelance Opportunities Network'
+                              : isFanPreset
+                                ? 'مثلاً Persepolis Fan Group'
+                                : isTeamPreset
+                                  ? 'مثلاً Team Community - Runners Club'
+                                  : isFitnessPreset
+                                    ? 'مثلاً Morning Fitness Circle'
                               : 'مثلاً جامعه آموزش برنامه‌نویسی'
                 }
                 minLength={2}
@@ -820,6 +854,12 @@ function CreateGroupPageInner() {
                           ? 'Founders, builders, growth (اختیاری)'
                           : isFreelancePreset
                             ? 'Gigs, projects, collaboration (اختیاری)'
+                            : isFanPreset
+                              ? 'Supporters, match chat, fan updates (اختیاری)'
+                              : isTeamPreset
+                                ? 'Team lineup, training, match plans (اختیاری)'
+                                : isFitnessPreset
+                                  ? 'Running, gym, cycling buddies (اختیاری)'
                       : 'اختیاری'
                 }
                 rows={3}
@@ -857,6 +897,12 @@ function CreateGroupPageInner() {
                             ? 'ساخت Startup Community'
                             : isFreelancePreset
                               ? 'ساخت Freelance Network'
+                              : isFanPreset
+                                ? 'ساخت Fan Group'
+                                : isTeamPreset
+                                  ? 'ساخت Team Community'
+                                  : isFitnessPreset
+                                    ? 'ساخت Fitness Circle'
                         : 'ساخت گروه اجتماعی'}
                 </>
               )}

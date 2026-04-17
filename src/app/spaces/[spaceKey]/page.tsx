@@ -724,6 +724,14 @@ function SpaceDetailInner() {
                 memberNetworkId={memberNetworkId}
               />
             ) : null}
+            {spaceKey === 'SPORT' ? (
+              <SportsCapabilitySection
+                groups={data.groups}
+                channels={data.channels}
+                networks={displayNetworks}
+                memberNetworkId={memberNetworkId}
+              />
+            ) : null}
             {spaceKey === 'NEIGHBORHOOD' ? <NeighborhoodFormsCapabilitySection /> : null}
 
             {journeyConfig ? null : isNeighborhood ? (
@@ -1404,6 +1412,251 @@ const BusinessCapabilitySection = memo(function BusinessCapabilitySection({
           <span
             key={chip}
             className="rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-[10px] font-bold text-amber-800"
+          >
+            {chip}
+          </span>
+        ))}
+      </div>
+    </section>
+  );
+});
+
+const SportsCapabilitySection = memo(function SportsCapabilitySection({
+  groups,
+  channels,
+  networks,
+  memberNetworkId,
+}: {
+  groups: GroupRow[];
+  channels: ChannelRow[];
+  networks: Array<NetworkRow & { isMember?: boolean }>;
+  memberNetworkId: string | null;
+}) {
+  const sportsTokens = [
+    'football',
+    'soccer',
+    'basketball',
+    'volleyball',
+    'gym',
+    'fitness',
+    'running',
+    'cycling',
+    'club',
+    'team',
+    'coach',
+    'match',
+    'league',
+    'fan',
+    'sports',
+    'فوتبال',
+    'بسکتبال',
+    'والیبال',
+    'باشگاه',
+    'تیم',
+    'مربی',
+    'بدنسازی',
+    'دویدن',
+    'دوچرخه',
+    'هوادار',
+    'مسابقه',
+    'لیگ',
+    'ورزش',
+  ];
+  const fanTokens = ['fan', 'club', 'match', 'league', 'هوادار', 'باشگاه', 'مسابقه', 'تیم'];
+  const teamTokens = ['team', 'club', 'squad', 'coach', 'تیم', 'باشگاه', 'اسکاد', 'مربی'];
+  const fitnessTokens = ['fitness', 'gym', 'running', 'cycling', 'workout', 'بدنسازی', 'دویدن', 'دوچرخه'];
+  const coachTokens = ['coach', 'training', 'team', 'matchday', 'مربی', 'تمرین', 'تیم', 'مسابقه'];
+
+  function tokenScore(text: string, tokens: string[]) {
+    const norm = text.toLowerCase();
+    return tokens.reduce((acc, t) => (norm.includes(t) ? acc + 1 : acc), 0);
+  }
+
+  const trendingFanGroups = [...groups]
+    .sort((a, b) => {
+      const aScore = tokenScore(`${a.name} ${a.description ?? ''}`, sportsTokens) + tokenScore(`${a.name} ${a.description ?? ''}`, fanTokens) + (a.joinable ? 1 : 0);
+      const bScore = tokenScore(`${b.name} ${b.description ?? ''}`, sportsTokens) + tokenScore(`${b.name} ${b.description ?? ''}`, fanTokens) + (b.joinable ? 1 : 0);
+      return bScore - aScore;
+    })
+    .slice(0, 4);
+
+  const activeTeamCommunities = [...groups]
+    .sort((a, b) => {
+      const aScore = tokenScore(`${a.name} ${a.description ?? ''}`, teamTokens);
+      const bScore = tokenScore(`${b.name} ${b.description ?? ''}`, teamTokens);
+      return bScore - aScore;
+    })
+    .slice(0, 4);
+
+  const fitnessCircles = [...groups]
+    .sort((a, b) => {
+      const aScore = tokenScore(`${a.name} ${a.description ?? ''}`, fitnessTokens);
+      const bScore = tokenScore(`${b.name} ${b.description ?? ''}`, fitnessTokens);
+      return bScore - aScore;
+    })
+    .slice(0, 4);
+
+  const coachChannels = [...channels]
+    .sort((a, b) => {
+      const aScore = tokenScore(`${a.name} ${a.description ?? ''}`, coachTokens) + tokenScore(`${a.name} ${a.description ?? ''}`, sportsTokens);
+      const bScore = tokenScore(`${b.name} ${b.description ?? ''}`, coachTokens) + tokenScore(`${b.name} ${b.description ?? ''}`, sportsTokens);
+      return bScore - aScore;
+    })
+    .slice(0, 4);
+
+  const fastGrowingCommunities = [...networks]
+    .sort((a, b) => {
+      const aScore = tokenScore(`${a.name} ${a.description ?? ''}`, sportsTokens) + (a.isMember ? 2 : 0);
+      const bScore = tokenScore(`${b.name} ${b.description ?? ''}`, sportsTokens) + (b.isMember ? 2 : 0);
+      return bScore - aScore;
+    })
+    .slice(0, 4);
+
+  const fanGroupHref = `/groups/new?kind=community&spaceKey=SPORT${memberNetworkId ? `&networkId=${encodeURIComponent(memberNetworkId)}` : ''}&returnTo=spaces&preset=fan`;
+  const teamCommunityHref = `/groups/new?kind=community&spaceKey=SPORT${memberNetworkId ? `&networkId=${encodeURIComponent(memberNetworkId)}` : ''}&returnTo=spaces&preset=team`;
+  const fitnessCircleHref = `/groups/new?kind=community&spaceKey=SPORT${memberNetworkId ? `&networkId=${encodeURIComponent(memberNetworkId)}` : ''}&returnTo=spaces&preset=fitness`;
+  const coachChannelHref = `/channels/new?preset=coach&spaceKey=SPORT${memberNetworkId ? `&networkId=${encodeURIComponent(memberNetworkId)}` : ''}`;
+
+  return (
+    <section className={SECTION_CARD}>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 className="text-lg font-black tracking-tight text-slate-900">Sports Capability v1</h2>
+        <span className="rounded-full bg-orange-50 px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-[0.08em] text-orange-800 ring-1 ring-orange-200/80">
+          Team & Fitness
+        </span>
+      </div>
+      <p className="mt-1 text-sm leading-relaxed text-slate-600">
+        اینجا جامعه‌های طرفداری، تیمی و تمرینی شکل می‌گیرند؛ سریع، اجتماعی و انگیزشی.
+      </p>
+
+      <div className="mt-4 grid gap-3 sm:grid-cols-2">
+        <article className={SUB_CARD + ' min-h-[11rem] bg-orange-50/50 ring-1 ring-orange-100'}>
+          <p className="text-sm font-extrabold text-slate-900">Create Fan Group</p>
+          <p className="mt-1 text-[11px] leading-relaxed text-slate-600">برای هواداران یک تیم/باشگاه/بازیکن و گفتگوهای Matchday.</p>
+          <Link href={fanGroupHref} className={PRIMARY_CTA + ' mt-3 inline-flex !bg-orange-700 hover:!bg-orange-600 !px-3.5 !py-2 !text-[11px]'}>
+            ساخت Fan Group
+          </Link>
+        </article>
+
+        <article className={SUB_CARD + ' min-h-[11rem] bg-orange-50/50 ring-1 ring-orange-100'}>
+          <p className="text-sm font-extrabold text-slate-900">Create Team Community</p>
+          <p className="mt-1 text-[11px] leading-relaxed text-slate-600">برای تیم‌های واقعی، باشگاه‌های آماتور و اسکادهای محلی.</p>
+          <Link href={teamCommunityHref} className={PRIMARY_CTA + ' mt-3 inline-flex !bg-orange-700 hover:!bg-orange-600 !px-3.5 !py-2 !text-[11px]'}>
+            ساخت Team Community
+          </Link>
+        </article>
+
+        <article className={SUB_CARD + ' min-h-[11rem] bg-orange-50/50 ring-1 ring-orange-100'}>
+          <p className="text-sm font-extrabold text-slate-900">Create Fitness Circle</p>
+          <p className="mt-1 text-[11px] leading-relaxed text-slate-600">برای دویدن، باشگاه، دوچرخه‌سواری و تمرین گروهی روزانه.</p>
+          <Link href={fitnessCircleHref} className={PRIMARY_CTA + ' mt-3 inline-flex !bg-orange-700 hover:!bg-orange-600 !px-3.5 !py-2 !text-[11px]'}>
+            ساخت Fitness Circle
+          </Link>
+        </article>
+
+        <article className={SUB_CARD + ' min-h-[11rem] bg-orange-50/50 ring-1 ring-orange-100'}>
+          <p className="text-sm font-extrabold text-slate-900">Create Coach Channel</p>
+          <p className="mt-1 text-[11px] leading-relaxed text-slate-600">برای نکات تمرینی، برنامه تیم و اعلان‌های مربی‌محور.</p>
+          <Link href={coachChannelHref} className={SECONDARY_CTA + ' mt-3 inline-flex !px-3.5 !py-2 !text-[11px]'}>
+            {memberNetworkId ? 'ساخت Coach Channel' : 'ابتدا عضو شبکه ورزشی شوید'}
+          </Link>
+        </article>
+      </div>
+
+      <div className="mt-4 grid gap-3 sm:grid-cols-2">
+        <div className={SUB_CARD + ' min-h-[10.5rem]'}>
+          <h3 className="text-sm font-extrabold text-slate-900">Trending Fan Groups</h3>
+          <ul className="mt-2 space-y-1.5 text-[11px] text-slate-700">
+            {trendingFanGroups.length === 0 ? (
+              <li className="rounded-xl bg-slate-100/70 px-2.5 py-2 text-slate-500">فعلاً Fan Group شاخصی پیدا نشد.</li>
+            ) : (
+              trendingFanGroups.map((g) => (
+                <li key={g.id} className="rounded-xl bg-white px-2.5 py-2 ring-1 ring-slate-200/80">
+                  <Link href={`/groups/${g.id}`} className="font-bold text-sky-700 hover:underline">
+                    {g.name}
+                  </Link>
+                </li>
+              ))
+            )}
+          </ul>
+        </div>
+
+        <div className={SUB_CARD + ' min-h-[10.5rem]'}>
+          <h3 className="text-sm font-extrabold text-slate-900">Active Team Communities</h3>
+          <ul className="mt-2 space-y-1.5 text-[11px] text-slate-700">
+            {activeTeamCommunities.length === 0 ? (
+              <li className="rounded-xl bg-slate-100/70 px-2.5 py-2 text-slate-500">Team Community فعالی برای نمایش نیست.</li>
+            ) : (
+              activeTeamCommunities.map((g) => (
+                <li key={g.id} className="rounded-xl bg-white px-2.5 py-2 ring-1 ring-slate-200/80">
+                  <Link href={`/groups/${g.id}`} className="font-bold text-sky-700 hover:underline">
+                    {g.name}
+                  </Link>
+                </li>
+              ))
+            )}
+          </ul>
+        </div>
+
+        <div className={SUB_CARD + ' min-h-[10.5rem]'}>
+          <h3 className="text-sm font-extrabold text-slate-900">Fitness Circles Near You</h3>
+          <ul className="mt-2 space-y-1.5 text-[11px] text-slate-700">
+            {fitnessCircles.length === 0 ? (
+              <li className="rounded-xl bg-slate-100/70 px-2.5 py-2 text-slate-500">Fitness Circle شاخصی موجود نیست.</li>
+            ) : (
+              fitnessCircles.map((g) => (
+                <li key={g.id} className="rounded-xl bg-white px-2.5 py-2 ring-1 ring-slate-200/80">
+                  <Link href={`/groups/${g.id}`} className="font-bold text-sky-700 hover:underline">
+                    {g.name}
+                  </Link>
+                </li>
+              ))
+            )}
+          </ul>
+        </div>
+
+        <div className={SUB_CARD + ' min-h-[10.5rem]'}>
+          <h3 className="text-sm font-extrabold text-slate-900">Coach Channels</h3>
+          <ul className="mt-2 space-y-1.5 text-[11px] text-slate-700">
+            {coachChannels.length === 0 ? (
+              <li className="rounded-xl bg-slate-100/70 px-2.5 py-2 text-slate-500">Coach Channel فعالی پیدا نشد.</li>
+            ) : (
+              coachChannels.map((c) => (
+                <li key={c.id} className="rounded-xl bg-white px-2.5 py-2 ring-1 ring-slate-200/80">
+                  <Link href={`/channels/${c.id}?network=${encodeURIComponent(c.networkId)}`} className="font-bold text-sky-700 hover:underline">
+                    {c.name}
+                  </Link>
+                </li>
+              ))
+            )}
+          </ul>
+        </div>
+      </div>
+
+      <div className="mt-3">
+        <h3 className="text-sm font-extrabold text-slate-900">Fast Growing Sports Communities</h3>
+        <ul className="mt-2 grid gap-2 sm:grid-cols-2">
+          {fastGrowingCommunities.length === 0 ? (
+            <li className="rounded-xl bg-slate-100/70 px-2.5 py-2 text-[11px] text-slate-500">
+              فعلاً شبکه ورزشی شاخصی برای نمایش نیست.
+            </li>
+          ) : (
+            fastGrowingCommunities.map((n) => (
+              <li key={n.id} className="rounded-xl bg-white px-2.5 py-2 ring-1 ring-slate-200/80">
+                <Link href={`/networks/${n.id}`} className="text-[11px] font-bold text-sky-700 hover:underline">
+                  {n.name}
+                </Link>
+              </li>
+            ))
+          )}
+        </ul>
+      </div>
+
+      <div className="mt-4 flex flex-wrap gap-1.5">
+        {['Matchday-ready', 'Team-led', 'Events soon', 'Challenges soon', 'Verified clubs later'].map((chip) => (
+          <span
+            key={chip}
+            className="rounded-full border border-orange-200 bg-orange-50 px-2.5 py-1 text-[10px] font-bold text-orange-800"
           >
             {chip}
           </span>
