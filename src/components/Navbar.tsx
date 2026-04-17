@@ -5,6 +5,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { apiFetch } from '@/lib/api';
 import { getAccessToken, performServerLogout } from '@/lib/auth';
+import { NotificationsNavLink } from '@/components/NotificationsNavLink';
 
 type MeBrief = { id: string; name: string; avatar: string | null };
 
@@ -90,26 +91,11 @@ export function Navbar() {
                     <path d="M20 20l-3-3" strokeLinecap="round" />
                   </svg>
                 </Link>
-                <Link
-                  href="/notifications"
-                  className="theme-text-secondary flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition hover:bg-[var(--surface-soft)]"
-                  aria-label="اعلان‌ها"
-                >
-                  <svg
-                    className="h-[18px] w-[18px]"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    aria-hidden
-                  >
-                    <path d="M12 22a2 2 0 002-2H10a2 2 0 002 2z" strokeLinejoin="round" />
-                    <path
-                      d="M18 8a6 6 0 10-12 0c0 7-2 7-2 14h16c0-7-2-7-2-14z"
-                      strokeLinejoin="round"
-                    />
-                  </svg>
-                </Link>
+                <NotificationsNavLink
+                  label="اعلان‌ها"
+                  buttonClassName="theme-text-secondary flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition hover:bg-[var(--surface-soft)]"
+                  iconClassName="h-[18px] w-[18px]"
+                />
               </>
             ) : null}
 
