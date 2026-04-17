@@ -1116,7 +1116,7 @@ export default function GroupThreadPage() {
                 <button
                   type="button"
                   onClick={exitSelectionMode}
-                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-slate-700 transition hover:bg-slate-100 active:bg-slate-200"
+                  className="theme-text-primary flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition hover:bg-[var(--surface-soft)] active:bg-[var(--surface-strong)]"
                   aria-label="لغو انتخاب"
                 >
                   <span className="text-xl font-semibold leading-none text-slate-800" aria-hidden>
@@ -1168,7 +1168,7 @@ export default function GroupThreadPage() {
             <div className="flex items-center gap-2.5 px-3 py-2">
               <Link
                 href={backHref}
-                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-slate-700 transition hover:bg-slate-100 active:bg-slate-200"
+                className="theme-text-primary flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition hover:bg-[var(--surface-soft)] active:bg-[var(--surface-strong)]"
                 aria-label="بازگشت"
               >
                 <span className="text-xl font-semibold leading-none text-slate-800" aria-hidden>
@@ -1176,14 +1176,14 @@ export default function GroupThreadPage() {
                 </span>
               </Link>
 
-              <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-full bg-stone-200 ring-2 ring-white">
+              <div className="theme-surface-strong relative h-10 w-10 shrink-0 overflow-hidden rounded-full ring-2 ring-white/70">
                 <span className="flex h-full w-full items-center justify-center text-sm font-bold text-slate-600">
                   {groupInitial}
                 </span>
               </div>
 
               <Link href={`/groups/${groupId}/info`} className="min-w-0 flex-1 text-right">
-                <h1 className="truncate text-[16px] font-bold leading-tight text-stone-900">
+                <h1 className="theme-text-primary truncate text-[16px] font-bold leading-tight">
                   {groupName || 'گروه'}
                 </h1>
                 <p
@@ -1390,17 +1390,17 @@ export default function GroupThreadPage() {
                         deleted
                           ? mine
                             ? rowSelected
-                              ? 'bg-slate-800/75 text-white/85 ring-2 ring-sky-400 ring-offset-2 ring-offset-stone-100'
+                              ? 'bg-slate-800/75 text-white/85 ring-2 ring-sky-400 ring-offset-2 ring-offset-[var(--page-bg)]'
                               : 'bg-slate-800/75 text-white/85 ring-1 ring-white/10'
                             : rowSelected
-                              ? 'bg-slate-200/60 text-slate-600 ring-2 ring-sky-500 ring-offset-2 ring-offset-stone-100'
+                              ? 'bg-slate-200/60 text-slate-600 ring-2 ring-sky-500 ring-offset-2 ring-offset-[var(--page-bg)]'
                               : 'bg-slate-200/60 text-slate-600 ring-1 ring-slate-300/50'
                           : mine
                             ? rowSelected
-                              ? 'bg-slate-900 text-white ring-2 ring-sky-400 ring-offset-2 ring-offset-stone-100'
+                              ? 'bg-slate-900 text-white ring-2 ring-sky-400 ring-offset-2 ring-offset-[var(--page-bg)]'
                               : 'bg-slate-900 text-white ring-1 ring-slate-800/40'
                             : rowSelected
-                              ? 'bg-white text-slate-900 ring-2 ring-sky-500 ring-offset-2 ring-offset-stone-100'
+                              ? 'bg-white text-slate-900 ring-2 ring-sky-500 ring-offset-2 ring-offset-[var(--page-bg)]'
                               : 'bg-white text-slate-900 ring-1 ring-slate-200/80'
                       } ${
                         flashMessageId === m.id
@@ -1934,7 +1934,7 @@ export default function GroupThreadPage() {
                 placeholder="پیام…"
                 rows={1}
                 disabled={sending || voicePhase === 'recording' || isSelectionMode}
-                className="min-h-[2.625rem] max-h-32 min-w-0 flex-1 resize-none rounded-xl border border-slate-200/90 bg-white px-3 py-2 text-[15px] leading-normal text-slate-900 shadow-sm outline-none ring-0 transition placeholder:text-slate-400 focus:border-sky-400/60 focus:ring-2 focus:ring-sky-100 sm:min-h-[2.75rem] sm:rounded-2xl sm:px-3.5 sm:py-2.5"
+                className="theme-card-bg theme-border-soft theme-text-primary min-h-[2.625rem] max-h-32 min-w-0 flex-1 resize-none rounded-xl border px-3 py-2 text-[15px] leading-normal shadow-sm outline-none ring-0 transition placeholder:text-[var(--text-secondary)] focus:border-[var(--accent-ring)] focus:ring-2 focus:ring-[var(--accent-ring)] sm:min-h-[2.75rem] sm:rounded-2xl sm:px-3.5 sm:py-2.5"
               />
 
               <button
@@ -1943,7 +1943,7 @@ export default function GroupThreadPage() {
                   sending || voicePhase === 'recording' || voicePhase === 'sending' || isSelectionMode
                 }
                 aria-busy={sending}
-                className="inline-flex h-10 min-w-[4.25rem] shrink-0 items-center justify-center rounded-xl bg-slate-900 px-3.5 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50 sm:h-11 sm:min-w-[4.5rem] sm:rounded-2xl sm:px-4"
+                className="inline-flex h-10 min-w-[4.25rem] shrink-0 items-center justify-center rounded-xl bg-[var(--accent)] px-3.5 text-sm font-semibold text-[var(--accent-contrast)] shadow-sm transition hover:bg-[var(--accent-hover)] disabled:cursor-not-allowed disabled:opacity-50 sm:h-11 sm:min-w-[4.5rem] sm:rounded-2xl sm:px-4"
               >
                 {sending ? (
                   <span

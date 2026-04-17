@@ -4,16 +4,16 @@ import Link from 'next/link';
 
 export function HomeFeedHeader() {
   return (
-    <header className="border-b border-slate-200/80 bg-white" dir="rtl">
+    <header className="theme-panel-bg theme-border-soft border-b" dir="rtl">
       <div className="flex w-full min-w-0 items-center gap-2 px-3 py-3">
         <div className="min-w-0 flex-1">
-          <h1 className="truncate text-[1.25rem] font-extrabold tracking-tight text-slate-950">خانه</h1>
-          <p className="mt-0.5 truncate text-[11px] font-semibold text-slate-500">آخرین‌ها از محله و شبکه</p>
+          <h1 className="theme-text-primary truncate text-[1.25rem] font-extrabold tracking-tight">خانه</h1>
+          <p className="theme-text-secondary mt-0.5 truncate text-[11px] font-semibold">آخرین‌ها از محله و شبکه</p>
         </div>
         <div className="flex shrink-0 items-center gap-0.5">
           <Link
             href="/search"
-            className="flex h-10 w-10 items-center justify-center rounded-full text-slate-600 transition hover:bg-slate-100 active:bg-slate-200"
+            className="theme-text-secondary flex h-10 w-10 items-center justify-center rounded-full transition hover:bg-[var(--surface-soft)] active:bg-[var(--surface-strong)]"
             aria-label="جستجو"
           >
             <svg
@@ -30,7 +30,7 @@ export function HomeFeedHeader() {
           </Link>
           <Link
             href="/notifications"
-            className="flex h-10 w-10 items-center justify-center rounded-full text-slate-600 transition hover:bg-slate-100 active:bg-slate-200"
+            className="theme-text-secondary flex h-10 w-10 items-center justify-center rounded-full transition hover:bg-[var(--surface-soft)] active:bg-[var(--surface-strong)]"
             aria-label="اعلان‌ها"
           >
             <svg
@@ -50,7 +50,7 @@ export function HomeFeedHeader() {
           </Link>
           <Link
             href="/direct"
-            className="ms-1 rounded-full bg-emerald-600 px-3.5 py-2 text-[12px] font-extrabold text-white shadow-sm transition hover:bg-emerald-700 active:scale-[0.98]"
+            className="ms-1 rounded-full bg-[var(--accent)] px-3.5 py-2 text-[12px] font-extrabold text-[var(--accent-contrast)] shadow-sm transition hover:bg-[var(--accent-hover)] active:scale-[0.98]"
           >
             چت
           </Link>

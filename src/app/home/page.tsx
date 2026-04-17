@@ -228,7 +228,7 @@ function HomePageInner() {
                   <button
                     type="button"
                     onClick={() => void loadFeed()}
-                    className="mt-4 rounded-full bg-slate-900 px-5 py-2 text-sm font-bold text-white"
+                    className="mt-4 rounded-full bg-[var(--accent)] px-5 py-2 text-sm font-bold text-[var(--accent-contrast)]"
                   >
                     تلاش دوباره
                   </button>
@@ -265,7 +265,7 @@ function HomePageInner() {
                   <button
                     type="button"
                     onClick={() => void loadFeed()}
-                    className="text-sm font-semibold text-sky-700 hover:underline"
+                    className="text-sm font-semibold text-[var(--accent-hover)] hover:underline"
                   >
                     به‌روزرسانی فید
                   </button>
@@ -282,7 +282,7 @@ function HomePageInner() {
                   <button
                     type="button"
                     onClick={() => void loadFollowingFeed()}
-                    className="mt-4 rounded-full bg-slate-900 px-5 py-2 text-sm font-bold text-white"
+                    className="mt-4 rounded-full bg-[var(--accent)] px-5 py-2 text-sm font-bold text-[var(--accent-contrast)]"
                   >
                     تلاش دوباره
                   </button>
@@ -315,7 +315,7 @@ function HomePageInner() {
                   <button
                     type="button"
                     onClick={() => void loadFollowingFeed()}
-                    className="text-sm font-semibold text-sky-700 hover:underline"
+                    className="text-sm font-semibold text-[var(--accent-hover)] hover:underline"
                   >
                     به‌روزرسانی فید
                   </button>
@@ -340,7 +340,7 @@ function HomePageInner() {
         <button
           type="button"
           onClick={() => setComposeOpen(true)}
-          className="fixed bottom-[calc(4.75rem+env(safe-area-inset-bottom,0px))] start-4 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-sky-600 text-2xl font-light text-white shadow-lg shadow-sky-600/30 transition hover:bg-sky-700 hover:shadow-xl active:scale-95"
+          className="fixed bottom-[calc(4.75rem+env(safe-area-inset-bottom,0px))] start-4 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-[var(--accent)] text-2xl font-light text-[var(--accent-contrast)] shadow-lg transition hover:bg-[var(--accent-hover)] hover:shadow-xl active:scale-95"
           aria-label="پست جدید"
         >
           +

@@ -106,30 +106,30 @@ function ChannelDetailInner() {
           <button
             type="button"
             onClick={() => router.back()}
-            className="flex h-10 min-w-[2.5rem] items-center justify-center rounded-full text-slate-600 hover:bg-slate-100"
+            className="theme-text-secondary flex h-10 min-w-[2.5rem] items-center justify-center rounded-full hover:bg-[var(--surface-soft)]"
             aria-label="بازگشت"
           >
             ←
           </button>
-          <Link href="/spaces" className="text-xs font-bold text-sky-700 underline">
+          <Link href="/spaces" className="text-xs font-bold text-[var(--accent-hover)] underline">
             فضاها
           </Link>
         </div>
 
         {loading ? (
-          <p className="text-sm text-slate-500">در حال بارگذاری…</p>
+          <p className="theme-text-secondary text-sm">در حال بارگذاری…</p>
         ) : channel ? (
           <>
             <div className="theme-card-bg theme-border-soft rounded-2xl border p-5 shadow-sm">
-              <h1 className="text-xl font-extrabold text-slate-900">{channel.name}</h1>
-              <p className="mt-1 text-xs text-slate-500">
+              <h1 className="theme-text-primary text-xl font-extrabold">{channel.name}</h1>
+              <p className="theme-text-secondary mt-1 text-xs">
                 شبکه:{' '}
-                <Link href={`/networks/${channel.networkId}`} className="font-bold text-sky-700 underline">
+                <Link href={`/networks/${channel.networkId}`} className="font-bold text-[var(--accent-hover)] underline">
                   {channel.network.name}
                 </Link>
               </p>
               {channel.description ? (
-                <p className="mt-3 text-sm leading-relaxed text-slate-600">{channel.description}</p>
+                <p className="theme-text-secondary mt-3 text-sm leading-relaxed">{channel.description}</p>
               ) : null}
 
               {error ? <p className="mt-3 text-xs font-semibold text-red-700">{error}</p> : null}
@@ -150,32 +150,32 @@ function ChannelDetailInner() {
 
             {channel.isMember ? (
               <section className="theme-panel-bg theme-border-soft mt-6 flex-1 rounded-2xl border p-3">
-                <h2 className="px-1 text-xs font-extrabold text-slate-600">آخرین پیام‌ها</h2>
+                <h2 className="theme-text-secondary px-1 text-xs font-extrabold">آخرین پیام‌ها</h2>
                 {loadingMsgs ? (
-                  <p className="mt-3 px-1 text-xs text-slate-500">بارگذاری پیام‌ها…</p>
+                  <p className="theme-text-secondary mt-3 px-1 text-xs">بارگذاری پیام‌ها…</p>
                 ) : messages.length === 0 ? (
-                  <p className="mt-3 px-1 text-xs text-slate-500">هنوز پیامی نیست</p>
+                  <p className="theme-text-secondary mt-3 px-1 text-xs">هنوز پیامی نیست</p>
                 ) : (
                   <ul className="mt-2 max-h-[55vh] space-y-2 overflow-y-auto">
                     {messages.map((m) => (
-                      <li key={m.id} className="rounded-xl bg-white px-3 py-2 text-xs shadow-sm ring-1 ring-slate-100">
-                        <div className="flex justify-between gap-2 text-[10px] text-slate-500">
-                          <span className="font-bold text-slate-800">{m.sender.name}</span>
+                      <li key={m.id} className="theme-card-bg theme-border-soft rounded-xl border px-3 py-2 text-xs shadow-sm">
+                        <div className="theme-text-secondary flex justify-between gap-2 text-[10px]">
+                          <span className="theme-text-primary font-bold">{m.sender.name}</span>
                           <span dir="ltr">{new Date(m.createdAt).toLocaleString('fa-IR')}</span>
                         </div>
                         {m.content?.trim() ? (
-                          <p className="mt-1 whitespace-pre-wrap text-sm text-slate-800">{m.content}</p>
+                          <p className="theme-text-primary mt-1 whitespace-pre-wrap text-sm">{m.content}</p>
                         ) : m.media?.url ? (
                           <a
                             href={m.media.url}
                             target="_blank"
                             rel="noreferrer"
-                            className="mt-1 inline-block text-sky-700 underline"
+                            className="mt-1 inline-block text-[var(--accent-hover)] underline"
                           >
                             رسانه
                           </a>
                         ) : (
-                          <p className="mt-1 text-slate-400">(بدون متن)</p>
+                          <p className="theme-text-secondary mt-1">(بدون متن)</p>
                         )}
                       </li>
                     ))}
@@ -201,7 +201,7 @@ function ChannelDetailInner() {
         ) : error ? (
           <p className="text-sm font-semibold text-red-700">{error}</p>
         ) : (
-          <p className="text-sm text-slate-500">کانال پیدا نشد</p>
+          <p className="theme-text-secondary text-sm">کانال پیدا نشد</p>
         )}
       </main>
     </AuthGate>
@@ -212,7 +212,7 @@ export default function ChannelDetailPage() {
   return (
     <Suspense
       fallback={
-        <div className="px-4 py-10 text-center text-sm text-slate-500" dir="rtl">
+        <div className="theme-page-bg theme-text-secondary px-4 py-10 text-center text-sm" dir="rtl">
           در حال بارگذاری…
         </div>
       }
