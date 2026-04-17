@@ -750,9 +750,52 @@ const EducationCapabilitySection = memo(function EducationCapabilitySection({
   networks: Array<NetworkRow & { isMember?: boolean }>;
   memberNetworkId: string | null;
 }) {
-  const curatedStudyGroups = groups.slice(0, 4);
-  const curatedTeacherChannels = channels.slice(0, 4);
-  const curatedGrowingCommunities = networks.slice(0, 4);
+  const learningTokens = [
+    'study',
+    'class',
+    'teacher',
+    'course',
+    'lesson',
+    'exam',
+    'دانش',
+    'درس',
+    'آموزش',
+    'کلاس',
+    'استاد',
+    'معلم',
+    'آزمون',
+    'پروژه',
+  ];
+  const teacherTokens = ['teacher', 'professor', 'lesson', 'course', 'استاد', 'معلم', 'آموزش', 'درس'];
+
+  function tokenScore(text: string, tokens: string[]) {
+    const norm = text.toLowerCase();
+    return tokens.reduce((acc, t) => (norm.includes(t) ? acc + 1 : acc), 0);
+  }
+
+  const curatedStudyGroups = [...groups]
+    .sort((a, b) => {
+      const aScore = tokenScore(`${a.name} ${a.description ?? ''}`, learningTokens) + (a.joinable ? 1 : 0);
+      const bScore = tokenScore(`${b.name} ${b.description ?? ''}`, learningTokens) + (b.joinable ? 1 : 0);
+      return bScore - aScore;
+    })
+    .slice(0, 4);
+
+  const curatedTeacherChannels = [...channels]
+    .sort((a, b) => {
+      const aScore = tokenScore(`${a.name} ${a.description ?? ''}`, teacherTokens);
+      const bScore = tokenScore(`${b.name} ${b.description ?? ''}`, teacherTokens);
+      return bScore - aScore;
+    })
+    .slice(0, 4);
+
+  const curatedGrowingCommunities = [...networks]
+    .sort((a, b) => {
+      const aScore = tokenScore(`${a.name} ${a.description ?? ''}`, learningTokens) + (a.isMember ? 2 : 0);
+      const bScore = tokenScore(`${b.name} ${b.description ?? ''}`, learningTokens) + (b.isMember ? 2 : 0);
+      return bScore - aScore;
+    })
+    .slice(0, 4);
   const studyGroupHref = `/groups/new?kind=community&spaceKey=EDUCATION${memberNetworkId ? `&networkId=${encodeURIComponent(memberNetworkId)}` : ''}&returnTo=spaces&preset=study`;
   const classCommunityHref = `/groups/new?kind=community&spaceKey=EDUCATION${memberNetworkId ? `&networkId=${encodeURIComponent(memberNetworkId)}` : ''}&returnTo=spaces&preset=class`;
   const teacherChannelHref = `/channels/new?preset=teacher&spaceKey=EDUCATION${memberNetworkId ? `&networkId=${encodeURIComponent(memberNetworkId)}` : ''}`;
