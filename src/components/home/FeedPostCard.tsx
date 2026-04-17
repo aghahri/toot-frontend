@@ -36,6 +36,32 @@ function formatCount(n: number): string {
   return `${m >= 10 ? Math.round(m) : m.toFixed(1).replace(/\.0$/, '')}M`;
 }
 
+function renderTextWithHashtags(text: string) {
+  const lines = text.split('\n');
+  return lines.map((line, lineIndex) => {
+    const parts = line.split(/(#[\p{L}\p{N}_]+)/gu);
+    return (
+      <span key={`line-${lineIndex}`}>
+        {parts.map((part, idx) => {
+          if (/^#[\p{L}\p{N}_]+$/u.test(part)) {
+            return (
+              <Link
+                key={`tag-${lineIndex}-${idx}`}
+                href={`/search?q=${encodeURIComponent(part)}`}
+                className="font-semibold text-[var(--accent-hover)] hover:underline"
+              >
+                {part}
+              </Link>
+            );
+          }
+          return <span key={`txt-${lineIndex}-${idx}`}>{part}</span>;
+        })}
+        {lineIndex < lines.length - 1 ? '\n' : null}
+      </span>
+    );
+  });
+}
+
 type FeedPostCardProps = {
   post: FeedPost;
   onPatch: (postId: string, patch: Partial<FeedPost>) => void;
@@ -482,7 +508,7 @@ export function FeedPostCard({
 
           {p.text ? (
             <div className="mt-1.5 whitespace-pre-wrap text-[15px] leading-[1.58] text-slate-800">
-              {p.text}
+              {renderTextWithHashtags(p.text)}
             </div>
           ) : null}
 
