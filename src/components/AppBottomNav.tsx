@@ -63,7 +63,7 @@ export function AppBottomNav() {
               className={[
                 'flex min-h-[3.5rem] min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-2xl px-1 py-1 text-center transition-colors',
                 active && isPrimary
-                  ? 'bg-emerald-500/15 text-emerald-700'
+                  ? 'bg-[var(--accent-soft)] text-[var(--accent-hover)]'
                   : active
                     ? 'bg-stone-200/80 text-stone-900'
                     : 'text-stone-500 hover:bg-stone-200/50 hover:text-stone-800',
@@ -73,7 +73,7 @@ export function AppBottomNav() {
               <tab.Icon
                 className={[
                   'h-6 w-6 shrink-0',
-                  active && isPrimary ? 'text-emerald-600' : '',
+                  active && isPrimary ? 'text-[var(--accent-hover)]' : '',
                 ]
                   .filter(Boolean)
                   .join(' ')}

@@ -22,14 +22,14 @@ export function AppSectionHeader() {
   return (
     <header
       className={`border-b bg-white/95 backdrop-blur-sm ${
-        isChats ? 'border-emerald-100/80' : 'border-stone-200/90'
+        isChats ? 'border-[var(--accent-ring)]' : 'border-stone-200/90'
       }`}
       aria-label={title}
     >
       <div className="mx-auto max-w-md px-4 py-3">
         <h1
           className={`text-base font-bold leading-tight tracking-tight ${
-            isChats ? 'text-emerald-900' : 'text-stone-900'
+            isChats ? 'text-[var(--accent-hover)]' : 'text-stone-900'
           }`}
         >
           {title}

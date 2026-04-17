@@ -32,13 +32,13 @@ export function FeedTabs({ active, onChange }: FeedTabsProps) {
               aria-selected={selected}
               onClick={() => onChange(t.id)}
               className={`relative min-h-[48px] min-w-0 flex-1 px-1.5 py-3 text-center text-[13px] font-extrabold tracking-tight transition sm:px-1 ${
-                selected ? 'text-slate-950' : 'text-slate-500 hover:text-slate-800'
+                selected ? 'text-[var(--accent-hover)]' : 'text-slate-500 hover:text-slate-800'
               }`}
             >
               <span className="block truncate">{t.label}</span>
               {selected ? (
                 <span
-                  className="absolute bottom-0 left-1/2 h-[3px] w-12 max-w-[72%] -translate-x-1/2 rounded-full bg-sky-600"
+                  className="absolute bottom-0 left-1/2 h-[3px] w-12 max-w-[72%] -translate-x-1/2 rounded-full bg-[var(--accent)]"
                   aria-hidden
                 />
               ) : null}

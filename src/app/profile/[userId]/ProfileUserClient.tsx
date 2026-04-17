@@ -313,7 +313,7 @@ export function ProfileUserClient({ userId }: ProfileUserClientProps) {
                   {profile.isSelf ? (
                     <Link
                       href="/profile/edit"
-                      className="flex min-h-[46px] w-full items-center justify-center rounded-full bg-slate-900 text-sm font-extrabold text-white transition hover:bg-slate-800"
+                      className="flex min-h-[46px] w-full items-center justify-center rounded-full bg-[var(--accent)] text-sm font-extrabold text-white transition hover:bg-[var(--accent-hover)]"
                     >
                       ویرایش پروفایل
                     </Link>
@@ -327,7 +327,7 @@ export function ProfileUserClient({ userId }: ProfileUserClientProps) {
                           className={`flex min-h-[46px] min-w-0 w-full shrink-0 items-center justify-center rounded-full text-sm font-extrabold transition disabled:opacity-60 sm:flex-1 ${
                             profile.isFollowing
                               ? 'border-2 border-slate-300 bg-white text-slate-900 hover:bg-slate-50'
-                              : 'bg-sky-600 text-white hover:bg-sky-700'
+                              : 'bg-[var(--accent)] text-white hover:bg-[var(--accent-hover)]'
                           }`}
                         >
                           {followBusy
@@ -354,7 +354,7 @@ export function ProfileUserClient({ userId }: ProfileUserClientProps) {
                               : undefined
                           }
                           onClick={() => startVoiceCall({ targetUserId: profile.id })}
-                          className="flex min-h-[46px] min-w-0 flex-1 basis-[calc(50%-0.25rem)] items-center justify-center rounded-full border-2 border-sky-500 bg-white text-sm font-extrabold text-sky-800 shadow-sm transition hover:bg-sky-50 disabled:cursor-not-allowed disabled:opacity-55"
+                          className="flex min-h-[46px] min-w-0 flex-1 basis-[calc(50%-0.25rem)] items-center justify-center rounded-full border-2 border-[var(--accent)] bg-white text-sm font-extrabold text-[var(--accent-hover)] shadow-sm transition hover:bg-[var(--accent-soft)] disabled:cursor-not-allowed disabled:opacity-55"
                           aria-label={`تماس صوتی با ${profile.name}`}
                         >
                           تماس
@@ -392,7 +392,7 @@ export function ProfileUserClient({ userId }: ProfileUserClientProps) {
                       onClick={() => setPostTab(tabItem.id)}
                       className={`rounded-lg px-2 py-2 text-xs font-bold transition ${
                         postTab === tabItem.id
-                          ? 'bg-white text-slate-900 shadow-sm ring-1 ring-slate-200'
+                          ? 'bg-white text-[var(--accent-hover)] shadow-sm ring-1 ring-[var(--accent-ring)]'
                           : 'text-slate-600 hover:bg-white/70'
                       }`}
                     >

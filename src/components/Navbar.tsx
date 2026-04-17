@@ -115,7 +115,7 @@ export function Navbar() {
 
             <Link
               href="/profile"
-              className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-sky-500 to-slate-600 text-xs font-bold text-white ring-2 ring-white transition hover:opacity-95"
+              className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[var(--accent)] text-xs font-bold text-white ring-2 ring-white transition hover:bg-[var(--accent-hover)]"
               aria-label="پروفایل من"
               title="پروفایل من"
             >

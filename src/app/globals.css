@@ -2,6 +2,54 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  --accent: #60a5fa;
+  --accent-hover: #3b82f6;
+  --accent-soft: #eff6ff;
+  --accent-ring: #bfdbfe;
+  --accent-contrast: #ffffff;
+}
+
+[data-theme='light-blue'] {
+  --accent: #60a5fa;
+  --accent-hover: #3b82f6;
+  --accent-soft: #eff6ff;
+  --accent-ring: #bfdbfe;
+  --accent-contrast: #ffffff;
+}
+
+[data-theme='green'] {
+  --accent: #34d399;
+  --accent-hover: #10b981;
+  --accent-soft: #ecfdf5;
+  --accent-ring: #a7f3d0;
+  --accent-contrast: #ffffff;
+}
+
+[data-theme='purple'] {
+  --accent: #a78bfa;
+  --accent-hover: #8b5cf6;
+  --accent-soft: #f5f3ff;
+  --accent-ring: #ddd6fe;
+  --accent-contrast: #ffffff;
+}
+
+[data-theme='orange'] {
+  --accent: #f59e0b;
+  --accent-hover: #d97706;
+  --accent-soft: #fffbeb;
+  --accent-ring: #fde68a;
+  --accent-contrast: #ffffff;
+}
+
+[data-theme='gray'] {
+  --accent: #94a3b8;
+  --accent-hover: #64748b;
+  --accent-soft: #f8fafc;
+  --accent-ring: #cbd5e1;
+  --accent-contrast: #ffffff;
+}
+
 html,
 body {
   height: 100%;
@@ -9,5 +57,26 @@ body {
 
 body {
   @apply bg-slate-50 text-slate-900 antialiased;
+}
+
+.accent-bg {
+  background-color: var(--accent);
+  color: var(--accent-contrast);
+}
+
+.accent-bg:hover {
+  background-color: var(--accent-hover);
+}
+
+.accent-soft {
+  background-color: var(--accent-soft);
+}
+
+.accent-text {
+  color: var(--accent-hover);
+}
+
+.accent-ring {
+  box-shadow: 0 0 0 2px var(--accent-ring);
 }
 

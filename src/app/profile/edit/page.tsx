@@ -11,6 +11,7 @@ import { uploadImageFile } from '@/lib/uploadImageFile';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { TextInput } from '@/components/forms/TextInput';
+import { ThemeSelector } from '@/components/settings/ThemeSelector';
 
 const MAX_AVATAR_BYTES = 20 * 1024 * 1024;
 const ACCEPT_IMAGES = 'image/*';
@@ -317,6 +318,9 @@ export default function ProfileEditPage() {
             </form>
           )}
         </Card>
+        <div className="mt-4">
+          <ThemeSelector />
+        </div>
       </main>
     </AuthGate>
   );
