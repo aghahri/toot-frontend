@@ -35,6 +35,19 @@ type ChannelRow = {
   network: { id: string; name: string };
 };
 
+type SpaceJourneyConfig = {
+  heroTitle: string;
+  heroSubtitle: string;
+  actions: Array<{ label: string; href: string; tone?: 'primary' | 'secondary' }>;
+  networkTitle: string;
+  networkEmpty: string;
+  discoveryTitle: string;
+  discoveryGroupsTitle: string;
+  discoveryChannelsTitle: string;
+  discoveryEmpty: string;
+  signals: string[];
+};
+
 type DetailResponse = {
   category: SpaceKey;
   groups: GroupRow[];
@@ -338,6 +351,110 @@ function SpaceDetailInner() {
     SPACE_BLUEPRINTS.find((x) => x.mappedCategory === spaceKey) ??
     null;
 
+  const memberNetworkId = displayNetworks.find((n) => n.isMember)?.id ?? null;
+  const journeyConfig: SpaceJourneyConfig | null = useMemo(() => {
+    if (spaceKey === 'NEIGHBORHOOD') {
+      return {
+        heroTitle: 'Your Local Digital Ecosystem',
+        heroSubtitle: 'فضای محله برای زندگی محلی، گروه‌های همسایگی و ابزارهای مدنی.',
+        actions: [
+          { label: 'Join Local Network', href: '#district-networks' },
+          { label: 'Local Groups', href: `/groups/new?kind=community&spaceKey=NEIGHBORHOOD&returnTo=spaces`, tone: 'secondary' },
+          { label: 'Neighborhood Forms', href: '/spaces/neighborhood/forms' },
+          { label: 'Discover Nearby Communities', href: '#discovery' , tone: 'secondary' },
+        ],
+        networkTitle: 'Active Neighborhood Networks',
+        networkEmpty: 'شبکه محله‌ای فعالی برای نمایش موجود نیست.',
+        discoveryTitle: 'Local Discovery',
+        discoveryGroupsTitle: 'Local Groups',
+        discoveryChannelsTitle: 'City Communities',
+        discoveryEmpty: 'فعلاً مورد مرتبطی برای نمایش پیدا نشد.',
+        signals: ['Trusted local', 'Civic tools', 'Services soon'],
+      };
+    }
+    if (spaceKey === 'EDUCATION') {
+      return {
+        heroTitle: 'Where Learning Communities Live',
+        heroSubtitle: 'اکوسیستم یادگیری برای گروه‌های درسی، کلاس‌ها و کانال‌های آموزشی.',
+        actions: [
+          {
+            label: 'Create Study Group',
+            href: `/groups/new?kind=community&spaceKey=EDUCATION${memberNetworkId ? `&networkId=${encodeURIComponent(memberNetworkId)}` : ''}&returnTo=spaces&preset=study`,
+          },
+          {
+            label: 'Create Class Community',
+            href: `/groups/new?kind=community&spaceKey=EDUCATION${memberNetworkId ? `&networkId=${encodeURIComponent(memberNetworkId)}` : ''}&returnTo=spaces&preset=class`,
+          },
+          {
+            label: 'Create Teacher Channel',
+            href: `/channels/new?preset=teacher&spaceKey=EDUCATION${memberNetworkId ? `&networkId=${encodeURIComponent(memberNetworkId)}` : ''}`,
+            tone: 'secondary',
+          },
+        ],
+        networkTitle: 'Education Networks',
+        networkEmpty: 'شبکه آموزشی فعالی برای نمایش موجود نیست.',
+        discoveryTitle: 'Education Discovery',
+        discoveryGroupsTitle: 'Exam Prep Communities',
+        discoveryChannelsTitle: 'Active Teacher Channels',
+        discoveryEmpty: 'فعلاً اجتماع آموزشی شاخصی برای نمایش نیست.',
+        signals: ['Course-ready', 'Teacher-led', 'Assignments soon'],
+      };
+    }
+    if (spaceKey === 'PUBLIC_GENERAL') {
+      return {
+        heroTitle: 'Build Work, Hiring, and Growth Networks',
+        heroSubtitle: 'اکوسیستم حرفه‌ای برای استخدام، همکاری و رشد شبکه‌های کاری.',
+        actions: [
+          {
+            label: 'Hiring Group',
+            href: `/groups/new?kind=community&spaceKey=PUBLIC_GENERAL${memberNetworkId ? `&networkId=${encodeURIComponent(memberNetworkId)}` : ''}&returnTo=spaces&preset=hiring`,
+          },
+          {
+            label: 'Startup Community',
+            href: `/groups/new?kind=community&spaceKey=PUBLIC_GENERAL${memberNetworkId ? `&networkId=${encodeURIComponent(memberNetworkId)}` : ''}&returnTo=spaces&preset=startup`,
+          },
+          {
+            label: 'Professional Channel',
+            href: `/channels/new?preset=professional&spaceKey=PUBLIC_GENERAL${memberNetworkId ? `&networkId=${encodeURIComponent(memberNetworkId)}` : ''}`,
+            tone: 'secondary',
+          },
+          {
+            label: 'Freelance Group',
+            href: `/groups/new?kind=community&spaceKey=PUBLIC_GENERAL${memberNetworkId ? `&networkId=${encodeURIComponent(memberNetworkId)}` : ''}&returnTo=spaces&preset=freelance`,
+            tone: 'secondary',
+          },
+        ],
+        networkTitle: 'Business Networks',
+        networkEmpty: 'شبکه کسب‌وکاری فعالی برای نمایش موجود نیست.',
+        discoveryTitle: 'Work Discovery',
+        discoveryGroupsTitle: 'Startup & Hiring Communities',
+        discoveryChannelsTitle: 'Pro Channels & Remote Circles',
+        discoveryEmpty: 'فعلاً شبکه کاری شاخصی برای نمایش نیست.',
+        signals: ['Hiring-ready', 'Founder-led', 'Marketplace next'],
+      };
+    }
+    if (spaceKey === 'SPORT') {
+      return {
+        heroTitle: 'Communities for Teams, Fitness, and Fans',
+        heroSubtitle: 'فضای ورزشی برای تیم‌ها، هواداران، مربی‌ها و اجتماع‌های تمرینی.',
+        actions: [
+          { label: 'Fan Group', href: `/groups/new?kind=community&spaceKey=SPORT&returnTo=spaces` },
+          { label: 'Team Community', href: `/groups/new?kind=community&spaceKey=SPORT&returnTo=spaces`, tone: 'secondary' },
+          { label: 'Fitness Circle', href: '#discovery' },
+          { label: 'Coach Channel', href: '/channels/new?spaceKey=SPORT', tone: 'secondary' },
+        ],
+        networkTitle: 'Sports Networks',
+        networkEmpty: 'شبکه ورزشی فعالی برای نمایش موجود نیست.',
+        discoveryTitle: 'Sports Discovery',
+        discoveryGroupsTitle: 'Active Fan Groups',
+        discoveryChannelsTitle: 'Workout Communities',
+        discoveryEmpty: 'فعلاً اجتماع ورزشی شاخصی برای نمایش نیست.',
+        signals: ['Matchday-ready', 'Team-led', 'Events soon'],
+      };
+    }
+    return null;
+  }, [spaceKey, memberNetworkId]);
+
   const networksSection = (
     <section id="district-networks" className={SECTION_CARD}>
       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
@@ -578,20 +695,25 @@ function SpaceDetailInner() {
           <p className="text-sm font-semibold text-red-700">{error}</p>
         ) : data ? (
           <div className="space-y-5 sm:space-y-6">
-            {blueprint ? <BlueprintIntroSection blueprint={blueprint} /> : null}
-
-            {blueprint?.utilities?.length ? (
-              <SpaceUtilitiesSection
-                spaceId={blueprint.id}
-                utilities={blueprint.utilities}
+            {journeyConfig ? (
+              <SpaceJourneySection
+                config={journeyConfig}
+                networks={displayNetworks}
+                groups={data.groups}
+                channels={data.channels}
               />
+            ) : blueprint ? (
+              <BlueprintIntroSection blueprint={blueprint} />
+            ) : null}
+            {!journeyConfig && blueprint?.utilities?.length ? (
+              <SpaceUtilitiesSection spaceId={blueprint.id} utilities={blueprint.utilities} />
             ) : null}
             {spaceKey === 'EDUCATION' ? (
               <EducationCapabilitySection
                 groups={data.groups}
                 channels={data.channels}
                 networks={displayNetworks}
-                memberNetworkId={displayNetworks.find((n) => n.isMember)?.id ?? null}
+                memberNetworkId={memberNetworkId}
               />
             ) : null}
             {spaceKey === 'PUBLIC_GENERAL' ? (
@@ -599,12 +721,12 @@ function SpaceDetailInner() {
                 groups={data.groups}
                 channels={data.channels}
                 networks={displayNetworks}
-                memberNetworkId={displayNetworks.find((n) => n.isMember)?.id ?? null}
+                memberNetworkId={memberNetworkId}
               />
             ) : null}
             {spaceKey === 'NEIGHBORHOOD' ? <NeighborhoodFormsCapabilitySection /> : null}
 
-            {isNeighborhood ? (
+            {journeyConfig ? null : isNeighborhood ? (
               <>
                 {networksSection}
                 {groupsSection}
@@ -623,6 +745,103 @@ function SpaceDetailInner() {
     </AuthGate>
   );
 }
+
+const SpaceJourneySection = memo(function SpaceJourneySection({
+  config,
+  networks,
+  groups,
+  channels,
+}: {
+  config: SpaceJourneyConfig;
+  networks: Array<NetworkRow & { isMember?: boolean }>;
+  groups: GroupRow[];
+  channels: ChannelRow[];
+}) {
+  return (
+    <section className={SECTION_CARD}>
+      <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-4">
+        <h2 className="text-lg font-black tracking-tight text-slate-900">{config.heroTitle}</h2>
+        <p className="mt-1 text-sm text-slate-600">{config.heroSubtitle}</p>
+      </div>
+
+      <div className="mt-3 grid gap-2 sm:grid-cols-2">
+        {config.actions.map((a) => (
+          <Link
+            key={a.label}
+            href={a.href}
+            className={(a.tone === 'secondary' ? SECONDARY_CTA : PRIMARY_CTA) + ' text-center'}
+          >
+            {a.label}
+          </Link>
+        ))}
+      </div>
+
+      <div id="district-networks" className="mt-4">
+        <h3 className="text-sm font-extrabold text-slate-900">{config.networkTitle}</h3>
+        <ul className="mt-2 grid gap-2 sm:grid-cols-2">
+          {networks.length === 0 ? (
+            <li className={SUB_CARD + ' text-xs text-slate-500'}>{config.networkEmpty}</li>
+          ) : (
+            networks.slice(0, 6).map((n) => (
+              <li key={n.id} className={SUB_CARD + ' bg-white'}>
+                <Link href={`/networks/${n.id}`} className="text-sm font-bold text-sky-700 hover:underline">
+                  {n.name}
+                </Link>
+                {n.description ? <p className="mt-1 line-clamp-2 text-[11px] text-slate-500">{n.description}</p> : null}
+              </li>
+            ))
+          )}
+        </ul>
+      </div>
+
+      <div id="discovery" className="mt-4">
+        <h3 className="text-sm font-extrabold text-slate-900">{config.discoveryTitle}</h3>
+        <div className="mt-2 grid gap-2 sm:grid-cols-2">
+          <div className={SUB_CARD + ' bg-white'}>
+            <p className="text-xs font-bold text-slate-700">{config.discoveryGroupsTitle}</p>
+            <ul className="mt-1.5 space-y-1.5">
+              {groups.length === 0 ? (
+                <li className="text-[11px] text-slate-500">{config.discoveryEmpty}</li>
+              ) : (
+                groups.slice(0, 4).map((g) => (
+                  <li key={g.id}>
+                    <Link href={`/groups/${g.id}`} className="text-[11px] font-semibold text-sky-700 hover:underline">
+                      {g.name}
+                    </Link>
+                  </li>
+                ))
+              )}
+            </ul>
+          </div>
+          <div className={SUB_CARD + ' bg-white'}>
+            <p className="text-xs font-bold text-slate-700">{config.discoveryChannelsTitle}</p>
+            <ul className="mt-1.5 space-y-1.5">
+              {channels.length === 0 ? (
+                <li className="text-[11px] text-slate-500">{config.discoveryEmpty}</li>
+              ) : (
+                channels.slice(0, 4).map((c) => (
+                  <li key={c.id}>
+                    <Link href={`/channels/${c.id}?network=${encodeURIComponent(c.networkId)}`} className="text-[11px] font-semibold text-sky-700 hover:underline">
+                      {c.name}
+                    </Link>
+                  </li>
+                ))
+              )}
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-4 flex flex-wrap gap-1.5">
+        {config.signals.map((chip) => (
+          <span key={chip} className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[10px] font-bold text-slate-700">
+            {chip}
+          </span>
+        ))}
+      </div>
+    </section>
+  );
+});
 
 const BlueprintIntroSection = memo(function BlueprintIntroSection({
   blueprint,
