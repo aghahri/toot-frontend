@@ -11,6 +11,7 @@ import { FeedEmptyState } from '@/components/home/FeedEmptyState';
 import { HomeFeedHeader } from '@/components/home/HomeFeedHeader';
 import { HomeComposeSheet } from '@/components/home/HomeComposeSheet';
 import { PostReplySheet } from '@/components/home/PostReplySheet';
+import { TrendingTopicsRow, type TrendChip } from '@/components/home/TrendingTopicsRow';
 import type { FeedPost, FeedTabId } from '@/components/home/feed-types';
 import { normalizeFeedPost } from '@/lib/feed-normalize';
 
@@ -63,6 +64,27 @@ type NetworkMembership = {
   networkType?: string | null;
   alignedSpaceCategory?: string | null;
 };
+
+type ApiTrendItem = {
+  tag: string;
+  display: string;
+  volume: number;
+  authorCount: number;
+};
+
+type TrendsBundleResponse = {
+  general: { items: ApiTrendItem[] };
+  local: { items: ApiTrendItem[] };
+  networks: { items: ApiTrendItem[] };
+};
+
+function mapTrendItemsToChips(items: ApiTrendItem[], max = 6): TrendChip[] {
+  return items.slice(0, max).map((it) => ({
+    display: it.display,
+    href: `/search?q=${encodeURIComponent(it.display)}&mode=top`,
+    volume: it.volume,
+  }));
+}
 
 const LOCAL_TOKENS = [
   'محله',
@@ -187,6 +209,7 @@ function HomePageInner() {
   const [postTargetMissed, setPostTargetMissed] = useState(false);
   const [storyItems, setStoryItems] = useState<StoryItem[]>([]);
   const [joinedNetworks, setJoinedNetworks] = useState<NetworkMembership[]>([]);
+  const [trendsBundle, setTrendsBundle] = useState<TrendsBundleResponse | null>(null);
   const viewerUserId = getCurrentUserIdFromAccessToken();
   const abortRef = useRef<AbortController | null>(null);
   const deepLinkFetchAttempted = useRef<Set<string>>(new Set());
@@ -283,6 +306,22 @@ function HomePageInner() {
         setJoinedNetworks((rows || []).filter((n) => n.isMember));
       })
       .catch(() => setJoinedNetworks([]));
+  }, []);
+
+  useEffect(() => {
+    const token = getAccessToken();
+    if (!token) return;
+    let cancelled = false;
+    void apiFetch<TrendsBundleResponse>('search/trends', { method: 'GET', token })
+      .then((data) => {
+        if (!cancelled) setTrendsBundle(data);
+      })
+      .catch(() => {
+        if (!cancelled) setTrendsBundle(null);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const targetPostId = searchParams.get('postId');
@@ -618,6 +657,14 @@ function HomePageInner() {
           ) : null}
           {tab === 'for-you' ? (
             <>
+              {trendsBundle?.general.items.length ? (
+                <TrendingTopicsRow
+                  title="ترندها"
+                  subtitle="هم‌زمان با جامعه"
+                  items={mapTrendItemsToChips(trendsBundle.general.items)}
+                  searchMoreHref="/search?mode=top"
+                />
+              ) : null}
               {loadingFeed ? (
                 <FeedSkeleton />
               ) : feedError ? (
@@ -721,59 +768,81 @@ function HomePageInner() {
               ) : null}
             </>
           ) : tab === 'local' ? (
-            localStream.length > 0 ? (
-              <div className="theme-card-bg mx-2 mt-2 overflow-hidden rounded-xl">
-                {localStream.map((item, idx) => {
-                  if (item.kind === 'post') {
-                    return (
-                      <FeedPostCard
-                        key={`local-${item.post.id}`}
-                        post={item.post}
-                        onPatch={patchPost}
-                        onDelete={removePost}
-                        onOpenReply={setReplyPost}
-                        onRepostChanged={() => void loadFeed({ silent: true })}
-                        emphasize={emphasizePostId === item.post.id}
-                        viewerUserId={viewerUserId}
-                      />
-                    );
-                  }
-                  return <InlineCuratedStoryCard key={`local-story-${item.story.id}-${idx}`} item={item.story} />;
-                })}
-              </div>
-            ) : (
-              <FeedEmptyState
-                title="محلهٔ من"
-                description="آپدیت‌های اطراف شما، صداهای همسایگی و جریان محلی اینجا ظاهر می‌شوند."
-                icon="⌂"
-              />
-            )
-          ) : networkStream.length > 0 ? (
-            <div className="theme-card-bg mx-2 mt-2 overflow-hidden rounded-xl">
-              {networkStream.map((item, idx) => {
-                if (item.kind === 'post') {
-                  return (
-                    <FeedPostCard
-                      key={`net-${item.post.id}`}
-                      post={item.post}
-                      onPatch={patchPost}
-                      onDelete={removePost}
-                      onOpenReply={setReplyPost}
-                      onRepostChanged={() => void loadFeed({ silent: true })}
-                      emphasize={emphasizePostId === item.post.id}
-                      viewerUserId={viewerUserId}
-                    />
-                  );
-                }
-                return <InlineCuratedStoryCard key={`net-story-${item.story.id}-${idx}`} item={item.story} />;
-              })}
-            </div>
+            <>
+              {trendsBundle?.local.items.length ? (
+                <TrendingTopicsRow
+                  title="ترند محله"
+                  subtitle="میان همسایه‌ها و محله‌های شما"
+                  items={mapTrendItemsToChips(trendsBundle.local.items)}
+                  searchMoreHref="/search?mode=top"
+                />
+              ) : null}
+              {localStream.length > 0 ? (
+                <div className="theme-card-bg mx-2 mt-2 overflow-hidden rounded-xl">
+                  {localStream.map((item, idx) => {
+                    if (item.kind === 'post') {
+                      return (
+                        <FeedPostCard
+                          key={`local-${item.post.id}`}
+                          post={item.post}
+                          onPatch={patchPost}
+                          onDelete={removePost}
+                          onOpenReply={setReplyPost}
+                          onRepostChanged={() => void loadFeed({ silent: true })}
+                          emphasize={emphasizePostId === item.post.id}
+                          viewerUserId={viewerUserId}
+                        />
+                      );
+                    }
+                    return <InlineCuratedStoryCard key={`local-story-${item.story.id}-${idx}`} item={item.story} />;
+                  })}
+                </div>
+              ) : (
+                <FeedEmptyState
+                  title="محلهٔ من"
+                  description="آپدیت‌های اطراف شما، صداهای همسایگی و جریان محلی اینجا ظاهر می‌شوند."
+                  icon="⌂"
+                />
+              )}
+            </>
           ) : (
-            <FeedEmptyState
-              title="شبکه‌ها"
-              description="پست‌های شبکه‌های Education / Business / Sports / Gaming / Neighborhood اینجا می‌آیند."
-              icon="⬡"
-            />
+            <>
+              {trendsBundle?.networks.items.length ? (
+                <TrendingTopicsRow
+                  title="ترند شبکه‌های شما"
+                  subtitle="میان اعضای شبکه‌هایی که عضو هستید"
+                  items={mapTrendItemsToChips(trendsBundle.networks.items)}
+                  searchMoreHref="/search?mode=top"
+                />
+              ) : null}
+              {networkStream.length > 0 ? (
+                <div className="theme-card-bg mx-2 mt-2 overflow-hidden rounded-xl">
+                  {networkStream.map((item, idx) => {
+                    if (item.kind === 'post') {
+                      return (
+                        <FeedPostCard
+                          key={`net-${item.post.id}`}
+                          post={item.post}
+                          onPatch={patchPost}
+                          onDelete={removePost}
+                          onOpenReply={setReplyPost}
+                          onRepostChanged={() => void loadFeed({ silent: true })}
+                          emphasize={emphasizePostId === item.post.id}
+                          viewerUserId={viewerUserId}
+                        />
+                      );
+                    }
+                    return <InlineCuratedStoryCard key={`net-story-${item.story.id}-${idx}`} item={item.story} />;
+                  })}
+                </div>
+              ) : (
+                <FeedEmptyState
+                  title="شبکه‌ها"
+                  description="پست‌های شبکه‌های Education / Business / Sports / Gaming / Neighborhood اینجا می‌آیند."
+                  icon="⬡"
+                />
+              )}
+            </>
           )}
         </main>
 
