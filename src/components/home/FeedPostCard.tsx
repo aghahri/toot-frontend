@@ -529,6 +529,7 @@ export function FeedPostCard({
               <span className="text-base" aria-hidden>
                 💬
               </span>
+              <span className="text-[11px] font-bold leading-none">پاسخ</span>
               {replyCount > 0 ? (
                 <span className="text-xs font-semibold tabular-nums">{formatCount(replyCount)}</span>
               ) : null}
@@ -573,6 +574,7 @@ export function FeedPostCard({
               <span className="text-base" aria-hidden>
                 {liked ? '♥' : '♡'}
               </span>
+              <span className="text-[11px] font-bold leading-none">پسند</span>
               {likeCount > 0 ? (
                 <span className="text-xs font-semibold tabular-nums">{formatCount(likeCount)}</span>
               ) : null}
@@ -591,6 +593,7 @@ export function FeedPostCard({
               <span className="text-base" aria-hidden>
                 {bookmarked ? '🔖' : '📑'}
               </span>
+              <span className="text-[11px] font-bold leading-none">نشان</span>
             </button>
           </div>
           {repostFeedback ? (

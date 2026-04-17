@@ -34,7 +34,45 @@ function FeedSkeleton() {
 type TabFrame = {
   title: string;
   subtitle: string;
+  badge: string;
+  badgeClassName: string;
 };
+
+const LOCAL_TOKENS = [
+  'محله',
+  'همسایه',
+  'کوچه',
+  'خیابان',
+  'منطقه',
+  'نزدیک',
+  'local',
+  'neighborhood',
+  'district',
+  'nearby',
+];
+
+const NETWORK_TOKENS = [
+  'شبکه',
+  'community',
+  'network',
+  'education',
+  'business',
+  'sports',
+  'gaming',
+  'education',
+  'startup',
+  'teacher',
+  'coach',
+  'clan',
+  'squad',
+  'study',
+  'class',
+];
+
+function tokenScore(input: string, tokens: string[]) {
+  const normalized = input.toLowerCase();
+  return tokens.reduce((acc, token) => (normalized.includes(token) ? acc + 1 : acc), 0);
+}
 
 function HomePageInner() {
   const router = useRouter();
@@ -200,25 +238,57 @@ function HomePageInner() {
     setFollowingPosts((prev) => prev.filter((x) => x.id !== postId));
   }, []);
 
+  const allKnownPosts = [...posts, ...followingPosts].reduce<FeedPost[]>((acc, post) => {
+    if (acc.some((x) => x.id === post.id)) return acc;
+    acc.push(post);
+    return acc;
+  }, []);
+
+  const localPosts = [...allKnownPosts]
+    .sort((a, b) => {
+      const aScore = tokenScore(`${a.text} ${a.user?.name ?? ''} ${a.user?.username ?? ''}`, LOCAL_TOKENS);
+      const bScore = tokenScore(`${b.text} ${b.user?.name ?? ''} ${b.user?.username ?? ''}`, LOCAL_TOKENS);
+      if (aScore !== bScore) return bScore - aScore;
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+    })
+    .filter((p) => tokenScore(`${p.text} ${p.user?.name ?? ''} ${p.user?.username ?? ''}`, LOCAL_TOKENS) > 0);
+
+  const networkPosts = [...allKnownPosts]
+    .sort((a, b) => {
+      const aScore = tokenScore(`${a.text} ${a.user?.name ?? ''} ${a.user?.username ?? ''}`, NETWORK_TOKENS);
+      const bScore = tokenScore(`${b.text} ${b.user?.name ?? ''} ${b.user?.username ?? ''}`, NETWORK_TOKENS);
+      if (aScore !== bScore) return bScore - aScore;
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+    })
+    .filter((p) => tokenScore(`${p.text} ${p.user?.name ?? ''} ${p.user?.username ?? ''}`, NETWORK_TOKENS) > 0);
+
   const tabFrame: TabFrame =
     tab === 'for-you'
       ? {
           title: 'برای شما',
           subtitle: 'ترکیبی از پست‌های مرتبط، شبکه‌ها و کشف محتوا.',
+          badge: 'Algorithm Graph',
+          badgeClassName: 'bg-sky-50 text-sky-700 ring-sky-200/80',
         }
       : tab === 'following'
         ? {
             title: 'دنبال‌شده‌ها',
             subtitle: 'فقط پست‌های افرادی که دنبال می‌کنید.',
+            badge: 'Social Graph',
+            badgeClassName: 'bg-violet-50 text-violet-700 ring-violet-200/80',
           }
         : tab === 'local'
           ? {
               title: 'محلهٔ من',
               subtitle: 'نبض محلی، فعالیت‌های نزدیک و روایت محله.',
+              badge: 'Geographic Graph',
+              badgeClassName: 'bg-emerald-50 text-emerald-700 ring-emerald-200/80',
             }
           : {
               title: 'شبکه‌ها',
               subtitle: 'پست‌های جامعه‌ها و شبکه‌های موضوعی شما.',
+              badge: 'Interest Graph',
+              badgeClassName: 'bg-amber-50 text-amber-700 ring-amber-200/80',
             };
 
   return (
@@ -238,13 +308,18 @@ function HomePageInner() {
                 <p className="theme-text-primary truncate text-sm font-extrabold">{tabFrame.title}</p>
                 <p className="theme-text-secondary mt-1 text-[11px] leading-relaxed">{tabFrame.subtitle}</p>
               </div>
-              <button
-                type="button"
-                onClick={() => setComposeOpen(true)}
-                className="shrink-0 rounded-full bg-[var(--accent-soft)] px-3 py-1.5 text-[11px] font-bold text-[var(--accent-hover)] transition hover:bg-[var(--surface-strong)]"
-              >
-                پست جدید
-              </button>
+              <div className="flex shrink-0 flex-col items-end gap-1.5">
+                <span className={`rounded-full px-2.5 py-1 text-[10px] font-bold ring-1 ${tabFrame.badgeClassName}`}>
+                  {tabFrame.badge}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setComposeOpen(true)}
+                  className="shrink-0 rounded-full bg-[var(--accent-soft)] px-3 py-1.5 text-[11px] font-bold text-[var(--accent-hover)] transition hover:bg-[var(--surface-strong)]"
+                >
+                  پست جدید
+                </button>
+              </div>
             </div>
           </section>
           {postTargetMissed ? (
@@ -281,7 +356,7 @@ function HomePageInner() {
                   icon="✦"
                 />
               ) : (
-                <div className="theme-card-bg mx-2 mt-2 overflow-hidden rounded-2xl shadow-sm ring-1 ring-slate-100/80">
+                <div className="theme-card-bg mx-2 mt-2 overflow-hidden rounded-xl">
                   {posts.map((p) => (
                     <FeedPostCard
                       key={
@@ -335,7 +410,7 @@ function HomePageInner() {
                   icon="◎"
                 />
               ) : (
-                <div className="theme-card-bg mx-2 mt-2 overflow-hidden rounded-2xl shadow-sm ring-1 ring-slate-100/80">
+                <div className="theme-card-bg mx-2 mt-2 overflow-hidden rounded-xl">
                   {followingPosts.map((p) => (
                     <FeedPostCard
                       key={p.id}
@@ -364,15 +439,47 @@ function HomePageInner() {
               ) : null}
             </>
           ) : tab === 'local' ? (
-            <FeedEmptyState
-              title="محلهٔ من"
-              description="فعالیت‌های محلی، گروه‌های همسایگی و پست‌های نزدیک اینجا نمایش داده می‌شوند."
-              icon="⌂"
-            />
+            localPosts.length > 0 ? (
+              <div className="theme-card-bg mx-2 mt-2 overflow-hidden rounded-xl">
+                {localPosts.map((p) => (
+                  <FeedPostCard
+                    key={`local-${p.id}`}
+                    post={p}
+                    onPatch={patchPost}
+                    onDelete={removePost}
+                    onOpenReply={setReplyPost}
+                    onRepostChanged={() => void loadFeed({ silent: true })}
+                    emphasize={emphasizePostId === p.id}
+                    viewerUserId={viewerUserId}
+                  />
+                ))}
+              </div>
+            ) : (
+              <FeedEmptyState
+                title="محلهٔ من"
+                description="آپدیت‌های اطراف شما، صداهای همسایگی و جریان محلی اینجا ظاهر می‌شوند."
+                icon="⌂"
+              />
+            )
+          ) : networkPosts.length > 0 ? (
+            <div className="theme-card-bg mx-2 mt-2 overflow-hidden rounded-xl">
+              {networkPosts.map((p) => (
+                <FeedPostCard
+                  key={`net-${p.id}`}
+                  post={p}
+                  onPatch={patchPost}
+                  onDelete={removePost}
+                  onOpenReply={setReplyPost}
+                  onRepostChanged={() => void loadFeed({ silent: true })}
+                  emphasize={emphasizePostId === p.id}
+                  viewerUserId={viewerUserId}
+                />
+              ))}
+            </div>
           ) : (
             <FeedEmptyState
               title="شبکه‌ها"
-              description="پست‌های شبکه‌ها و جامعه‌هایی که عضو آن‌ها هستید اینجا جمع می‌شوند."
+              description="پست‌های شبکه‌های Education / Business / Sports / Gaming / Neighborhood اینجا می‌آیند."
               icon="⬡"
             />
           )}
