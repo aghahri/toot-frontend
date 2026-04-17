@@ -7,7 +7,6 @@ import { getAccessToken } from '@/lib/auth';
 import { apiFetch } from '@/lib/api';
 import { USER_SPACE_KEYS, USER_SPACE_META, type UserSpaceKey } from '@/lib/user-spaces';
 import { SPACE_BLUEPRINTS, type SpaceBlueprint } from '@/lib/spacesBlueprint';
-import type { SpaceKey, SpaceSummaryRow } from '@/lib/spacesCatalog';
 
 type SpacePrefsResponse = { preferredSpaces: UserSpaceKey[] };
 
@@ -30,7 +29,6 @@ type TrendingGroupRow = {
   description: string | null;
   networkId: string | null;
   joinable: boolean;
-  category: SpaceKey;
 };
 
 type RecommendedItem =
@@ -57,32 +55,21 @@ const DETAIL_ROUTE: Record<UserSpaceKey, string> = {
   university: 'EDUCATION',
 };
 
-const OS_QUICK_LINKS: Record<SpaceBlueprint['id'], { label: string; href: string }[]> = {
-  neighborhood: [
-    { label: 'فرم‌های محله', href: '/spaces/neighborhood/forms' },
-    { label: 'شبکه‌های محله', href: '/spaces/NEIGHBORHOOD#district-networks' },
-    { label: 'گروه محله', href: '/groups/new?kind=community&spaceKey=NEIGHBORHOOD&returnTo=spaces' },
-  ],
-  education: [
-    { label: 'گروه مطالعه', href: '/groups/new?kind=community&spaceKey=EDUCATION&returnTo=spaces&preset=study' },
-    { label: 'کلاس', href: '/groups/new?kind=community&spaceKey=EDUCATION&returnTo=spaces&preset=class' },
-    { label: 'کانال مدرس', href: '/channels/new?preset=teacher&spaceKey=EDUCATION' },
-  ],
-  sports: [
-    { label: 'هواداری', href: '/groups/new?kind=community&spaceKey=SPORT&returnTo=spaces&preset=fan' },
-    { label: 'تیم', href: '/groups/new?kind=community&spaceKey=SPORT&returnTo=spaces&preset=team' },
-    { label: 'تمرین', href: '/groups/new?kind=community&spaceKey=SPORT&returnTo=spaces&preset=fitness' },
-  ],
-  gaming: [
-    { label: 'کلن', href: '/groups/new?kind=community&spaceKey=TECH&returnTo=spaces&preset=clan' },
-    { label: 'اسکاد', href: '/groups/new?kind=community&spaceKey=TECH&returnTo=spaces&preset=squad' },
-    { label: 'استریم', href: '/channels/new?preset=stream&spaceKey=TECH' },
-  ],
-  business: [
-    { label: 'استخدام', href: '/groups/new?kind=community&spaceKey=PUBLIC_GENERAL&returnTo=spaces&preset=hiring' },
-    { label: 'استارتاپ', href: '/groups/new?kind=community&spaceKey=PUBLIC_GENERAL&returnTo=spaces&preset=startup' },
-    { label: 'کانال حرفه‌ای', href: '/channels/new?preset=professional&spaceKey=PUBLIC_GENERAL' },
-  ],
+/** Persian-only explore labels (backend routes unchanged). */
+const EXPLORE_TITLE_FA: Record<SpaceBlueprint['id'], string> = {
+  neighborhood: 'محله',
+  education: 'آموزش',
+  sports: 'ورزش',
+  gaming: 'گیمینگ',
+  business: 'کسب‌وکار',
+};
+
+const EXPLORE_ONE_LINE: Record<SpaceBlueprint['id'], string> = {
+  neighborhood: 'شبکه محلی، فرم و همسایگی',
+  education: 'کلاس، کانال و گروه مطالعه',
+  sports: 'تیم، هوادار و تمرین',
+  gaming: 'کلن، اسکاد و استریم',
+  business: 'استخدام، استارتاپ و شبکه حرفه‌ای',
 };
 
 const EXPLORE_ORDER: SpaceBlueprint['id'][] = ['neighborhood', 'education', 'sports', 'gaming', 'business'];
@@ -110,7 +97,7 @@ function normalizeSpaces(items: UserSpaceKey[]): UserSpaceKey[] {
 function flattenGroupsBuckets(
   data: Record<string, TrendingGroupRow[]>,
 ): Array<TrendingGroupRow & { tag: string }> {
-  const order: SpaceKey[] = ['NEIGHBORHOOD', 'EDUCATION', 'SPORT', 'TECH', 'PUBLIC_GENERAL'];
+  const order = ['NEIGHBORHOOD', 'EDUCATION', 'SPORT', 'TECH', 'PUBLIC_GENERAL'];
   const out: Array<TrendingGroupRow & { tag: string }> = [];
   const seen = new Set<string>();
   let i = 0;
@@ -119,9 +106,9 @@ function flattenGroupsBuckets(
     for (const g of rows) {
       if (seen.has(g.id)) continue;
       seen.add(g.id);
-      out.push({ ...g, category: cat, tag: TREND_TAGS[i % TREND_TAGS.length] });
+      out.push({ ...g, tag: TREND_TAGS[i % TREND_TAGS.length] });
       i += 1;
-      if (out.length >= 10) return out;
+      if (out.length >= 5) return out;
     }
   }
   return out;
@@ -145,9 +132,9 @@ function buildRecommendations(p: PersonalizedResponse | null): RecommendedItem[]
       });
     const c0 = block.channels[0];
     if (c0) out.push({ kind: 'channel', ...c0, spaceKey: block.key });
-    if (out.length >= 9) break;
+    if (out.length >= 3) break;
   }
-  return out.slice(0, 9);
+  return out.slice(0, 3);
 }
 
 export default function SpacesOverviewPage() {
@@ -158,7 +145,6 @@ export default function SpacesOverviewPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [localReady, setLocalReady] = useState(false);
-  const [summary, setSummary] = useState<SpaceSummaryRow[] | null>(null);
   const [personalized, setPersonalized] = useState<PersonalizedResponse | null>(null);
   const [trending, setTrending] = useState<Array<TrendingGroupRow & { tag: string }>>([]);
   const [discoverLoading, setDiscoverLoading] = useState(true);
@@ -187,14 +173,11 @@ export default function SpacesOverviewPage() {
   const loadDiscover = useCallback(async () => {
     setDiscoverLoading(true);
     try {
-      const [sum, groupsRaw] = await Promise.all([
-        apiFetch<{ spaces: SpaceSummaryRow[] }>('discover/spaces/summary', { method: 'GET' }),
-        apiFetch<Record<string, TrendingGroupRow[]>>('discover/spaces/groups?limit=10', { method: 'GET' }),
-      ]);
-      setSummary(sum.spaces ?? null);
+      const groupsRaw = await apiFetch<Record<string, TrendingGroupRow[]>>('discover/spaces/groups?limit=8', {
+        method: 'GET',
+      });
       setTrending(flattenGroupsBuckets(groupsRaw ?? {}));
     } catch {
-      setSummary(null);
       setTrending([]);
     } finally {
       setDiscoverLoading(false);
@@ -252,12 +235,6 @@ export default function SpacesOverviewPage() {
       cancelled = true;
     };
   }, [localReady, loadSpaces, loadDiscover, loadPersonalized]);
-
-  const summaryByCategory = useMemo(() => {
-    const m = new Map<string, SpaceSummaryRow>();
-    for (const row of summary ?? []) m.set(row.category, row);
-    return m;
-  }, [summary]);
 
   const recommendations = useMemo(() => buildRecommendations(personalized), [personalized]);
 
@@ -344,20 +321,17 @@ export default function SpacesOverviewPage() {
   return (
     <AuthGate>
       <main
-        className="theme-page-bg theme-text-primary mx-auto w-full max-w-lg px-4 pb-28 pt-4 sm:max-w-2xl sm:pb-14 sm:pt-5"
+        className="theme-page-bg theme-text-primary mx-auto w-full max-w-lg px-4 pb-28 pt-5 sm:max-w-xl sm:pb-16"
         dir="rtl"
       >
-        <header className="mb-6 flex items-start justify-between gap-3">
+        <header className="mb-8 flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <h1 className="text-2xl font-black tracking-tight text-[var(--text-primary)] sm:text-3xl">فضاهای من</h1>
-            <p className="mt-1 max-w-md text-[13px] font-medium text-[var(--text-secondary)]">
-              محل عضویت، ابزارها و اجتماع‌های تخصصی توت.
-            </p>
+            <h1 className="text-2xl font-black tracking-tight text-[var(--text-primary)] sm:text-3xl">فضاها</h1>
           </div>
           <button
             type="button"
             onClick={() => setEditOpen(true)}
-            className="shrink-0 rounded-2xl border border-[var(--border-soft)] bg-[var(--card-bg)] px-3 py-2 text-[11px] font-extrabold text-[var(--accent-hover)] shadow-sm transition hover:bg-[var(--surface-soft)]"
+            className="shrink-0 rounded-2xl border border-[var(--border-soft)] bg-[var(--card-bg)] px-3 py-2.5 text-xs font-extrabold text-[var(--accent-hover)] shadow-sm transition hover:bg-[var(--surface-soft)] active:scale-[0.99]"
             aria-label="ویرایش فضاهای منتخب"
           >
             ویرایش
@@ -365,64 +339,46 @@ export default function SpacesOverviewPage() {
         </header>
 
         {loading ? (
-          <div className="space-y-3" aria-busy>
-            <div className="h-28 animate-pulse rounded-3xl bg-[var(--surface-strong)]" />
-            <div className="h-40 animate-pulse rounded-3xl bg-[var(--surface-strong)]" />
+          <div className="space-y-4" aria-busy>
+            <div className="h-24 animate-pulse rounded-3xl bg-[var(--surface-strong)]" />
+            <div className="h-32 animate-pulse rounded-3xl bg-[var(--surface-strong)]" />
           </div>
         ) : error && !hasMySpaces ? (
           <p className="text-sm font-semibold text-red-600">{error}</p>
         ) : null}
 
         {!loading && error && hasMySpaces ? (
-          <p className="mb-3 rounded-2xl border border-red-100 bg-red-50/80 px-3 py-2 text-center text-xs font-semibold text-red-700">
+          <p className="mb-4 rounded-2xl border border-red-100 bg-red-50/80 px-3 py-2 text-center text-xs font-semibold text-red-700">
             {error}
           </p>
         ) : null}
 
         {!loading ? (
-          <div className="flex flex-col gap-8">
-            {/* B — My Spaces */}
-            <section aria-labelledby="my-spaces-heading">
-              <div className="mb-3 flex items-center justify-between gap-2">
-                <h2 id="my-spaces-heading" className="text-sm font-extrabold text-[var(--text-primary)]">
-                  فضاهای منتخب شما
-                </h2>
-                <span className="rounded-full bg-[var(--surface-soft)] px-2 py-0.5 text-[10px] font-bold text-[var(--text-secondary)] ring-1 ring-[var(--border-soft)]">
-                  {dashboardSpaces.length}/{MAX_SPACES}
-                </span>
-              </div>
+          <div className="flex flex-col gap-10">
+            <section aria-label="فضاهای منتخب">
               {hasMySpaces ? (
-                <div className="flex snap-x snap-mandatory gap-3 overflow-x-auto pb-1 sm:grid sm:grid-cols-2 sm:overflow-visible">
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
                   {dashboardSpaces.map((k) => (
                     <Link
                       key={k}
                       href={`/spaces/${DETAIL_ROUTE[k]}`}
-                      className="snap-center shrink-0 w-[min(85vw,20rem)] rounded-3xl border border-[var(--border-soft)] bg-[var(--card-bg)] p-4 shadow-sm ring-1 ring-[var(--border-soft)] transition hover:shadow-md sm:w-auto"
+                      className="flex flex-col items-center rounded-3xl border border-[var(--border-soft)] bg-[var(--card-bg)] px-3 py-5 text-center shadow-sm ring-1 ring-[var(--border-soft)] transition hover:shadow-md active:scale-[0.98]"
                     >
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="text-2xl" aria-hidden>
-                          {USER_SPACE_META[k].emoji}
-                        </span>
-                        <span
-                          className={`rounded-full px-2 py-0.5 text-[9px] font-extrabold ring-1 ${USER_SPACE_META[k].accent}`}
-                        >
-                          فعال
-                        </span>
-                      </div>
-                      <p className="mt-2 text-base font-extrabold text-[var(--text-primary)]">{USER_SPACE_META[k].labelFa}</p>
-                      <p className="mt-0.5 text-[11px] text-[var(--text-secondary)]">{USER_SPACE_META[k].labelEn}</p>
-                      <p className="mt-3 text-[11px] font-bold text-[var(--accent-hover)]">ورود ←</p>
+                      <span className="text-4xl leading-none" aria-hidden>
+                        {USER_SPACE_META[k].emoji}
+                      </span>
+                      <p className="mt-3 text-sm font-black text-[var(--text-primary)]">{USER_SPACE_META[k].labelFa}</p>
+                      <p className="mt-2 text-[10px] font-bold text-[var(--accent-hover)]">ورود</p>
                     </Link>
                   ))}
                 </div>
               ) : (
-                <div className="rounded-3xl border border-[var(--border-soft)] bg-[var(--card-bg)] px-4 py-8 text-center shadow-sm">
-                  <p className="text-sm font-extrabold text-[var(--text-primary)]">هنوز فضایی انتخاب نکرده‌اید</p>
-                  <p className="mt-1 text-xs text-[var(--text-secondary)]">از «ویرایش» شروع کنید؛ محله همیشه فعال است.</p>
+                <div className="rounded-3xl border border-[var(--border-soft)] bg-[var(--card-bg)] px-4 py-10 text-center shadow-sm">
+                  <p className="text-sm font-extrabold text-[var(--text-primary)]">فضایی انتخاب نشده</p>
                   <button
                     type="button"
                     onClick={() => setEditOpen(true)}
-                    className="mt-4 rounded-full bg-[var(--accent)] px-5 py-2.5 text-xs font-extrabold text-[var(--accent-contrast)] hover:bg-[var(--accent-hover)]"
+                    className="mt-4 rounded-full bg-[var(--accent)] px-6 py-2.5 text-xs font-extrabold text-[var(--accent-contrast)] hover:bg-[var(--accent-hover)]"
                   >
                     انتخاب فضاها
                   </button>
@@ -430,13 +386,12 @@ export default function SpacesOverviewPage() {
               )}
             </section>
 
-            {/* C — Recommended */}
             {getAccessToken() && recommendations.length > 0 ? (
               <section aria-labelledby="rec-heading">
-                <h2 id="rec-heading" className="mb-3 text-sm font-extrabold text-[var(--text-primary)]">
+                <h2 id="rec-heading" className="mb-4 text-xs font-extrabold uppercase tracking-wider text-[var(--text-secondary)]">
                   پیشنهاد برای شما
                 </h2>
-                <div className="flex snap-x gap-2 overflow-x-auto pb-1">
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
                   {recommendations.map((item, idx) => (
                     <Link
                       key={`${item.kind}-${item.id}-${idx}`}
@@ -447,98 +402,67 @@ export default function SpacesOverviewPage() {
                             ? `/groups/${item.id}`
                             : `/channels/${item.id}?network=${encodeURIComponent(item.networkId)}`
                       }
-                      className="snap-start shrink-0 max-w-[11.5rem] rounded-2xl border border-[var(--border-soft)] bg-[var(--surface-soft)] px-3 py-2.5 transition hover:bg-[var(--accent-soft)]"
+                      className="rounded-2xl border border-[var(--border-soft)] bg-[var(--surface-soft)] px-3 py-3 transition hover:border-[var(--accent-ring)]"
                     >
-                      <p className="text-[10px] font-bold uppercase tracking-wide text-[var(--accent-hover)]">
+                      <p className="text-[10px] font-bold text-[var(--accent-hover)]">
                         {item.kind === 'network' ? 'شبکه' : item.kind === 'group' ? 'گروه' : 'کانال'}
                       </p>
-                      <p className="mt-1 line-clamp-2 text-xs font-extrabold text-[var(--text-primary)]">{item.name}</p>
+                      <p className="mt-1 line-clamp-2 text-sm font-extrabold text-[var(--text-primary)]">{item.name}</p>
                     </Link>
                   ))}
                 </div>
               </section>
             ) : null}
 
-            {/* D — Explore by type */}
             <section aria-labelledby="explore-heading">
-              <h2 id="explore-heading" className="mb-3 text-sm font-extrabold text-[var(--text-primary)]">
-                کاوش بر اساس نوع فضا
+              <h2 id="explore-heading" className="mb-4 text-xs font-extrabold uppercase tracking-wider text-[var(--text-secondary)]">
+                کاوش فضاها
               </h2>
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 {exploreBlueprints.map((bp) => {
                   const isHood = bp.id === 'neighborhood';
-                  const counts = summaryByCategory.get(bp.mappedCategory);
-                  const activity =
-                    counts && counts.groups + counts.networks + counts.channels > 0
-                      ? `${counts.groups + counts.networks + counts.channels} فعالیت`
-                      : null;
-                  const quick = OS_QUICK_LINKS[bp.id];
+                  const title = EXPLORE_TITLE_FA[bp.id];
+                  const line = EXPLORE_ONE_LINE[bp.id];
                   return (
-                    <div
+                    <Link
                       key={bp.id}
-                      className={`relative overflow-hidden rounded-3xl border border-[var(--border-soft)] bg-[var(--card-bg)] shadow-sm ring-1 ring-[var(--border-soft)] ${
+                      href={`/spaces/${bp.mappedCategory}`}
+                      className={`relative block overflow-hidden rounded-3xl border border-[var(--border-soft)] bg-[var(--card-bg)] p-5 shadow-sm ring-1 ring-[var(--border-soft)] transition hover:shadow-md active:scale-[0.99] ${
                         isHood ? 'sm:col-span-2' : ''
                       }`}
                     >
-                      <div
-                        className={`pointer-events-none absolute inset-0 bg-gradient-to-bl opacity-[0.14] ${bp.accentClass}`}
-                        aria-hidden
-                      />
-                      <div className="relative p-4 sm:p-5">
-                        <div className="flex flex-wrap items-start justify-between gap-2">
-                          <div>
-                            <p className="text-lg font-black text-[var(--text-primary)]">{bp.titleFa}</p>
-                            <p className="text-[11px] font-semibold text-[var(--text-secondary)]">{bp.titleEn}</p>
-                          </div>
-                          {isHood ? (
-                            <span className="rounded-full bg-[var(--accent-soft)] px-2 py-0.5 text-[9px] font-extrabold text-[var(--accent-hover)] ring-1 ring-[var(--accent-ring)]">
-                              ویژه
-                            </span>
-                          ) : null}
-                          {activity ? (
-                            <span className="rounded-full bg-[var(--surface-soft)] px-2 py-0.5 text-[9px] font-bold text-[var(--text-secondary)]">
-                              {activity}
-                            </span>
-                          ) : null}
+                      <div className={`pointer-events-none absolute inset-0 bg-gradient-to-bl opacity-[0.12] ${bp.accentClass}`} aria-hidden />
+                      <div className="relative flex items-center gap-4">
+                        <span className="text-4xl" aria-hidden>
+                          {bp.id === 'neighborhood'
+                            ? '🏘'
+                            : bp.id === 'education'
+                              ? '🎓'
+                              : bp.id === 'sports'
+                                ? '⚽'
+                                : bp.id === 'gaming'
+                                  ? '🎮'
+                                  : '💼'}
+                        </span>
+                        <div className="min-w-0 flex-1 text-right">
+                          <p className="text-lg font-black text-[var(--text-primary)]">{title}</p>
+                          <p className="mt-1 text-[12px] text-[var(--text-secondary)]">{line}</p>
+                          <p className="mt-3 text-xs font-extrabold text-[var(--accent-hover)]">ورود به فضا ←</p>
                         </div>
-                        <div className="mt-3 flex flex-wrap gap-1.5">
-                          {quick.map((q) => (
-                            <Link
-                              key={q.label}
-                              href={q.href}
-                              className="rounded-full border border-[var(--border-soft)] bg-[var(--surface-soft)] px-2.5 py-1 text-[10px] font-extrabold text-[var(--text-primary)] transition hover:border-[var(--accent-ring)] hover:text-[var(--accent-hover)]"
-                            >
-                              {q.label}
-                            </Link>
-                          ))}
-                        </div>
-                        <Link
-                          href={`/spaces/${bp.mappedCategory}`}
-                          className="mt-4 inline-flex items-center gap-1 rounded-2xl bg-[var(--accent)] px-4 py-2 text-xs font-extrabold text-[var(--accent-contrast)] hover:bg-[var(--accent-hover)]"
-                        >
-                          ورود به فضا
-                          <span aria-hidden>←</span>
-                        </Link>
                       </div>
-                    </div>
+                    </Link>
                   );
                 })}
               </div>
             </section>
 
-            {/* E — Trending communities */}
             <section aria-labelledby="trend-heading">
-              <div className="mb-3 flex items-center justify-between gap-2">
-                <h2 id="trend-heading" className="text-sm font-extrabold text-[var(--text-primary)]">
-                  اجتماع‌های داغ
-                </h2>
-                {discoverLoading ? (
-                  <span className="text-[10px] text-[var(--text-secondary)]">…</span>
-                ) : null}
-              </div>
+              <h2 id="trend-heading" className="mb-4 text-xs font-extrabold uppercase tracking-wider text-[var(--text-secondary)]">
+                اجتماع‌های داغ
+              </h2>
               {trending.length === 0 && !discoverLoading ? (
-                <p className="rounded-2xl border border-[var(--border-soft)] bg-[var(--surface-soft)] px-3 py-4 text-center text-xs text-[var(--text-secondary)]">
-                  به‌زودی اجتماع‌های بیشتری اینجا می‌آید.
+                <p className="rounded-2xl border border-[var(--border-soft)] bg-[var(--surface-soft)] px-3 py-6 text-center text-xs text-[var(--text-secondary)]">
+                  به‌زودی
                 </p>
               ) : (
                 <ul className="space-y-2">
@@ -549,7 +473,10 @@ export default function SpacesOverviewPage() {
                     >
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-2">
-                          <Link href={`/groups/${g.id}`} className="truncate text-sm font-extrabold text-[var(--accent-hover)] hover:underline">
+                          <Link
+                            href={`/groups/${g.id}`}
+                            className="truncate text-sm font-extrabold text-[var(--accent-hover)] hover:underline"
+                          >
                             {g.name}
                           </Link>
                           <span className="rounded-full bg-[var(--surface-soft)] px-2 py-0.5 text-[9px] font-bold text-[var(--text-secondary)] ring-1 ring-[var(--border-soft)]">
@@ -557,7 +484,7 @@ export default function SpacesOverviewPage() {
                           </span>
                         </div>
                         {g.description ? (
-                          <p className="mt-0.5 line-clamp-2 text-[11px] text-[var(--text-secondary)]">{g.description}</p>
+                          <p className="mt-0.5 line-clamp-1 text-[11px] text-[var(--text-secondary)]">{g.description}</p>
                         ) : null}
                       </div>
                       {g.joinable ? (
@@ -565,7 +492,7 @@ export default function SpacesOverviewPage() {
                           type="button"
                           disabled={joiningId === g.id}
                           onClick={() => void joinTrendingGroup(g.id)}
-                          className="shrink-0 rounded-full border border-[var(--border-soft)] bg-[var(--accent)] px-4 py-2 text-[11px] font-extrabold text-[var(--accent-contrast)] hover:bg-[var(--accent-hover)] disabled:opacity-50"
+                          className="shrink-0 rounded-full bg-[var(--accent)] px-4 py-2 text-[11px] font-extrabold text-[var(--accent-contrast)] hover:bg-[var(--accent-hover)] disabled:opacity-50"
                         >
                           {joiningId === g.id ? '…' : 'پیوستن'}
                         </button>
@@ -581,28 +508,6 @@ export default function SpacesOverviewPage() {
                   ))}
                 </ul>
               )}
-            </section>
-
-            {/* F — Continue */}
-            <section className="flex flex-wrap gap-2 border-t border-[var(--border-soft)] pt-4">
-              <Link
-                href="/search"
-                className="rounded-full border border-[var(--border-soft)] bg-[var(--card-bg)] px-4 py-2 text-[11px] font-extrabold text-[var(--text-primary)] hover:bg-[var(--surface-soft)]"
-              >
-                جستجو
-              </Link>
-              <Link
-                href="/home"
-                className="rounded-full border border-[var(--border-soft)] bg-[var(--card-bg)] px-4 py-2 text-[11px] font-extrabold text-[var(--text-primary)] hover:bg-[var(--surface-soft)]"
-              >
-                فید خانه
-              </Link>
-              <Link
-                href="/spaces/NEIGHBORHOOD"
-                className="rounded-full border border-[var(--border-soft)] bg-[var(--accent-soft)] px-4 py-2 text-[11px] font-extrabold text-[var(--accent-hover)] hover:bg-[var(--accent-ring)]/30"
-              >
-                محله
-              </Link>
             </section>
           </div>
         ) : null}
