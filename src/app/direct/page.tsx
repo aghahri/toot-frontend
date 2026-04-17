@@ -14,6 +14,10 @@ import {
 } from '@/components/direct/DirectConversationRow';
 import { listPreviewForLastMessage } from '@/lib/direct-list-preview';
 import { DIRECT_DRAFT_CHANGED_EVENT, getDirectDraft } from '@/lib/direct-drafts';
+import {
+  DIRECT_CONVERSATION_READ_EVENT,
+  type DirectConversationReadEventDetail,
+} from '@/lib/direct-events';
 
 type PeerUser = {
   id: string;
@@ -55,9 +59,13 @@ function sortConversations(a: Conversation, b: Conversation): number {
   const ap = a.inboxPinned ? 1 : 0;
   const bp = b.inboxPinned ? 1 : 0;
   if (ap !== bp) return bp - ap;
+  const au = (a.unreadCount ?? 0) > 0 ? 1 : 0;
+  const bu = (b.unreadCount ?? 0) > 0 ? 1 : 0;
+  if (au !== bu) return bu - au;
   const ta = new Date(a.lastActivityAt ?? a.updatedAt).getTime();
   const tb = new Date(b.lastActivityAt ?? b.updatedAt).getTime();
-  return tb - ta;
+  if (ta !== tb) return tb - ta;
+  return a.id.localeCompare(b.id);
 }
 
 function ConversationListSkeleton() {
@@ -85,6 +93,13 @@ type UserSearchHit = {
 
 function peerSubtitle(u: PeerUser | undefined): string {
   if (!u) return '';
+  if (u.lastSeenAt) {
+    const last = new Date(u.lastSeenAt).getTime();
+    if (!Number.isNaN(last)) {
+      const mins = Math.floor((Date.now() - last) / 60000);
+      if (mins <= 5) return 'فعال اخیراً';
+    }
+  }
   const parts = [`@${u.username}`, u.phoneMasked].filter(Boolean);
   return parts.join(' · ');
 }
@@ -256,8 +271,32 @@ export default function DirectPage() {
       }
     };
     document.addEventListener('visibilitychange', onVis);
-    return () => document.removeEventListener('visibilitychange', onVis);
+    window.addEventListener('focus', onVis);
+    return () => {
+      document.removeEventListener('visibilitychange', onVis);
+      window.removeEventListener('focus', onVis);
+    };
   }, [loadMeAndConversations]);
+
+  useEffect(() => {
+    const onConversationRead = (e: Event) => {
+      const detail = (e as CustomEvent<DirectConversationReadEventDetail>).detail;
+      const conversationId = detail?.conversationId;
+      if (!conversationId) return;
+      setItems((prev) =>
+        prev.map((row) =>
+          row.id === conversationId ? { ...row, unreadCount: 0 } : row,
+        ),
+      );
+    };
+    window.addEventListener(DIRECT_CONVERSATION_READ_EVENT, onConversationRead as EventListener);
+    return () => {
+      window.removeEventListener(
+        DIRECT_CONVERSATION_READ_EVENT,
+        onConversationRead as EventListener,
+      );
+    };
+  }, []);
 
   useEffect(() => {
     const onDraft = () => setDraftRev((n) => n + 1);

@@ -6,6 +6,7 @@ import { AuthGate } from '@/components/AuthGate';
 import { getAccessToken } from '@/lib/auth';
 import { apiFetch, getApiBaseUrl, getErrorMessageFromResponse } from '@/lib/api';
 import { markDirectConversationRead } from '@/lib/mark-direct-read';
+import { notifyDirectConversationRead } from '@/lib/direct-events';
 import { clearDirectDraft, getDirectDraft, setDirectDraft } from '@/lib/direct-drafts';
 import { DIRECT_REACTION_EMOJIS, type DirectReactionSummary } from '@/lib/direct-reactions';
 import { Card } from '@/components/ui/Card';
@@ -238,6 +239,7 @@ export default function DirectConversationPage() {
   const [myUserId, setMyUserId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);
+  const sendLockRef = useRef(false);
   const [error, setError] = useState<string | null>(null);
   const threadEndRef = useRef<HTMLDivElement | null>(null);
   /** Last committed scrollY + scrollHeight (before the current paint grew the document). */
@@ -259,6 +261,8 @@ export default function DirectConversationPage() {
     lastSeenAt: string | null;
   }>({ online: false, lastSeenAt: null });
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const typingEmitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastTypingSentRef = useRef<boolean>(false);
   const [replyDraft, setReplyDraft] = useState<{
     id: string;
     senderName: string;
@@ -728,10 +732,7 @@ function handleFileSelection(next: File | null) {
       clearVoiceDraft();
       setReplyDraft(null);
       scrollThreadEnd('auto');
-      socketRef.current?.emit('direct_typing', {
-        conversationId,
-        isTyping: false,
-      });
+      emitTypingState(false, { immediate: true });
     } catch (err) {
       setVoiceBlob(blob);
       setVoiceMime(mime);
@@ -751,10 +752,31 @@ function cancelEdit() {
   setEditMode(false);
   setEditingMessageId(null);
   setText(getDirectDraft(conversationId));
-  socketRef.current?.emit('direct_typing', {
-    conversationId,
-    isTyping: false,
-  });
+  emitTypingState(false, { immediate: true });
+}
+
+function emitTypingState(nextTyping: boolean, opts?: { immediate?: boolean }) {
+  const socket = socketRef.current;
+  if (!socket) return;
+
+  if (opts?.immediate) {
+    if (typingEmitTimerRef.current) {
+      clearTimeout(typingEmitTimerRef.current);
+      typingEmitTimerRef.current = null;
+    }
+    if (lastTypingSentRef.current === nextTyping) return;
+    lastTypingSentRef.current = nextTyping;
+    socket.emit('direct_typing', { conversationId, isTyping: nextTyping });
+    return;
+  }
+
+  if (typingEmitTimerRef.current) clearTimeout(typingEmitTimerRef.current);
+  typingEmitTimerRef.current = setTimeout(() => {
+    typingEmitTimerRef.current = null;
+    if (lastTypingSentRef.current === nextTyping) return;
+    lastTypingSentRef.current = nextTyping;
+    socketRef.current?.emit('direct_typing', { conversationId, isTyping: nextTyping });
+  }, nextTyping ? 220 : 80);
 }
 function scrollThreadEnd(behavior: ScrollBehavior = 'auto') {
   requestAnimationFrame(() => {
@@ -1042,7 +1064,8 @@ await apiFetch(`direct/conversations/${conversationId}/seen`, {
   token,
   headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify({}),
-});    
+});
+notifyDirectConversationRead(conversationId);
 
 
 } catch (e) {
@@ -1117,7 +1140,11 @@ await apiFetch(`direct/conversations/${conversationId}/seen`, {
     const markRead = () => {
       const token = getAccessToken();
       if (!token) return;
-      void markDirectConversationRead(token, conversationId).catch(() => {});
+      void markDirectConversationRead(token, conversationId)
+        .then(() => {
+          notifyDirectConversationRead(conversationId);
+        })
+        .catch(() => {});
     };
 
     markRead();
@@ -1173,7 +1200,7 @@ socket.on('direct_message', async (message: Message) => {
   });
 
   // 👇 اینو اضافه کن (کلید حل مشکل)
-  if (message.senderId !== myUserId) {
+      if (message.senderId !== myUserId) {
     try {
       await apiFetch(`direct/conversations/${conversationId}/seen`, {
         method: 'POST',
@@ -1181,6 +1208,7 @@ socket.on('direct_message', async (message: Message) => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({}),
       });
+          notifyDirectConversationRead(conversationId);
     } catch (e) {
       console.error('seen error', e);
     }
@@ -1203,7 +1231,7 @@ socket.on('direct_message', async (message: Message) => {
         typingTimeoutRef.current = setTimeout(() => {
           setOtherTyping(false);
           typingTimeoutRef.current = null;
-        }, 1500);
+        }, 2500);
       } else {
         setOtherTyping(false);
       }
@@ -1386,6 +1414,10 @@ socket.on(
       clearTimeout(typingTimeoutRef.current);
       typingTimeoutRef.current = null;
     }
+    if (typingEmitTimerRef.current) {
+      clearTimeout(typingEmitTimerRef.current);
+      typingEmitTimerRef.current = null;
+    }
 
     socket.off('connect', onSocketConnect);
     socket.off('direct_presence', onDirectPresence);
@@ -1396,10 +1428,7 @@ socket.on(
     socket.off('direct_pinned_message_updated', onDirectPinnedMessageUpdated);
 
     socket.emit('leave_direct', { conversationId });
-    socket.emit('direct_typing', {
-      conversationId,
-      isTyping: false,
-    });
+    emitTypingState(false, { immediate: true });
 
     socketRef.current = null;
   };
@@ -1829,6 +1858,7 @@ async function uploadSelectedFile(token: string): Promise<string | null> {
   async function onSend(e: FormEvent) {
     e.preventDefault();
     if (isSelectionMode) return;
+    if (sendLockRef.current) return;
     const token = getAccessToken();
     if (!token) return;
 
@@ -1837,6 +1867,7 @@ async function uploadSelectedFile(token: string): Promise<string | null> {
     if (editMode && editingMessageId) {
       if (!trimmed) return;
 
+      sendLockRef.current = true;
       setSending(true);
       setError(null);
       try {
@@ -1856,20 +1887,19 @@ async function uploadSelectedFile(token: string): Promise<string | null> {
         setEditMode(false);
         setEditingMessageId(null);
         setText(getDirectDraft(conversationId));
-        socketRef.current?.emit('direct_typing', {
-          conversationId,
-          isTyping: false,
-        });
+        emitTypingState(false, { immediate: true });
       } catch (err) {
         setError(err instanceof Error ? err.message : 'خطا در ویرایش پیام');
       } finally {
         setSending(false);
+        sendLockRef.current = false;
       }
       return;
     }
 
     if (!trimmed && !file) return;
 
+    sendLockRef.current = true;
     setSending(true);
     setError(null);
     setUploadProgress(file ? 0 : null);
@@ -1906,14 +1936,12 @@ async function uploadSelectedFile(token: string): Promise<string | null> {
       clearVoiceDraft();
       setReplyDraft(null);
       scrollThreadEnd('auto');
-      socketRef.current?.emit('direct_typing', {
-        conversationId,
-        isTyping: false,
-      });
+      emitTypingState(false, { immediate: true });
     } catch (e) {
       setError(e instanceof Error ? e.message : 'خطا در ارسال پیام');
     } finally {
       setSending(false);
+      sendLockRef.current = false;
       setUploadProgress(null);
     
     }
@@ -2931,10 +2959,7 @@ async function uploadSelectedFile(token: string): Promise<string | null> {
                     }, 220);
                   }
 
-                  socketRef.current?.emit('direct_typing', {
-                    conversationId,
-                    isTyping: value.trim().length > 0,
-                  });
+                  emitTypingState(value.trim().length > 0);
                 }}
                 onBlur={(e) => {
                   if (!editMode) {
@@ -2944,10 +2969,7 @@ async function uploadSelectedFile(token: string): Promise<string | null> {
                     }
                     setDirectDraft(conversationId, e.target.value);
                   }
-                  socketRef.current?.emit('direct_typing', {
-                    conversationId,
-                    isTyping: false,
-                  });
+                  emitTypingState(false, { immediate: true });
                 }}
                 placeholder="پیام…"
                 rows={1}
@@ -2958,7 +2980,11 @@ async function uploadSelectedFile(token: string): Promise<string | null> {
               <button
                 type="submit"
                 disabled={
-                  sending || voicePhase === 'recording' || voicePhase === 'sending' || isSelectionMode
+                  sending ||
+                  voicePhase === 'recording' ||
+                  voicePhase === 'sending' ||
+                  isSelectionMode ||
+                  (!text.trim() && !file)
                 }
                 aria-busy={sending}
                 className="inline-flex h-10 min-w-[4.25rem] shrink-0 items-center justify-center rounded-xl bg-[var(--accent)] px-3.5 text-sm font-semibold text-[var(--accent-contrast)] shadow-sm transition hover:bg-[var(--accent-hover)] disabled:cursor-not-allowed disabled:opacity-50 sm:h-11 sm:min-w-[4.5rem] sm:rounded-2xl sm:px-4"

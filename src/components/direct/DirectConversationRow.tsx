@@ -135,12 +135,12 @@ export function DirectConversationRow({
           ? 'font-semibold text-stone-800'
           : 'text-stone-600';
 
-  const titleClass = unreadEmphasis ? 'font-extrabold text-stone-950' : 'font-bold text-stone-900';
+  const titleClass = unreadEmphasis ? 'font-black text-stone-950' : 'font-bold text-stone-900';
 
   return (
     <div
       className={`relative flex transition-colors active:bg-stone-50 min-[480px]:hover:bg-stone-50/80 ${
-        unreadEmphasis ? 'bg-emerald-50/35' : 'bg-white'
+        unreadEmphasis ? 'bg-emerald-50/40 ring-1 ring-inset ring-emerald-100/80' : 'bg-white'
       }`}
     >
       <Link href={href} className="min-w-0 flex-1 px-4 py-3.5 min-[480px]:py-4">
@@ -194,7 +194,9 @@ export function DirectConversationRow({
                 {timeLabel ? (
                   <time
                     dateTime={previewTimeIso ?? undefined}
-                    className="text-[11px] font-medium text-stone-400 tabular-nums"
+                    className={`text-[11px] tabular-nums ${
+                      unread > 0 ? 'font-bold text-stone-600' : 'font-medium text-stone-400'
+                    }`}
                   >
                     {timeLabel}
                   </time>
