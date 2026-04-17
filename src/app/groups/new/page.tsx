@@ -21,7 +21,12 @@ type UserSearchHit = {
   phoneMasked: string;
 };
 type SuggestedNetworkRow = { id: string; name: string; description: string | null };
-type NetworkSpaceCategory = 'PUBLIC_GENERAL' | 'NEIGHBORHOOD' | 'EDUCATION' | 'SPORT' | 'TECH';
+type NetworkSpaceCategory =
+  | 'PUBLIC_GENERAL'
+  | 'NEIGHBORHOOD'
+  | 'EDUCATION'
+  | 'SPORT'
+  | 'TECH';
 
 type CreateMode = 'normal' | 'network';
 
@@ -43,9 +48,14 @@ function CreateGroupPageInner() {
   const isFanPreset = preset === 'fan';
   const isTeamPreset = preset === 'team';
   const isFitnessPreset = preset === 'fitness';
+  const isClanPreset = preset === 'clan';
+  const isSquadPreset = preset === 'squad';
+  const isLfgPreset = preset === 'lfg';
   const isSportsPreset = isFanPreset || isTeamPreset || isFitnessPreset;
+  const isGamingPreset = isClanPreset || isSquadPreset || isLfgPreset;
   const isBusinessPreset = isHiringPreset || isStartupPreset || isFreelancePreset;
-  const presetForcesCommunity = isStudyPreset || isClassPreset || isBusinessPreset || isSportsPreset;
+  const presetForcesCommunity =
+    isStudyPreset || isClassPreset || isBusinessPreset || isSportsPreset || isGamingPreset;
   const forceChatMode = kind === 'chat';
   const forceCommunityMode = kind === 'community' || presetForcesCommunity;
   const forcedMode: CreateMode | null = forceCommunityMode ? 'network' : forceChatMode ? 'normal' : null;
@@ -436,6 +446,12 @@ function CreateGroupPageInner() {
                             ? 'Team Community — اعضا'
                             : isFitnessPreset
                               ? 'Fitness Circle — اعضا'
+                              : isClanPreset
+                                ? 'Clan Group — اعضا'
+                                : isSquadPreset
+                                  ? 'Squad Community — اعضا'
+                                  : isLfgPreset
+                                    ? 'LFG Group — اعضا'
                     : 'ایجاد گروه اجتماعی — اعضا'
               : mode === 'normal'
                 ? 'ایجاد گروه چت — جزئیات'
@@ -455,6 +471,12 @@ function CreateGroupPageInner() {
                               ? 'Team Community — جزئیات'
                               : isFitnessPreset
                                 ? 'Fitness Circle — جزئیات'
+                                : isClanPreset
+                                  ? 'Clan Group — جزئیات'
+                                  : isSquadPreset
+                                    ? 'Squad Community — جزئیات'
+                                    : isLfgPreset
+                                      ? 'LFG Group — جزئیات'
                     : 'ایجاد گروه اجتماعی — جزئیات'}
           </h1>
         </header>
@@ -501,6 +523,12 @@ function CreateGroupPageInner() {
                       ? 'Team Community برای تیم‌های واقعی، باشگاه‌های آماتور و اسکادها است.'
                       : isFitnessPreset
                         ? 'Fitness Circle برای دویدن، باشگاه، دوچرخه‌سواری و تمرین گروهی است.'
+                        : isClanPreset
+                          ? 'Clan Group برای تیم/گیلد بلندمدت با هویت مشترک و هماهنگی پایدار است.'
+                          : isSquadPreset
+                            ? 'Squad Community برای تیم‌های کوچک و هماهنگی سریع جلسه‌ای است.'
+                            : isLfgPreset
+                              ? 'LFG Group برای پیدا کردن هم‌تیمی و هماهنگی تیم‌های موقت است.'
                 : 'گروه اجتماعی برای جامعه و فضا/شبکه است و در سطوح اجتماعی قابل کشف است.'}
         </div>
 
@@ -690,6 +718,12 @@ function CreateGroupPageInner() {
                             ? 'اعضای تیم/باشگاه را از شبکه انتخاب کنید تا Team Community منسجم بسازید (حداقل ۲ نویسه).'
                             : isFitnessPreset
                               ? 'هم‌تمرینی‌ها را از اعضای شبکه انتخاب کنید (دویدن، باشگاه، دوچرخه) (حداقل ۲ نویسه).'
+                              : isClanPreset
+                                ? 'بازیکنان هسته اصلی کلن را از اعضای فعال شبکه انتخاب کنید (حداقل ۲ نویسه).'
+                                : isSquadPreset
+                                  ? 'اعضای اسکاد/پارتی را برای هماهنگی سریع جلسات بازی انتخاب کنید (حداقل ۲ نویسه).'
+                                  : isLfgPreset
+                                    ? 'بازیکنانی که برای تیم‌آپ موقت آماده‌اند را از شبکه انتخاب کنید (حداقل ۲ نویسه).'
                   : 'اعضای فعال این شبکه را با نام، نام کاربری، ایمیل یا بخشی از شماره موبایل جستجو کنید (حداقل ۲ نویسه) — همان رفتار جستجوی گفتگوی جدید.'}
             </p>
             <input
@@ -830,6 +864,12 @@ function CreateGroupPageInner() {
                                   ? 'مثلاً Team Community - Runners Club'
                                   : isFitnessPreset
                                     ? 'مثلاً Morning Fitness Circle'
+                                : isClanPreset
+                                  ? 'مثلاً Shadow Wolves Clan'
+                                  : isSquadPreset
+                                    ? 'مثلاً Squad Community - Night Ops'
+                                    : isLfgPreset
+                                      ? 'مثلاً Valorant LFG Tonight'
                               : 'مثلاً جامعه آموزش برنامه‌نویسی'
                 }
                 minLength={2}
@@ -860,6 +900,12 @@ function CreateGroupPageInner() {
                                 ? 'Team lineup, training, match plans (اختیاری)'
                                 : isFitnessPreset
                                   ? 'Running, gym, cycling buddies (اختیاری)'
+                              : isClanPreset
+                                ? 'Guild identity, roles, long-term goals (اختیاری)'
+                                : isSquadPreset
+                                  ? 'Session schedule, party roles, comms style (اختیاری)'
+                                  : isLfgPreset
+                                    ? 'Game mode, rank range, session time (اختیاری)'
                       : 'اختیاری'
                 }
                 rows={3}
@@ -903,6 +949,12 @@ function CreateGroupPageInner() {
                                   ? 'ساخت Team Community'
                                   : isFitnessPreset
                                     ? 'ساخت Fitness Circle'
+                                    : isClanPreset
+                                      ? 'ساخت Clan Group'
+                                      : isSquadPreset
+                                        ? 'ساخت Squad Community'
+                                        : isLfgPreset
+                                          ? 'ساخت LFG Group'
                         : 'ساخت گروه اجتماعی'}
                 </>
               )}

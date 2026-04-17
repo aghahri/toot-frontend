@@ -452,6 +452,39 @@ function SpaceDetailInner() {
         signals: ['Matchday-ready', 'Team-led', 'Events soon'],
       };
     }
+    if (spaceKey === 'TECH') {
+      return {
+        heroTitle: 'Where Clans, Squads, and Stream Communities Gather',
+        heroSubtitle: 'اکوسیستم گیمینگ برای کلن‌ها، اسکادها، استریمرها و تیم‌آپ‌های سریع.',
+        actions: [
+          {
+            label: 'Create Clan Group',
+            href: `/groups/new?kind=community&spaceKey=TECH${memberNetworkId ? `&networkId=${encodeURIComponent(memberNetworkId)}` : ''}&returnTo=spaces&preset=clan`,
+          },
+          {
+            label: 'Create Squad Community',
+            href: `/groups/new?kind=community&spaceKey=TECH${memberNetworkId ? `&networkId=${encodeURIComponent(memberNetworkId)}` : ''}&returnTo=spaces&preset=squad`,
+          },
+          {
+            label: 'Create Stream Channel',
+            href: `/channels/new?preset=stream&spaceKey=TECH${memberNetworkId ? `&networkId=${encodeURIComponent(memberNetworkId)}` : ''}`,
+            tone: 'secondary',
+          },
+          {
+            label: 'Create LFG Group',
+            href: `/groups/new?kind=community&spaceKey=TECH${memberNetworkId ? `&networkId=${encodeURIComponent(memberNetworkId)}` : ''}&returnTo=spaces&preset=lfg`,
+            tone: 'secondary',
+          },
+        ],
+        networkTitle: 'Gaming Networks',
+        networkEmpty: 'شبکه گیمینگ فعالی برای نمایش موجود نیست.',
+        discoveryTitle: 'Gaming Discovery',
+        discoveryGroupsTitle: 'Active Clans',
+        discoveryChannelsTitle: 'Stream Channels',
+        discoveryEmpty: 'فعلاً اجتماع گیمینگ شاخصی برای نمایش نیست.',
+        signals: ['Clan-ready', 'Squad voice', 'Tournaments soon'],
+      };
+    }
     return null;
   }, [spaceKey, memberNetworkId]);
 
@@ -726,6 +759,14 @@ function SpaceDetailInner() {
             ) : null}
             {spaceKey === 'SPORT' ? (
               <SportsCapabilitySection
+                groups={data.groups}
+                channels={data.channels}
+                networks={displayNetworks}
+                memberNetworkId={memberNetworkId}
+              />
+            ) : null}
+            {spaceKey === 'TECH' ? (
+              <GamingCapabilitySection
                 groups={data.groups}
                 channels={data.channels}
                 networks={displayNetworks}
@@ -1657,6 +1698,299 @@ const SportsCapabilitySection = memo(function SportsCapabilitySection({
           <span
             key={chip}
             className="rounded-full border border-orange-200 bg-orange-50 px-2.5 py-1 text-[10px] font-bold text-orange-800"
+          >
+            {chip}
+          </span>
+        ))}
+      </div>
+    </section>
+  );
+});
+
+const GamingCapabilitySection = memo(function GamingCapabilitySection({
+  groups,
+  channels,
+  networks,
+  memberNetworkId,
+}: {
+  groups: GroupRow[];
+  channels: ChannelRow[];
+  networks: Array<NetworkRow & { isMember?: boolean }>;
+  memberNetworkId: string | null;
+}) {
+  const gamingTokens = [
+    'game',
+    'gaming',
+    'clan',
+    'guild',
+    'squad',
+    'party',
+    'ranked',
+    'stream',
+    'esports',
+    'fps',
+    'moba',
+    'fifa',
+    'fc',
+    'pubg',
+    'cod',
+    'valorant',
+    'dota',
+    'league',
+    'console',
+    'pc',
+    'playstation',
+    'xbox',
+    'گیم',
+    'بازی',
+    'کلن',
+    'اسکاد',
+    'استریم',
+    'ای‌اسپورت',
+    'تیم',
+    'پارتی',
+  ];
+  const clanTokens = ['clan', 'guild', 'ranked', 'کلن', 'گیلد', 'رنک'];
+  const squadTokens = ['squad', 'party', 'duo', 'trio', 'اسکاد', 'پارتی', 'تیم'];
+  const lfgTokens = ['lfg', 'looking for group', 'teammate', 'party up', 'هم‌تیمی', 'تیم‌آپ'];
+  const streamTokens = ['stream', 'live', 'clip', 'vod', 'creator', 'استریم', 'لایو', 'کلیپ'];
+
+  function tokenScore(text: string, tokens: string[]) {
+    const norm = text.toLowerCase();
+    return tokens.reduce((acc, token) => (norm.includes(token) ? acc + 1 : acc), 0);
+  }
+
+  const activeClans = [...groups]
+    .sort((a, b) => {
+      const aScore =
+        tokenScore(`${a.name} ${a.description ?? ''}`, gamingTokens) +
+        tokenScore(`${a.name} ${a.description ?? ''}`, clanTokens) +
+        (a.joinable ? 1 : 0);
+      const bScore =
+        tokenScore(`${b.name} ${b.description ?? ''}`, gamingTokens) +
+        tokenScore(`${b.name} ${b.description ?? ''}`, clanTokens) +
+        (b.joinable ? 1 : 0);
+      return bScore - aScore;
+    })
+    .slice(0, 4);
+
+  const popularGameCommunities = [...networks]
+    .sort((a, b) => {
+      const aScore = tokenScore(`${a.name} ${a.description ?? ''}`, gamingTokens) + (a.isMember ? 2 : 0);
+      const bScore = tokenScore(`${b.name} ${b.description ?? ''}`, gamingTokens) + (b.isMember ? 2 : 0);
+      return bScore - aScore;
+    })
+    .slice(0, 4);
+
+  const squadCommunities = [...groups]
+    .sort((a, b) => {
+      const aScore =
+        tokenScore(`${a.name} ${a.description ?? ''}`, gamingTokens) +
+        tokenScore(`${a.name} ${a.description ?? ''}`, squadTokens) +
+        (a.joinable ? 1 : 0);
+      const bScore =
+        tokenScore(`${b.name} ${b.description ?? ''}`, gamingTokens) +
+        tokenScore(`${b.name} ${b.description ?? ''}`, squadTokens) +
+        (b.joinable ? 1 : 0);
+      return bScore - aScore;
+    })
+    .slice(0, 4);
+
+  const streamChannels = [...channels]
+    .sort((a, b) => {
+      const aScore =
+        tokenScore(`${a.name} ${a.description ?? ''}`, gamingTokens) +
+        tokenScore(`${a.name} ${a.description ?? ''}`, streamTokens);
+      const bScore =
+        tokenScore(`${b.name} ${b.description ?? ''}`, gamingTokens) +
+        tokenScore(`${b.name} ${b.description ?? ''}`, streamTokens);
+      return bScore - aScore;
+    })
+    .slice(0, 4);
+
+  const lfgPicks = [...groups]
+    .sort((a, b) => {
+      const aScore =
+        tokenScore(`${a.name} ${a.description ?? ''}`, gamingTokens) +
+        tokenScore(`${a.name} ${a.description ?? ''}`, lfgTokens) +
+        (a.joinable ? 1 : 0);
+      const bScore =
+        tokenScore(`${b.name} ${b.description ?? ''}`, gamingTokens) +
+        tokenScore(`${b.name} ${b.description ?? ''}`, lfgTokens) +
+        (b.joinable ? 1 : 0);
+      return bScore - aScore;
+    })
+    .slice(0, 4);
+
+  const clanGroupHref = `/groups/new?kind=community&spaceKey=TECH${memberNetworkId ? `&networkId=${encodeURIComponent(memberNetworkId)}` : ''}&returnTo=spaces&preset=clan`;
+  const squadCommunityHref = `/groups/new?kind=community&spaceKey=TECH${memberNetworkId ? `&networkId=${encodeURIComponent(memberNetworkId)}` : ''}&returnTo=spaces&preset=squad`;
+  const streamChannelHref = `/channels/new?preset=stream&spaceKey=TECH${memberNetworkId ? `&networkId=${encodeURIComponent(memberNetworkId)}` : ''}`;
+  const lfgGroupHref = `/groups/new?kind=community&spaceKey=TECH${memberNetworkId ? `&networkId=${encodeURIComponent(memberNetworkId)}` : ''}&returnTo=spaces&preset=lfg`;
+
+  return (
+    <section className={SECTION_CARD}>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 className="text-lg font-black tracking-tight text-slate-900">Gaming Capability v1</h2>
+        <span className="rounded-full bg-violet-50 px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-[0.08em] text-violet-800 ring-1 ring-violet-200/80">
+          Clan & Squad Ecosystem
+        </span>
+      </div>
+      <p className="mt-1 text-sm leading-relaxed text-slate-600">
+        اینجا برای کلن‌های بلندمدت، اسکادهای سریع، کانال‌های استریم و تیم‌آپ‌های LFG طراحی شده است.
+      </p>
+
+      <div className="mt-4 grid gap-3 sm:grid-cols-2">
+        <article className={SUB_CARD + ' min-h-[11rem] bg-violet-50/55 ring-1 ring-violet-100'}>
+          <p className="text-sm font-extrabold text-slate-900">Create Clan Group</p>
+          <p className="mt-1 text-[11px] leading-relaxed text-slate-600">
+            برای تیم‌های بلندمدت / guild / clan با هویت مشترک، نقش‌ها و هماهنگی پایدار.
+          </p>
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            <span className="rounded-full bg-white px-2 py-0.5 text-[10px] font-bold text-violet-700 ring-1 ring-violet-200/80">Long-term team</span>
+            <span className="rounded-full bg-white px-2 py-0.5 text-[10px] font-bold text-violet-700 ring-1 ring-violet-200/80">Shared identity</span>
+          </div>
+          <Link href={clanGroupHref} className={PRIMARY_CTA + ' mt-3 inline-flex !bg-violet-700 hover:!bg-violet-600 !px-3.5 !py-2 !text-[11px]'}>
+            ساخت Clan Group
+          </Link>
+        </article>
+
+        <article className={SUB_CARD + ' min-h-[11rem] bg-violet-50/55 ring-1 ring-violet-100'}>
+          <p className="text-sm font-extrabold text-slate-900">Create Squad Community</p>
+          <p className="mt-1 text-[11px] leading-relaxed text-slate-600">
+            برای تیم‌های کوچک / party / squad و هماهنگی سریع session-based.
+          </p>
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            <span className="rounded-full bg-white px-2 py-0.5 text-[10px] font-bold text-violet-700 ring-1 ring-violet-200/80">Session-ready</span>
+            <span className="rounded-full bg-white px-2 py-0.5 text-[10px] font-bold text-violet-700 ring-1 ring-violet-200/80">Tight-knit players</span>
+          </div>
+          <Link href={squadCommunityHref} className={PRIMARY_CTA + ' mt-3 inline-flex !bg-violet-700 hover:!bg-violet-600 !px-3.5 !py-2 !text-[11px]'}>
+            ساخت Squad Community
+          </Link>
+        </article>
+
+        <article className={SUB_CARD + ' min-h-[11rem] bg-violet-50/55 ring-1 ring-violet-100'}>
+          <p className="text-sm font-extrabold text-slate-900">Create Stream Channel</p>
+          <p className="mt-1 text-[11px] leading-relaxed text-slate-600">
+            برای استریم، کلیپ، اعلان لایو و آپدیت‌های یک‌به‌چند برای کامیونیتی گیمرها.
+          </p>
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            <span className="rounded-full bg-white px-2 py-0.5 text-[10px] font-bold text-violet-700 ring-1 ring-violet-200/80">One-to-many</span>
+            <span className="rounded-full bg-white px-2 py-0.5 text-[10px] font-bold text-violet-700 ring-1 ring-violet-200/80">Creator flow</span>
+          </div>
+          <Link href={streamChannelHref} className={SECONDARY_CTA + ' mt-3 inline-flex !px-3.5 !py-2 !text-[11px]'}>
+            {memberNetworkId ? 'ساخت Stream Channel' : 'ابتدا عضو شبکه گیمینگ شوید'}
+          </Link>
+        </article>
+
+        <article className={SUB_CARD + ' min-h-[11rem] bg-violet-50/55 ring-1 ring-violet-100'}>
+          <p className="text-sm font-extrabold text-slate-900">Create LFG Group</p>
+          <p className="mt-1 text-[11px] leading-relaxed text-slate-600">
+            برای looking-for-group، پیدا کردن هم‌تیمی و هماهنگی سریع تیم‌آپ‌های موقت.
+          </p>
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            <span className="rounded-full bg-white px-2 py-0.5 text-[10px] font-bold text-violet-700 ring-1 ring-violet-200/80">Match teammates</span>
+            <span className="rounded-full bg-white px-2 py-0.5 text-[10px] font-bold text-violet-700 ring-1 ring-violet-200/80">Temporary squads</span>
+          </div>
+          <Link href={lfgGroupHref} className={PRIMARY_CTA + ' mt-3 inline-flex !bg-violet-700 hover:!bg-violet-600 !px-3.5 !py-2 !text-[11px]'}>
+            ساخت LFG Group
+          </Link>
+        </article>
+      </div>
+
+      <div className="mt-4 grid gap-3 sm:grid-cols-2">
+        <div className={SUB_CARD + ' min-h-[10.5rem]'}>
+          <h3 className="text-sm font-extrabold text-slate-900">Active Clans</h3>
+          <ul className="mt-2 space-y-1.5 text-[11px] text-slate-700">
+            {activeClans.length === 0 ? (
+              <li className="rounded-xl bg-slate-100/70 px-2.5 py-2 text-slate-500">فعلاً کلن شاخصی برای نمایش نیست.</li>
+            ) : (
+              activeClans.map((g) => (
+                <li key={g.id} className="rounded-xl bg-white px-2.5 py-2 ring-1 ring-slate-200/80">
+                  <Link href={`/groups/${g.id}`} className="font-bold text-sky-700 hover:underline">
+                    {g.name}
+                  </Link>
+                </li>
+              ))
+            )}
+          </ul>
+        </div>
+
+        <div className={SUB_CARD + ' min-h-[10.5rem]'}>
+          <h3 className="text-sm font-extrabold text-slate-900">Popular Game Communities</h3>
+          <ul className="mt-2 space-y-1.5 text-[11px] text-slate-700">
+            {popularGameCommunities.length === 0 ? (
+              <li className="rounded-xl bg-slate-100/70 px-2.5 py-2 text-slate-500">کامیونیتی گیمینگ برجسته‌ای ثبت نشده است.</li>
+            ) : (
+              popularGameCommunities.map((n) => (
+                <li key={n.id} className="rounded-xl bg-white px-2.5 py-2 ring-1 ring-slate-200/80">
+                  <Link href={`/networks/${n.id}`} className="font-bold text-sky-700 hover:underline">
+                    {n.name}
+                  </Link>
+                </li>
+              ))
+            )}
+          </ul>
+        </div>
+
+        <div className={SUB_CARD + ' min-h-[10.5rem]'}>
+          <h3 className="text-sm font-extrabold text-slate-900">Squad Communities</h3>
+          <ul className="mt-2 space-y-1.5 text-[11px] text-slate-700">
+            {squadCommunities.length === 0 ? (
+              <li className="rounded-xl bg-slate-100/70 px-2.5 py-2 text-slate-500">Squad Community فعالی موجود نیست.</li>
+            ) : (
+              squadCommunities.map((g) => (
+                <li key={g.id} className="rounded-xl bg-white px-2.5 py-2 ring-1 ring-slate-200/80">
+                  <Link href={`/groups/${g.id}`} className="font-bold text-sky-700 hover:underline">
+                    {g.name}
+                  </Link>
+                </li>
+              ))
+            )}
+          </ul>
+        </div>
+
+        <div className={SUB_CARD + ' min-h-[10.5rem]'}>
+          <h3 className="text-sm font-extrabold text-slate-900">Stream Channels</h3>
+          <ul className="mt-2 space-y-1.5 text-[11px] text-slate-700">
+            {streamChannels.length === 0 ? (
+              <li className="rounded-xl bg-slate-100/70 px-2.5 py-2 text-slate-500">Stream Channel فعالی پیدا نشد.</li>
+            ) : (
+              streamChannels.map((c) => (
+                <li key={c.id} className="rounded-xl bg-white px-2.5 py-2 ring-1 ring-slate-200/80">
+                  <Link href={`/channels/${c.id}?network=${encodeURIComponent(c.networkId)}`} className="font-bold text-sky-700 hover:underline">
+                    {c.name}
+                  </Link>
+                </li>
+              ))
+            )}
+          </ul>
+        </div>
+      </div>
+
+      <div className="mt-3">
+        <h3 className="text-sm font-extrabold text-slate-900">Looking-for-Group Picks</h3>
+        <ul className="mt-2 grid gap-2 sm:grid-cols-2">
+          {lfgPicks.length === 0 ? (
+            <li className="rounded-xl bg-slate-100/70 px-2.5 py-2 text-[11px] text-slate-500">
+              فعلاً LFG برجسته‌ای برای تیم‌آپ سریع پیدا نشد.
+            </li>
+          ) : (
+            lfgPicks.map((g) => (
+              <li key={g.id} className="rounded-xl bg-white px-2.5 py-2 ring-1 ring-slate-200/80">
+                <Link href={`/groups/${g.id}`} className="text-[11px] font-bold text-sky-700 hover:underline">
+                  {g.name}
+                </Link>
+              </li>
+            ))
+          )}
+        </ul>
+      </div>
+
+      <div className="mt-4 flex flex-wrap gap-1.5">
+        {['Clan-ready', 'Squad voice', 'Tournaments soon', 'Matchmaking later', 'Stream tools later'].map((chip) => (
+          <span
+            key={chip}
+            className="rounded-full border border-violet-200 bg-violet-50 px-2.5 py-1 text-[10px] font-bold text-violet-800"
           >
             {chip}
           </span>

@@ -22,6 +22,7 @@ function NewChannelPageInner() {
   const isTeacherPreset = preset === 'teacher';
   const isProfessionalPreset = preset === 'professional';
   const isCoachPreset = preset === 'coach';
+  const isStreamPreset = preset === 'stream';
 
   const [networks, setNetworks] = useState<NetworkRow[]>([]);
   const [networkId, setNetworkId] = useState('');
@@ -84,7 +85,13 @@ function NewChannelPageInner() {
           name: name.trim(),
           description: description.trim() || undefined,
           networkId,
-          spaceCategory: isTeacherPreset ? 'EDUCATION' : isCoachPreset ? 'SPORT' : 'PUBLIC_GENERAL',
+          spaceCategory: isTeacherPreset
+            ? 'EDUCATION'
+            : isCoachPreset
+              ? 'SPORT'
+              : isStreamPreset
+                ? 'TECH'
+                : 'PUBLIC_GENERAL',
         }),
       });
       router.replace(`/channels/${created.id}?network=${encodeURIComponent(created.networkId)}`);
@@ -106,10 +113,20 @@ function NewChannelPageInner() {
                 ? 'Professional Channel — کانال حرفه‌ای'
                 : isCoachPreset
                   ? 'Coach Channel — کانال مربی'
+                  : isStreamPreset
+                    ? 'Stream Channel — کانال استریم'
                 : 'ساخت کانال'}
           </h1>
           <Link
-            href={isProfessionalPreset ? '/spaces/PUBLIC_GENERAL' : isCoachPreset ? '/spaces/SPORT' : '/spaces/EDUCATION'}
+            href={
+              isProfessionalPreset
+                ? '/spaces/PUBLIC_GENERAL'
+                : isCoachPreset
+                  ? '/spaces/SPORT'
+                  : isStreamPreset
+                    ? '/spaces/TECH'
+                    : '/spaces/EDUCATION'
+            }
             className="rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-extrabold text-slate-700 transition hover:bg-slate-50"
           >
             بازگشت
@@ -128,6 +145,10 @@ function NewChannelPageInner() {
           ) : isCoachPreset ? (
             <p className="mb-3 rounded-2xl bg-orange-50 px-3 py-2 text-xs text-orange-800 ring-1 ring-orange-200/80">
               Coach Channel برای نکات تمرینی، برنامه تیم و اعلان‌های ورزشی یک‌به‌چند.
+            </p>
+          ) : isStreamPreset ? (
+            <p className="mb-3 rounded-2xl bg-violet-50 px-3 py-2 text-xs text-violet-800 ring-1 ring-violet-200/80">
+              Stream Channel برای انتشار استریم، کلیپ، برنامه لایو و اعلان‌های یک‌به‌چند جامعه گیمینگ.
             </p>
           ) : null}
 
@@ -168,6 +189,8 @@ function NewChannelPageInner() {
                         ? 'مثلاً Industry Updates Channel'
                         : isCoachPreset
                           ? 'مثلاً Coach Channel - Team A'
+                          : isStreamPreset
+                            ? 'مثلاً Stream Channel - Valorant Highlights'
                         : 'نام کانال'
                   }
                   className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
@@ -187,6 +210,8 @@ function NewChannelPageInner() {
                         ? 'Insights and announcements'
                         : isCoachPreset
                           ? 'Training tips, matchday updates'
+                          : isStreamPreset
+                            ? 'Stream schedule, clips, highlights'
                         : 'اختیاری'
                   }
                   className="w-full resize-none rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
@@ -207,6 +232,8 @@ function NewChannelPageInner() {
                       ? 'ساخت Professional Channel'
                       : isCoachPreset
                         ? 'ساخت Coach Channel'
+                        : isStreamPreset
+                          ? 'ساخت Stream Channel'
                       : 'ساخت کانال'}
               </button>
             </div>
