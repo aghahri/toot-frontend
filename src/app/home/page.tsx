@@ -103,6 +103,20 @@ const NETWORK_KIND_HINTS = {
   GAMING: ['gaming', 'game', 'clan', 'squad', 'stream', 'esports', 'گیم', 'بازی', 'کلن', 'اسکاد'],
 };
 
+const LOCAL_EXPLICIT_TOKENS = [
+  'ونک',
+  'نارمک',
+  'محله',
+  'همسایه',
+  'ترافیک',
+  'رویداد محلی',
+  'خدمات محلی',
+  'شهرداری',
+  'neighborhood',
+  'district',
+  'local event',
+];
+
 function normalizeText(input: string) {
   return input
     .toLowerCase()
@@ -122,6 +136,34 @@ function extractSearchTokens(input: string) {
     .split(/[\s\-_/|,.()[\]{}:;!?]+/)
     .filter((t) => t.length >= 2)
     .slice(0, 20);
+}
+
+function freshnessScore(createdAt: string) {
+  const ageHours = Math.max(0, (Date.now() - new Date(createdAt).getTime()) / (1000 * 60 * 60));
+  if (ageHours <= 6) return 4;
+  if (ageHours <= 24) return 3;
+  if (ageHours <= 72) return 2;
+  return 1;
+}
+
+function engagementScore(post: FeedPost) {
+  const base = post.likeCount * 0.7 + post.replyCount * 0.9 + post.repostCount * 1.1;
+  if (base >= 20) return 4;
+  if (base >= 10) return 3;
+  if (base >= 4) return 2;
+  return 1;
+}
+
+function applyAuthorDiversity<T extends { post: FeedPost; score: number }>(rows: T[], maxPerAuthor: number) {
+  const perAuthor = new Map<string, number>();
+  const out: T[] = [];
+  for (const row of rows) {
+    const count = perAuthor.get(row.post.userId) ?? 0;
+    if (count >= maxPerAuthor) continue;
+    perAuthor.set(row.post.userId, count + 1);
+    out.push(row);
+  }
+  return out;
 }
 
 function HomePageInner() {
@@ -360,42 +402,58 @@ function HomePageInner() {
     [],
   );
 
-  const localPosts = [...allKnownPosts]
+  const rankedLocalRows = applyAuthorDiversity(
+    [...allKnownPosts]
     .map((post) => {
       const text = `${post.text} ${post.user?.name ?? ''} ${post.user?.username ?? ''}`;
       const membershipScore = scoreMembershipMatch(text, joinedNeighborhoodNetworks, 'local');
       const generalLocalScore = tokenScore(text, LOCAL_TOKENS);
-      const score = membershipScore * 4 + generalLocalScore;
-      return { post, score };
+      const explicitLocalSignal = tokenScore(text, LOCAL_EXPLICIT_TOKENS);
+      const score =
+        membershipScore * 3 +
+        explicitLocalSignal * 5 +
+        generalLocalScore * 2 +
+        freshnessScore(post.createdAt) +
+        engagementScore(post);
+      return { post, score, membershipScore, explicitLocalSignal, generalLocalScore };
     })
-    .filter(({ score, post }) => {
-      const text = `${post.text} ${post.user?.name ?? ''} ${post.user?.username ?? ''}`;
-      const hasStrongMembership = scoreMembershipMatch(text, joinedNeighborhoodNetworks, 'local') >= 2;
-      return hasStrongMembership || score >= 3;
+    .filter(({ membershipScore, explicitLocalSignal, generalLocalScore }) => {
+      const hasMembershipEligibility = membershipScore >= 2;
+      const hasLocalSignal = explicitLocalSignal >= 1 || generalLocalScore >= 2;
+      return hasMembershipEligibility || hasLocalSignal;
     })
-    .sort((a, b) => {
-      if (a.score !== b.score) return b.score - a.score;
-      return new Date(b.post.createdAt).getTime() - new Date(a.post.createdAt).getTime();
-    })
-    .map((x) => x.post);
+      .sort((a, b) => {
+        if (a.score !== b.score) return b.score - a.score;
+        if (a.explicitLocalSignal !== b.explicitLocalSignal) return b.explicitLocalSignal - a.explicitLocalSignal;
+        return new Date(b.post.createdAt).getTime() - new Date(a.post.createdAt).getTime();
+      }),
+    3,
+  );
 
-  const networkPosts = [...allKnownPosts]
-    .map((post) => {
-      const text = `${post.text} ${post.user?.name ?? ''} ${post.user?.username ?? ''}`;
-      const membershipScore = scoreMembershipMatch(text, joinedCommunityNetworks, 'networks');
-      const generalNetworkScore = tokenScore(text, NETWORK_TOKENS);
-      const score = membershipScore * 4 + generalNetworkScore;
-      return { post, score };
-    })
-    .filter(({ score, post }) => {
-      const text = `${post.text} ${post.user?.name ?? ''} ${post.user?.username ?? ''}`;
-      const hasStrongMembership = scoreMembershipMatch(text, joinedCommunityNetworks, 'networks') >= 2;
-      return hasStrongMembership || score >= 3;
-    })
-    .sort((a, b) => {
-      if (a.score !== b.score) return b.score - a.score;
-      return new Date(b.post.createdAt).getTime() - new Date(a.post.createdAt).getTime();
-    })
+  const localPosts = rankedLocalRows.slice(0, 80).map((x) => x.post);
+
+  const strictRankedNetworkRows = applyAuthorDiversity(
+    [...allKnownPosts]
+      .map((post) => {
+        const text = `${post.text} ${post.user?.name ?? ''} ${post.user?.username ?? ''}`;
+        const membershipScore = scoreMembershipMatch(text, joinedCommunityNetworks, 'networks');
+        const generalNetworkScore = tokenScore(text, NETWORK_TOKENS);
+        const score = membershipScore * 5 + generalNetworkScore * 2 + freshnessScore(post.createdAt) + engagementScore(post);
+        return { post, score, membershipScore, generalNetworkScore };
+      })
+      .filter(({ membershipScore, generalNetworkScore }) => {
+        // Networks is strict: membership-only is not enough.
+        return membershipScore >= 3 && generalNetworkScore >= 1;
+      })
+      .sort((a, b) => {
+        if (a.score !== b.score) return b.score - a.score;
+        return new Date(b.post.createdAt).getTime() - new Date(a.post.createdAt).getTime();
+      }),
+    2,
+  );
+
+  const networkPosts = strictRankedNetworkRows
+    .slice(0, 60)
     .map((x) => x.post);
 
   const scoreStoryRelevance = useCallback(
