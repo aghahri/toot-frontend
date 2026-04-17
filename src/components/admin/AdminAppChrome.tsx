@@ -19,6 +19,8 @@ const nav = [
   { href: '/admin/groups', label: 'Groups' },
   { href: '/admin/channels', label: 'Channels' },
   { href: '/admin/showcase', label: 'Showcase' },
+  { href: '/admin/story', label: 'Story queue' },
+  { href: '/admin/story/sources', label: 'Story sources' },
   { href: '/admin/moderation', label: 'Moderation' },
   { href: '/admin/geography', label: 'Geography' },
   { href: '/admin/staff', label: 'Staff roles' },

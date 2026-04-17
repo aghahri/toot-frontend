@@ -11,6 +11,8 @@ const quickActions = [
   { href: '/admin/groups', title: 'Groups', desc: 'Community/chat groups overview and edits' },
   { href: '/admin/channels', title: 'Channels', desc: 'Channel operations and featured controls' },
   { href: '/admin/showcase', title: 'Showcase', desc: 'Announcements and flagship vitrín links' },
+  { href: '/admin/story', title: 'Story queue', desc: 'Review, approve, reject, and publish story candidates' },
+  { href: '/admin/story/sources', title: 'Story sources', desc: 'Manage trusted story sources and regions' },
   { href: '/admin/moderation', title: 'Moderation', desc: 'Reported items and post moderation' },
   { href: '/admin/geography', title: 'Geography', desc: 'Neighborhood import/bootstrap tools' },
   { href: '/admin/staff', title: 'Staff', desc: 'Privileged operator role management' },

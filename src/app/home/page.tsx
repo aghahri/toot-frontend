@@ -35,6 +35,16 @@ type TabFrame = {
   title: string;
 };
 
+type StoryItem = {
+  id: string;
+  title: string;
+  summary: string | null;
+  category: string | null;
+  url: string | null;
+  publishedAt: string | null;
+  source: { name: string };
+};
+
 const LOCAL_TOKENS = [
   'محله',
   'همسایه',
@@ -85,6 +95,8 @@ function HomePageInner() {
   const [replyPost, setReplyPost] = useState<FeedPost | null>(null);
   const [emphasizePostId, setEmphasizePostId] = useState<string | null>(null);
   const [postTargetMissed, setPostTargetMissed] = useState(false);
+  const [storyItems, setStoryItems] = useState<StoryItem[]>([]);
+  const [storyLoading, setStoryLoading] = useState(false);
   const viewerUserId = getCurrentUserIdFromAccessToken();
   const abortRef = useRef<AbortController | null>(null);
   const deepLinkFetchAttempted = useRef<Set<string>>(new Set());
@@ -150,6 +162,20 @@ function HomePageInner() {
     if (tab !== 'following') return;
     void loadFollowingFeed();
   }, [tab, loadFollowingFeed]);
+
+  useEffect(() => {
+    const token = getAccessToken();
+    if (!token) return;
+    const scope = tab === 'local' ? 'local' : tab === 'networks' ? 'networks' : 'today';
+    setStoryLoading(true);
+    void apiFetch<StoryItem[]>(`story/published?scope=${scope}&limit=6`, {
+      method: 'GET',
+      token,
+    })
+      .then((data) => setStoryItems(data))
+      .catch(() => setStoryItems([]))
+      .finally(() => setStoryLoading(false));
+  }, [tab]);
 
   const targetPostId = searchParams.get('postId');
 
@@ -299,6 +325,36 @@ function HomePageInner() {
               >
                 پست جدید
               </button>
+            </div>
+          </section>
+          <section className="mx-2 mt-2">
+            <div className="theme-card-bg theme-border-soft rounded-2xl border px-3 py-2.5">
+              <div className="mb-2 flex items-center justify-between gap-2">
+                <p className="text-xs font-extrabold text-[var(--text-primary)]">Story Curated</p>
+                <span className="text-[10px] text-[var(--text-secondary)]">
+                  {tab === 'local' ? 'My Neighborhood' : tab === 'networks' ? 'Networks' : 'Today'}
+                </span>
+              </div>
+              {storyLoading ? (
+                <p className="text-[11px] text-[var(--text-secondary)]">در حال بارگذاری خبرهای منتخب…</p>
+              ) : storyItems.length === 0 ? (
+                <p className="text-[11px] text-[var(--text-secondary)]">
+                  هنوز آیتم منتشرشده‌ای برای این بخش وجود ندارد.
+                </p>
+              ) : (
+                <ul className="space-y-1.5">
+                  {storyItems.slice(0, 3).map((item) => (
+                    <li key={item.id} className="rounded-xl border border-[var(--border-soft)] px-2.5 py-2">
+                      <p className="line-clamp-1 text-[12px] font-semibold text-[var(--text-primary)]">
+                        {item.title}
+                      </p>
+                      <p className="mt-0.5 line-clamp-1 text-[11px] text-[var(--text-secondary)]">
+                        {item.summary || item.source.name}
+                      </p>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
           </section>
           {postTargetMissed ? (
