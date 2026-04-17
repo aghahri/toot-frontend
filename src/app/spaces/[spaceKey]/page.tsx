@@ -22,6 +22,8 @@ type NetworkRow = {
   name: string;
   description: string | null;
   slug: string | null;
+  networkType?: 'GENERAL' | 'NEIGHBORHOOD' | 'EDUCATION' | 'BUSINESS' | 'SPORTS' | 'GAMING';
+  alignedSpaceCategory?: SpaceKey | null;
   isMember?: boolean;
 };
 
@@ -123,9 +125,15 @@ function SpaceDetailInner() {
     if (!isSpaceKey(raw)) return;
     const token = getAccessToken();
     const lim = raw === 'NEIGHBORHOOD' ? 200 : 50;
+    const networkTypeParam =
+      raw === 'EDUCATION'
+        ? '&networkType=EDUCATION'
+        : raw === 'PUBLIC_GENERAL'
+          ? '&networkType=BUSINESS'
+          : '';
     const path = token
-      ? `discover/spaces/detail/${encodeURIComponent(raw)}/with-membership?limit=${lim}`
-      : `discover/spaces/detail/${encodeURIComponent(raw)}?limit=${lim}`;
+      ? `discover/spaces/detail/${encodeURIComponent(raw)}/with-membership?limit=${lim}${networkTypeParam}`
+      : `discover/spaces/detail/${encodeURIComponent(raw)}?limit=${lim}${networkTypeParam}`;
     const res = await apiFetch<DetailResponse>(path, {
       method: 'GET',
       ...(token ? { token } : {}),
