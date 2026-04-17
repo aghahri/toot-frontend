@@ -578,6 +578,14 @@ function SpaceDetailInner() {
                 utilities={blueprint.utilities}
               />
             ) : null}
+            {spaceKey === 'EDUCATION' ? (
+              <EducationCapabilitySection
+                groups={data.groups}
+                channels={data.channels}
+                networks={displayNetworks}
+                memberNetworkId={displayNetworks.find((n) => n.isMember)?.id ?? null}
+              />
+            ) : null}
             {spaceKey === 'NEIGHBORHOOD' ? <NeighborhoodFormsCapabilitySection /> : null}
 
             {isNeighborhood ? (
@@ -726,6 +734,130 @@ const NeighborhoodFormsCapabilitySection = memo(function NeighborhoodFormsCapabi
         <Link href="/spaces/neighborhood/forms/manage" className={SECONDARY_CTA}>
           مدیریت فرم‌ها
         </Link>
+      </div>
+    </section>
+  );
+});
+
+const EducationCapabilitySection = memo(function EducationCapabilitySection({
+  groups,
+  channels,
+  networks,
+  memberNetworkId,
+}: {
+  groups: GroupRow[];
+  channels: ChannelRow[];
+  networks: Array<NetworkRow & { isMember?: boolean }>;
+  memberNetworkId: string | null;
+}) {
+  const curatedStudyGroups = groups.slice(0, 4);
+  const curatedTeacherChannels = channels.slice(0, 4);
+  const curatedGrowingCommunities = networks.slice(0, 4);
+  const studyGroupHref = `/groups/new?kind=community&spaceKey=EDUCATION${memberNetworkId ? `&networkId=${encodeURIComponent(memberNetworkId)}` : ''}&returnTo=spaces&preset=study`;
+  const classCommunityHref = `/groups/new?kind=community&spaceKey=EDUCATION${memberNetworkId ? `&networkId=${encodeURIComponent(memberNetworkId)}` : ''}&returnTo=spaces&preset=class`;
+  const teacherChannelHref = memberNetworkId ? `/networks/${memberNetworkId}` : '/spaces/EDUCATION';
+
+  return (
+    <section className={SECTION_CARD}>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 className="text-base font-extrabold text-slate-900">Education Capability v1</h2>
+        <span className="rounded-full bg-indigo-50 px-2.5 py-1 text-[10px] font-extrabold text-indigo-800 ring-1 ring-indigo-200/80">
+          Learning Communities
+        </span>
+      </div>
+      <p className="mt-1 text-xs leading-relaxed text-slate-600">
+        این بخش برای ساخت جامعه‌های آموزشی فعال است: گروه مطالعه، کامیونیتی کلاسی، و کانال مدرس.
+      </p>
+
+      <div className="mt-3 grid gap-2.5 sm:grid-cols-3">
+        <article className={SUB_CARD + ' bg-indigo-50/50 ring-1 ring-indigo-100'}>
+          <p className="text-xs font-extrabold text-slate-900">Create Study Group</p>
+          <p className="mt-1 text-[11px] leading-relaxed text-slate-600">برای یادگیری همتا، پرسش‌وپاسخ و آمادگی آزمون.</p>
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            <span className="rounded-full bg-white px-2 py-0.5 text-[10px] font-bold text-indigo-700 ring-1 ring-indigo-200/80">Student community</span>
+            <span className="rounded-full bg-white px-2 py-0.5 text-[10px] font-bold text-indigo-700 ring-1 ring-indigo-200/80">Course-ready</span>
+          </div>
+          <Link href={studyGroupHref} className={PRIMARY_CTA + ' mt-2 inline-flex !bg-indigo-700 hover:!bg-indigo-600 !px-3 !py-1.5 !text-[11px]'}>
+            ساخت Study Group
+          </Link>
+        </article>
+
+        <article className={SUB_CARD + ' bg-indigo-50/50 ring-1 ring-indigo-100'}>
+          <p className="text-xs font-extrabold text-slate-900">Create Class Community</p>
+          <p className="mt-1 text-[11px] leading-relaxed text-slate-600">برای دانشجویان یک کلاس/ورودی جهت هماهنگی، بحث و پیگیری جلسات.</p>
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            <span className="rounded-full bg-white px-2 py-0.5 text-[10px] font-bold text-indigo-700 ring-1 ring-indigo-200/80">Batch-focused</span>
+            <span className="rounded-full bg-white px-2 py-0.5 text-[10px] font-bold text-indigo-700 ring-1 ring-indigo-200/80">Assignments soon</span>
+          </div>
+          <Link href={classCommunityHref} className={PRIMARY_CTA + ' mt-2 inline-flex !bg-indigo-700 hover:!bg-indigo-600 !px-3 !py-1.5 !text-[11px]'}>
+            ساخت Class Community
+          </Link>
+        </article>
+
+        <article className={SUB_CARD + ' bg-indigo-50/50 ring-1 ring-indigo-100'}>
+          <p className="text-xs font-extrabold text-slate-900">Create Teacher Channel</p>
+          <p className="mt-1 text-[11px] leading-relaxed text-slate-600">برای اطلاع‌رسانی یک‌به‌چند: درس، برنامه، اعلان و منابع آموزشی.</p>
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            <span className="rounded-full bg-white px-2 py-0.5 text-[10px] font-bold text-indigo-700 ring-1 ring-indigo-200/80">Teacher-led</span>
+            <span className="rounded-full bg-white px-2 py-0.5 text-[10px] font-bold text-indigo-700 ring-1 ring-indigo-200/80">One-to-many</span>
+          </div>
+          <Link href={teacherChannelHref} className={SECONDARY_CTA + ' mt-2 inline-flex !px-3 !py-1.5 !text-[11px]'}>
+            {memberNetworkId ? 'ورود برای ساخت Teacher Channel' : 'ابتدا عضو یک شبکه آموزشی شوید'}
+          </Link>
+        </article>
+      </div>
+
+      <div className="mt-4 grid gap-2.5 sm:grid-cols-3">
+        <div className={SUB_CARD}>
+          <h3 className="text-xs font-extrabold text-slate-900">Popular Study Groups</h3>
+          <ul className="mt-2 space-y-1.5 text-[11px] text-slate-700">
+            {curatedStudyGroups.length === 0 ? (
+              <li className="text-slate-400">گروهی هنوز ثبت نشده است.</li>
+            ) : (
+              curatedStudyGroups.map((g) => (
+                <li key={g.id}>
+                  <Link href={`/groups/${g.id}`} className="font-bold text-sky-700 hover:underline">
+                    {g.name}
+                  </Link>
+                </li>
+              ))
+            )}
+          </ul>
+        </div>
+
+        <div className={SUB_CARD}>
+          <h3 className="text-xs font-extrabold text-slate-900">Active Teacher Channels</h3>
+          <ul className="mt-2 space-y-1.5 text-[11px] text-slate-700">
+            {curatedTeacherChannels.length === 0 ? (
+              <li className="text-slate-400">کانالی هنوز فعال نشده است.</li>
+            ) : (
+              curatedTeacherChannels.map((c) => (
+                <li key={c.id}>
+                  <Link href={`/channels/${c.id}?network=${encodeURIComponent(c.networkId)}`} className="font-bold text-sky-700 hover:underline">
+                    {c.name}
+                  </Link>
+                </li>
+              ))
+            )}
+          </ul>
+        </div>
+
+        <div className={SUB_CARD}>
+          <h3 className="text-xs font-extrabold text-slate-900">Recently Growing Communities</h3>
+          <ul className="mt-2 space-y-1.5 text-[11px] text-slate-700">
+            {curatedGrowingCommunities.length === 0 ? (
+              <li className="text-slate-400">شبکه‌ای در دسترس نیست.</li>
+            ) : (
+              curatedGrowingCommunities.map((n) => (
+                <li key={n.id}>
+                  <Link href={`/networks/${n.id}`} className="font-bold text-sky-700 hover:underline">
+                    {n.name}
+                  </Link>
+                </li>
+              ))
+            )}
+          </ul>
+        </div>
       </div>
     </section>
   );
