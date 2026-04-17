@@ -49,7 +49,7 @@ export function AppBottomNav() {
 
   return (
     <nav
-      className="fixed bottom-0 left-0 right-0 z-20 border-t border-stone-200/90 bg-[#f6f6f6]/98 shadow-[0_-2px_16px_rgba(0,0,0,0.06)] backdrop-blur-md"
+      className="theme-panel-bg theme-border-soft fixed bottom-0 left-0 right-0 z-20 border-t/90 shadow-[0_-2px_16px_rgba(0,0,0,0.06)] backdrop-blur-md"
       aria-label="ناوبری اصلی"
     >
       <div className="mx-auto flex max-w-md items-stretch justify-around gap-0.5 px-1 pb-[max(0.45rem,env(safe-area-inset-bottom,0px))] pt-1.5">
@@ -65,8 +65,8 @@ export function AppBottomNav() {
                 active && isPrimary
                   ? 'bg-[var(--accent-soft)] text-[var(--accent-hover)]'
                   : active
-                    ? 'bg-stone-200/80 text-stone-900'
-                    : 'text-stone-500 hover:bg-stone-200/50 hover:text-stone-800',
+                    ? 'bg-[var(--surface-strong)] text-[var(--text-primary)]'
+                    : 'text-[var(--text-secondary)] hover:bg-[var(--surface-soft)] hover:text-[var(--text-primary)]',
               ].join(' ')}
               aria-current={active ? 'page' : undefined}
             >

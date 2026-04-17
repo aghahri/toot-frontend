@@ -21,15 +21,15 @@ export function AppSectionHeader() {
 
   return (
     <header
-      className={`border-b bg-white/95 backdrop-blur-sm ${
-        isChats ? 'border-[var(--accent-ring)]' : 'border-stone-200/90'
+      className={`theme-panel-bg border-b/90 backdrop-blur-sm ${
+        isChats ? 'border-[var(--accent-ring)]' : 'theme-border-soft'
       }`}
       aria-label={title}
     >
       <div className="mx-auto max-w-md px-4 py-3">
         <h1
           className={`text-base font-bold leading-tight tracking-tight ${
-            isChats ? 'text-[var(--accent-hover)]' : 'text-stone-900'
+            isChats ? 'text-[var(--accent-hover)]' : 'text-[var(--text-primary)]'
           }`}
         >
           {title}

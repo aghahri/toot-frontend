@@ -7,7 +7,7 @@ type CardProps = PropsWithChildren<{
 export function Card({ children, className }: CardProps) {
   return (
     <div
-      className={['rounded-2xl border border-slate-200 bg-white p-4 shadow-sm', className]
+      className={['theme-card-bg theme-border-soft rounded-2xl border p-4 shadow-sm', className]
         .filter(Boolean)
         .join(' ')}
     >

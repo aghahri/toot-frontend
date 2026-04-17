@@ -60,11 +60,11 @@ export function Navbar() {
   const initial = (me?.name ?? '؟').trim().slice(0, 1) || '؟';
 
   return (
-    <header className="sticky top-0 z-10 w-full border-b border-stone-200/90 bg-white/95 backdrop-blur-md">
+    <header className="theme-panel-bg theme-border-soft sticky top-0 z-10 w-full border-b/90 backdrop-blur-md">
       <div className="mx-auto flex max-w-lg items-center justify-between gap-2 px-3 py-2 sm:px-4">
         <Link
           href={tokenPresent ? '/home' : '/'}
-          className="shrink-0 text-sm font-extrabold tracking-tight text-stone-900"
+          className="theme-text-primary shrink-0 text-sm font-extrabold tracking-tight"
         >
           توت
         </Link>
@@ -75,7 +75,7 @@ export function Navbar() {
               <>
                 <Link
                   href="/search"
-                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-stone-600 transition hover:bg-stone-100"
+                  className="theme-text-secondary flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition hover:bg-[var(--surface-soft)]"
                   aria-label="جستجو"
                 >
                   <svg
@@ -92,7 +92,7 @@ export function Navbar() {
                 </Link>
                 <Link
                   href="/notifications"
-                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-stone-600 transition hover:bg-stone-100"
+                  className="theme-text-secondary flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition hover:bg-[var(--surface-soft)]"
                   aria-label="اعلان‌ها"
                 >
                   <svg
@@ -115,7 +115,7 @@ export function Navbar() {
 
             <Link
               href="/profile"
-              className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[var(--accent)] text-xs font-bold text-white ring-2 ring-white transition hover:bg-[var(--accent-hover)]"
+              className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[var(--accent)] text-xs font-bold text-[var(--accent-contrast)] ring-2 ring-white/80 transition hover:bg-[var(--accent-hover)]"
               aria-label="پروفایل من"
               title="پروفایل من"
             >
@@ -129,7 +129,7 @@ export function Navbar() {
             <button
               type="button"
               onClick={() => void onLogout()}
-              className="flex h-9 shrink-0 items-center justify-center rounded-full border border-stone-200/90 bg-white px-2.5 text-[11px] font-bold text-stone-700 transition hover:bg-stone-50 sm:px-3"
+              className="theme-card-bg theme-border-soft theme-text-secondary flex h-9 shrink-0 items-center justify-center rounded-full border px-2.5 text-[11px] font-bold transition hover:bg-[var(--surface-soft)] sm:px-3"
               aria-label="خروج از حساب"
             >
               خروج

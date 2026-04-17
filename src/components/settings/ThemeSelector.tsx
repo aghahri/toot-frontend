@@ -26,9 +26,9 @@ export function ThemeSelector() {
   }
 
   return (
-    <section className="rounded-2xl border border-slate-200/90 bg-white p-4 shadow-sm">
-      <h2 className="text-sm font-extrabold text-slate-900">رنگ اپ</h2>
-      <p className="mt-1 text-xs leading-relaxed text-slate-600">
+    <section className="theme-card-bg theme-border-soft rounded-2xl border p-4 shadow-sm">
+      <h2 className="theme-text-primary text-sm font-extrabold">رنگ اپ</h2>
+      <p className="theme-text-secondary mt-1 text-xs leading-relaxed">
         تم رنگی رابط کاربری را انتخاب کنید. پیش‌فرض برنامه Light Blue است.
       </p>
       <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
@@ -42,20 +42,32 @@ export function ThemeSelector() {
               className={[
                 'flex items-center justify-between rounded-xl border px-3 py-2 text-right transition',
                 active
-                  ? 'border-[var(--accent)] bg-[var(--accent-soft)] text-slate-900'
-                  : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50',
+                  ? 'border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--text-primary)]'
+                  : 'theme-border-soft theme-card-bg theme-text-secondary hover:bg-[var(--surface-soft)]',
               ].join(' ')}
               aria-pressed={active}
             >
-              <span className="text-xs font-bold">{option.label}</span>
-              <span
-                className={[
-                  'h-5 w-5 rounded-full border border-white/80 shadow-sm',
-                  active ? 'ring-2 ring-[var(--accent-ring)] ring-offset-1' : '',
-                ].join(' ')}
-                style={{ backgroundColor: option.accent }}
-                aria-hidden
-              />
+              <div className="flex min-w-0 flex-col text-right">
+                <span className="truncate text-xs font-bold">{option.label}</span>
+                <span className="theme-text-secondary text-[10px] font-medium">
+                  {option.key === 'light-blue' ? 'Default' : 'Theme'}
+                </span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span
+                  className={[
+                    'h-4 w-4 rounded-full border border-white/80 shadow-sm',
+                    active ? 'ring-2 ring-[var(--accent-ring)] ring-offset-1' : '',
+                  ].join(' ')}
+                  style={{ backgroundColor: option.accent }}
+                  aria-hidden
+                />
+                <span
+                  className="h-4 w-4 rounded-full border border-black/5 shadow-sm"
+                  style={{ backgroundColor: option.key === 'black' ? '#0f172a' : '#ffffff' }}
+                  aria-hidden
+                />
+              </div>
             </button>
           );
         })}

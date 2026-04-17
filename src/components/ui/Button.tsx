@@ -13,7 +13,7 @@ export function Button({ loading, disabled, children, ...rest }: Props) {
       disabled={disabled || loading}
       className={[
         'w-full rounded-xl px-4 py-3 text-base font-semibold',
-        'bg-[var(--accent)] text-white hover:bg-[var(--accent-hover)]',
+        'bg-[var(--accent)] text-[var(--accent-contrast)] hover:bg-[var(--accent-hover)]',
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] focus-visible:ring-offset-2',
         'disabled:opacity-50 disabled:cursor-not-allowed',
       ].join(' ')}

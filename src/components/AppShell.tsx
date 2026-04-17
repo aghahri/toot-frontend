@@ -26,8 +26,8 @@ export function AppShell({ children }: { children: ReactNode }) {
         <div
           className={
             showNav
-              ? 'pb-[calc(5rem+env(safe-area-inset-bottom,0px))]'
-              : undefined
+              ? 'theme-page-bg theme-text-primary pb-[calc(5rem+env(safe-area-inset-bottom,0px))]'
+              : 'theme-page-bg theme-text-primary'
           }
         >
           {children}

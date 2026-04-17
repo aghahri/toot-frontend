@@ -212,7 +212,7 @@ export function ProfileUserClient({ userId }: ProfileUserClientProps) {
 
   return (
     <AuthGate>
-      <div className="min-h-[60dvh] bg-[#f7f9f9] pb-28" dir="rtl">
+      <div className="theme-page-bg min-h-[60dvh] pb-28" dir="rtl">
         <header className="sticky top-14 z-[16] w-full min-w-0 max-w-[100vw] overflow-x-hidden border-b border-slate-200/70 bg-white/95 shadow-[0_1px_0_rgba(0,0,0,0.04)] backdrop-blur-md">
           <div className="mx-auto flex min-h-[48px] max-w-lg items-center gap-2 px-3 py-2.5">
             <button

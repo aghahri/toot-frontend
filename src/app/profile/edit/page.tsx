@@ -166,7 +166,7 @@ export default function ProfileEditPage() {
 
   return (
     <AuthGate>
-      <main className="mx-auto w-full max-w-md bg-[#f7f9f9] p-4 pb-28" dir="rtl">
+      <main className="theme-page-bg mx-auto w-full max-w-md p-4 pb-28" dir="rtl">
         <div className="mb-3 flex items-center gap-2">
           <Link
             href={userId ? `/profile/${userId}` : '/profile'}
