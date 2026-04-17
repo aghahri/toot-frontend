@@ -197,8 +197,8 @@ function HomePageInner() {
 
   return (
     <AuthGate>
-      <div className="relative min-h-[60dvh] w-full min-w-0 max-w-[100vw] bg-[#f7f9f9]" dir="rtl">
-        <div className="sticky top-14 z-[15] w-full min-w-0 max-w-[100vw] overflow-x-hidden border-b border-slate-200/60 bg-white/95 shadow-[0_1px_0_rgba(15,23,42,0.06)] backdrop-blur-md">
+      <div className="theme-page-bg theme-text-primary relative min-h-[60dvh] w-full min-w-0 max-w-[100vw]" dir="rtl">
+        <div className="theme-panel-bg theme-border-soft sticky top-14 z-[15] w-full min-w-0 max-w-[100vw] overflow-x-hidden border-b shadow-[0_1px_0_rgba(15,23,42,0.06)] backdrop-blur-md">
           <div className="mx-auto w-full min-w-0 max-w-lg">
             <HomeFeedHeader />
             <FeedTabs active={tab} onChange={setTab} />
@@ -240,7 +240,7 @@ function HomePageInner() {
                   icon="✦"
                 />
               ) : (
-                <div className="overflow-hidden rounded-b-2xl bg-white shadow-sm ring-1 ring-slate-100/80">
+                <div className="theme-card-bg overflow-hidden rounded-b-2xl shadow-sm ring-1 ring-slate-100/80">
                   {posts.map((p) => (
                     <FeedPostCard
                       key={
@@ -294,7 +294,7 @@ function HomePageInner() {
                   icon="◎"
                 />
               ) : (
-                <div className="overflow-hidden rounded-b-2xl bg-white shadow-sm ring-1 ring-slate-100/80">
+                <div className="theme-card-bg overflow-hidden rounded-b-2xl shadow-sm ring-1 ring-slate-100/80">
                   {followingPosts.map((p) => (
                     <FeedPostCard
                       key={p.id}
@@ -367,7 +367,7 @@ export default function HomePage() {
   return (
     <Suspense
       fallback={
-        <div className="flex min-h-[40dvh] items-center justify-center bg-[#f7f9f9] px-4 text-sm text-slate-600">
+        <div className="theme-page-bg theme-text-secondary flex min-h-[40dvh] items-center justify-center px-4 text-sm">
           در حال بارگذاری…
         </div>
       }

@@ -674,7 +674,7 @@ function SpaceDetailInner() {
 
   return (
     <AuthGate>
-      <main className="mx-auto w-full max-w-md px-4 pb-12 pt-3 sm:pb-14" dir="rtl">
+      <main className="theme-page-bg theme-text-primary mx-auto w-full max-w-md px-4 pb-12 pt-3 sm:pb-14" dir="rtl">
         <div className="mb-4 flex items-center gap-2">
           <Link
             href="/spaces"

@@ -1921,9 +1921,9 @@ async function uploadSelectedFile(token: string): Promise<string | null> {
 
   return (
     <AuthGate>
-      <main className="mx-auto flex min-h-[100dvh] w-full max-w-md flex-col bg-[#e5ddd5] bg-[linear-gradient(180deg,rgba(255,255,255,0.5)_0%,rgba(255,255,255,0)_28%)]">
+      <main className="theme-page-bg theme-text-primary mx-auto flex min-h-[100dvh] w-full max-w-md flex-col bg-[linear-gradient(180deg,var(--surface-soft)_0%,var(--page-bg)_28%)]">
         <header
-          className="sticky top-0 z-30 border-b border-stone-200/90 bg-[#f8f8f8] shadow-[0_1px_0_rgba(0,0,0,0.04)] backdrop-blur-md"
+          className="theme-panel-bg theme-border-soft sticky top-0 z-30 border-b shadow-[0_1px_0_rgba(0,0,0,0.04)] backdrop-blur-md"
           dir="rtl"
         >
           {isSelectionMode ? (
@@ -2634,7 +2634,7 @@ async function uploadSelectedFile(token: string): Promise<string | null> {
           )}
         </div>
 
-        <div className="sticky bottom-0 z-20 border-t border-stone-200/90 bg-[#f6f6f6]/98 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2 shadow-[0_-2px_12px_rgba(0,0,0,0.05)] backdrop-blur-md">
+        <div className="theme-panel-bg theme-border-soft sticky bottom-0 z-20 border-t px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2 shadow-[0_-2px_12px_rgba(0,0,0,0.05)] backdrop-blur-md">
           <form onSubmit={onSend} className="w-full min-w-0 space-y-2" dir="rtl">
             <input
               ref={fileInputRef}

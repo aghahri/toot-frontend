@@ -541,9 +541,9 @@ export default function DirectPage() {
 
   return (
     <AuthGate>
-      <main className="mx-auto min-h-[60vh] w-full max-w-md bg-stone-100/90 pb-2">
+      <main className="theme-page-bg theme-text-primary mx-auto min-h-[60vh] w-full max-w-md pb-2">
         <div
-          className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-stone-200/80 bg-stone-50/95 px-4 py-2.5 backdrop-blur-sm"
+          className="theme-panel-bg theme-border-soft sticky top-0 z-10 flex items-center justify-between gap-3 border-b px-4 py-2.5 backdrop-blur-sm"
           dir="rtl"
         >
           <p className="text-sm font-semibold text-stone-600">گفتگوهای اخیر</p>
@@ -615,7 +615,7 @@ export default function DirectPage() {
           </div>
         ) : null}
 
-        <div className="relative mt-1 overflow-hidden rounded-2xl border border-stone-200/60 bg-white shadow-sm">
+        <div className="theme-card-bg theme-border-soft relative mt-1 overflow-hidden rounded-2xl border shadow-sm">
           {loading ? (
             <ConversationListSkeleton />
           ) : error && items.length === 0 ? (

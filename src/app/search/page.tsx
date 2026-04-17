@@ -125,8 +125,8 @@ export default function SearchPage() {
 
   return (
     <AuthGate>
-      <div className="min-h-[50dvh] bg-[#f7f9f9] pb-28" dir="rtl">
-        <header className="sticky top-14 z-[12] border-b border-slate-200/80 bg-white/95 px-3 py-3 backdrop-blur-md sm:px-4">
+      <div className="theme-page-bg theme-text-primary min-h-[50dvh] pb-28" dir="rtl">
+        <header className="theme-panel-bg theme-border-soft sticky top-14 z-[12] border-b px-3 py-3 backdrop-blur-md sm:px-4">
           <div className="mx-auto flex max-w-lg flex-col gap-3">
             <div className="flex items-center gap-2">
               <button
@@ -169,7 +169,7 @@ export default function SearchPage() {
           ) : null}
 
           {!loading && result && empty ? (
-            <div className="rounded-2xl border border-slate-200/90 bg-white px-6 py-10 text-center shadow-sm">
+            <div className="theme-card-bg theme-border-soft rounded-2xl border px-6 py-10 text-center shadow-sm">
               <p className="text-sm font-bold text-slate-700">نتیجه‌ای پیدا نشد</p>
               <p className="mt-2 text-xs text-slate-500">
                 عبارت دیگری امتحان کنید؛ برای هشتگ حتماً با # شروع کنید (مثلاً #تهران).

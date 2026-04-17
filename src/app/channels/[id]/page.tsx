@@ -101,7 +101,7 @@ function ChannelDetailInner() {
 
   return (
     <AuthGate>
-      <main className="mx-auto flex min-h-[70vh] w-full max-w-md flex-col px-4 pb-10 pt-2" dir="rtl">
+      <main className="theme-page-bg theme-text-primary mx-auto flex min-h-[70vh] w-full max-w-md flex-col px-4 pb-10 pt-2" dir="rtl">
         <div className="mb-4 flex items-center gap-2">
           <button
             type="button"
@@ -120,7 +120,7 @@ function ChannelDetailInner() {
           <p className="text-sm text-slate-500">در حال بارگذاری…</p>
         ) : channel ? (
           <>
-            <div className="rounded-2xl border border-slate-200/90 bg-white p-5 shadow-sm">
+            <div className="theme-card-bg theme-border-soft rounded-2xl border p-5 shadow-sm">
               <h1 className="text-xl font-extrabold text-slate-900">{channel.name}</h1>
               <p className="mt-1 text-xs text-slate-500">
                 شبکه:{' '}
@@ -149,7 +149,7 @@ function ChannelDetailInner() {
             </div>
 
             {channel.isMember ? (
-              <section className="mt-6 flex-1 rounded-2xl border border-slate-200/80 bg-slate-50/80 p-3">
+              <section className="theme-panel-bg theme-border-soft mt-6 flex-1 rounded-2xl border p-3">
                 <h2 className="px-1 text-xs font-extrabold text-slate-600">آخرین پیام‌ها</h2>
                 {loadingMsgs ? (
                   <p className="mt-3 px-1 text-xs text-slate-500">بارگذاری پیام‌ها…</p>

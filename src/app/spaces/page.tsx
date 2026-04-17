@@ -197,7 +197,7 @@ export default function SpacesOverviewPage() {
 
   return (
     <AuthGate>
-      <main className="mx-auto w-full max-w-lg px-4 pb-12 pt-4 sm:pb-14" dir="rtl">
+      <main className="theme-page-bg theme-text-primary mx-auto w-full max-w-lg px-4 pb-12 pt-4 sm:pb-14" dir="rtl">
         <header className="mb-5">
           <h1 className="text-2xl font-black tracking-tight text-slate-900">My Spaces</h1>
           <p className="mt-1 text-sm text-slate-500">اکوسیستم‌های اصلی شما در یک داشبورد ساده.</p>
@@ -254,7 +254,7 @@ export default function SpacesOverviewPage() {
 
         {editOpen ? (
           <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/35 p-3" dir="rtl">
-            <div className="w-full max-w-lg rounded-3xl bg-white p-5 shadow-2xl">
+            <div className="theme-card-bg theme-border-soft w-full max-w-lg rounded-3xl border p-5 shadow-2xl">
               <div className="mb-2 flex items-center justify-between">
                 <h3 className="text-sm font-extrabold text-slate-900">Manage Interests</h3>
                 <button type="button" onClick={() => setEditOpen(false)} className={SECONDARY_CTA + ' !rounded-full !px-2.5 !py-1.5 !text-xs !font-bold !border-transparent'}>

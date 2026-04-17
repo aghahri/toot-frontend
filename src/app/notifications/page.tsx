@@ -118,8 +118,8 @@ export default function NotificationsPage() {
 
   return (
     <AuthGate>
-      <div className="min-h-[50dvh] w-full min-w-0 bg-[#f7f9f9] pb-28" dir="rtl">
-        <header className="sticky top-14 z-[12] w-full min-w-0 max-w-[100vw] overflow-x-hidden border-b border-slate-200/80 bg-white/95 backdrop-blur-md">
+      <div className="theme-page-bg theme-text-primary min-h-[50dvh] w-full min-w-0 pb-28" dir="rtl">
+        <header className="theme-panel-bg theme-border-soft sticky top-14 z-[12] w-full min-w-0 max-w-[100vw] overflow-x-hidden border-b backdrop-blur-md">
           <div className="mx-auto flex w-full min-w-0 max-w-lg items-center gap-2 px-3 py-3">
             <button
               type="button"
