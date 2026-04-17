@@ -775,13 +775,17 @@ function SpaceDetailInner() {
             ) : null}
             {spaceKey === 'NEIGHBORHOOD' ? <NeighborhoodFormsCapabilitySection /> : null}
 
-            {journeyConfig ? null : isNeighborhood ? (
+            {spaceKey === 'NEIGHBORHOOD' ? (
               <>
                 {networksSection}
-                {groupsSection}
-                {channelsSection}
+                {!journeyConfig ? (
+                  <>
+                    {groupsSection}
+                    {channelsSection}
+                  </>
+                ) : null}
               </>
-            ) : (
+            ) : journeyConfig ? null : (
               <>
                 {groupsSection}
                 {networksSection}

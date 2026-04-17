@@ -11,7 +11,6 @@ import { FeedEmptyState } from '@/components/home/FeedEmptyState';
 import { HomeFeedHeader } from '@/components/home/HomeFeedHeader';
 import { HomeComposeSheet } from '@/components/home/HomeComposeSheet';
 import { PostReplySheet } from '@/components/home/PostReplySheet';
-import { StoryCuratedRail } from '@/components/home/StoryCuratedRail';
 import type { FeedPost, FeedTabId } from '@/components/home/feed-types';
 import { normalizeFeedPost } from '@/lib/feed-normalize';
 
@@ -44,9 +43,25 @@ type StoryItem = {
   url: string | null;
   imageUrl?: string | null;
   publishedAt: string | null;
+  locationText?: string | null;
+  quality?: { qualityScore?: number; duplicateRiskScore?: number };
   storyKind?: 'TODAY' | 'LOCAL' | 'NETWORK';
   trustLabel?: string;
+  trustScore?: number;
+  freshnessScore?: number;
+  relevanceScore?: number;
   source: { name: string };
+};
+
+type NetworkMembership = {
+  id: string;
+  name: string;
+  description?: string | null;
+  slug?: string | null;
+  isMember?: boolean;
+  spaceCategory?: string | null;
+  networkType?: string | null;
+  alignedSpaceCategory?: string | null;
 };
 
 const LOCAL_TOKENS = [
@@ -100,7 +115,7 @@ function HomePageInner() {
   const [emphasizePostId, setEmphasizePostId] = useState<string | null>(null);
   const [postTargetMissed, setPostTargetMissed] = useState(false);
   const [storyItems, setStoryItems] = useState<StoryItem[]>([]);
-  const [storyLoading, setStoryLoading] = useState(false);
+  const [joinedNetworks, setJoinedNetworks] = useState<NetworkMembership[]>([]);
   const viewerUserId = getCurrentUserIdFromAccessToken();
   const abortRef = useRef<AbortController | null>(null);
   const deepLinkFetchAttempted = useRef<Set<string>>(new Set());
@@ -170,16 +185,28 @@ function HomePageInner() {
   useEffect(() => {
     const token = getAccessToken();
     if (!token) return;
-    const scope = tab === 'local' ? 'local' : tab === 'networks' ? 'networks' : 'today';
-    setStoryLoading(true);
+    if (tab !== 'local' && tab !== 'networks') {
+      setStoryItems([]);
+      return;
+    }
+    const scope = tab === 'local' ? 'local' : 'networks';
     void apiFetch<StoryItem[]>(`story/published?scope=${scope}&limit=6`, {
       method: 'GET',
       token,
     })
       .then((data) => setStoryItems(data))
-      .catch(() => setStoryItems([]))
-      .finally(() => setStoryLoading(false));
+      .catch(() => setStoryItems([]));
   }, [tab]);
+
+  useEffect(() => {
+    const token = getAccessToken();
+    if (!token) return;
+    void apiFetch<NetworkMembership[]>('networks', { method: 'GET', token })
+      .then((rows) => {
+        setJoinedNetworks((rows || []).filter((n) => n.isMember));
+      })
+      .catch(() => setJoinedNetworks([]));
+  }, []);
 
   const targetPostId = searchParams.get('postId');
 
@@ -289,6 +316,87 @@ function HomePageInner() {
     })
     .filter((p) => tokenScore(`${p.text} ${p.user?.name ?? ''} ${p.user?.username ?? ''}`, NETWORK_TOKENS) > 0);
 
+  const joinedNeighborhoodNetworks = joinedNetworks.filter((n) => {
+    const bucket = `${n.spaceCategory ?? ''} ${n.networkType ?? ''} ${n.alignedSpaceCategory ?? ''}`.toUpperCase();
+    return bucket.includes('NEIGHBORHOOD');
+  });
+  const joinedCommunityNetworks = joinedNetworks.filter((n) => !joinedNeighborhoodNetworks.some((h) => h.id === n.id));
+
+  const scoreStoryRelevance = useCallback(
+    (story: StoryItem, opts: { mode: 'local' | 'networks' }) => {
+      const storyText = `${story.title} ${story.summary ?? ''} ${story.category ?? ''} ${story.source?.name ?? ''} ${story.locationText ?? ''}`.toLowerCase();
+      const memberships = opts.mode === 'local' ? joinedNeighborhoodNetworks : joinedCommunityNetworks;
+      if (!memberships.length) return 0;
+      const membershipMatch = memberships.reduce((best, n) => {
+        const bag = `${n.name} ${n.slug ?? ''} ${n.description ?? ''}`.toLowerCase();
+        const tokens = bag.split(/[\s\-_/|,.]+/).filter((t) => t.length >= 3).slice(0, 10);
+        const hits = tokens.reduce((acc, t) => (storyText.includes(t) ? acc + 1 : acc), 0);
+        return Math.max(best, hits);
+      }, 0);
+      const kindBonus =
+        opts.mode === 'local'
+          ? story.storyKind === 'LOCAL'
+            ? 2
+            : 0
+          : story.storyKind === 'NETWORK'
+            ? 2
+            : 0;
+      const trust = story.trustScore ?? 0;
+      const freshness = story.freshnessScore ?? 0;
+      const quality = story.quality?.qualityScore ?? 0;
+      const duplicateRisk = story.quality?.duplicateRiskScore ?? 0;
+      const base = membershipMatch * 18 + kindBonus * 12 + trust * 0.12 + freshness * 0.12 + quality * 0.12 - duplicateRisk * 0.15;
+      return Math.max(0, base);
+    },
+    [joinedCommunityNetworks, joinedNeighborhoodNetworks],
+  );
+
+  const eligibleLocalStories = storyItems
+    .map((story) => ({ story, score: scoreStoryRelevance(story, { mode: 'local' }) }))
+    .filter((x) => x.score >= 28)
+    .sort((a, b) => b.score - a.score)
+    .map((x) => x.story);
+
+  const eligibleNetworkStories = storyItems
+    .map((story) => ({ story, score: scoreStoryRelevance(story, { mode: 'networks' }) }))
+    .filter((x) => x.score >= 28)
+    .sort((a, b) => b.score - a.score)
+    .map((x) => x.story);
+
+  function injectStoriesIntoFeed(basePosts: FeedPost[], stories: StoryItem[]) {
+    if (!basePosts.length || !stories.length) {
+      return basePosts.map((post) => ({ kind: 'post' as const, post }));
+    }
+    const maxStories = Math.max(1, Math.min(2, Math.floor(basePosts.length / 7)));
+    const selectedStories: StoryItem[] = [];
+    const seenSource = new Set<string>();
+    const seenTitle = new Set<string>();
+    for (const s of stories) {
+      const source = (s.source?.name ?? '').trim().toLowerCase();
+      const title = s.title.trim().toLowerCase();
+      if (seenSource.has(source) || seenTitle.has(title)) continue;
+      selectedStories.push(s);
+      seenSource.add(source);
+      seenTitle.add(title);
+      if (selectedStories.length >= maxStories) break;
+    }
+    const result: Array<{ kind: 'post'; post: FeedPost } | { kind: 'story'; story: StoryItem }> = [];
+    let storyIdx = 0;
+    for (let i = 0; i < basePosts.length; i += 1) {
+      result.push({ kind: 'post', post: basePosts[i] });
+      const interval = i < 7 ? 6 : 8;
+      const shouldInject = (i + 1) % interval === 0 && storyIdx < selectedStories.length;
+      if (shouldInject) {
+        result.push({ kind: 'story', story: selectedStories[storyIdx] });
+        storyIdx += 1;
+      }
+    }
+    return result;
+  }
+
+  const localStream = injectStoriesIntoFeed(localPosts, eligibleLocalStories);
+  const networkStream = injectStoriesIntoFeed(networkPosts, eligibleNetworkStories);
+
   const tabFrame: TabFrame =
     tab === 'for-you'
       ? {
@@ -331,11 +439,6 @@ function HomePageInner() {
               </button>
             </div>
           </section>
-          <StoryCuratedRail
-            scope={tab === 'local' ? 'local' : tab === 'networks' ? 'networks' : 'today'}
-            loading={storyLoading}
-            items={storyItems}
-          />
           {postTargetMissed ? (
             <div className="mx-3 mb-3 rounded-2xl border border-amber-200/90 bg-amber-50/95 px-4 py-3 text-sm text-amber-950">
               <p className="font-bold">پست پیدا نشد یا دیگر در دسترس نیست.</p>
@@ -453,20 +556,25 @@ function HomePageInner() {
               ) : null}
             </>
           ) : tab === 'local' ? (
-            localPosts.length > 0 ? (
+            localStream.length > 0 ? (
               <div className="theme-card-bg mx-2 mt-2 overflow-hidden rounded-xl">
-                {localPosts.map((p) => (
-                  <FeedPostCard
-                    key={`local-${p.id}`}
-                    post={p}
-                    onPatch={patchPost}
-                    onDelete={removePost}
-                    onOpenReply={setReplyPost}
-                    onRepostChanged={() => void loadFeed({ silent: true })}
-                    emphasize={emphasizePostId === p.id}
-                    viewerUserId={viewerUserId}
-                  />
-                ))}
+                {localStream.map((item, idx) => {
+                  if (item.kind === 'post') {
+                    return (
+                      <FeedPostCard
+                        key={`local-${item.post.id}`}
+                        post={item.post}
+                        onPatch={patchPost}
+                        onDelete={removePost}
+                        onOpenReply={setReplyPost}
+                        onRepostChanged={() => void loadFeed({ silent: true })}
+                        emphasize={emphasizePostId === item.post.id}
+                        viewerUserId={viewerUserId}
+                      />
+                    );
+                  }
+                  return <InlineCuratedStoryCard key={`local-story-${item.story.id}-${idx}`} item={item.story} />;
+                })}
               </div>
             ) : (
               <FeedEmptyState
@@ -475,20 +583,25 @@ function HomePageInner() {
                 icon="⌂"
               />
             )
-          ) : networkPosts.length > 0 ? (
+          ) : networkStream.length > 0 ? (
             <div className="theme-card-bg mx-2 mt-2 overflow-hidden rounded-xl">
-              {networkPosts.map((p) => (
-                <FeedPostCard
-                  key={`net-${p.id}`}
-                  post={p}
-                  onPatch={patchPost}
-                  onDelete={removePost}
-                  onOpenReply={setReplyPost}
-                  onRepostChanged={() => void loadFeed({ silent: true })}
-                  emphasize={emphasizePostId === p.id}
-                  viewerUserId={viewerUserId}
-                />
-              ))}
+              {networkStream.map((item, idx) => {
+                if (item.kind === 'post') {
+                  return (
+                    <FeedPostCard
+                      key={`net-${item.post.id}`}
+                      post={item.post}
+                      onPatch={patchPost}
+                      onDelete={removePost}
+                      onOpenReply={setReplyPost}
+                      onRepostChanged={() => void loadFeed({ silent: true })}
+                      emphasize={emphasizePostId === item.post.id}
+                      viewerUserId={viewerUserId}
+                    />
+                  );
+                }
+                return <InlineCuratedStoryCard key={`net-story-${item.story.id}-${idx}`} item={item.story} />;
+              })}
             </div>
           ) : (
             <FeedEmptyState
@@ -522,6 +635,41 @@ function HomePageInner() {
         />
       </div>
     </AuthGate>
+  );
+}
+
+function InlineCuratedStoryCard({ item }: { item: StoryItem }) {
+  const href = item.url?.trim() || null;
+  const kindLabel = item.storyKind === 'LOCAL' ? 'Local' : item.storyKind === 'NETWORK' ? 'Network' : 'Curated';
+  const kindCls =
+    item.storyKind === 'LOCAL'
+      ? 'bg-emerald-500/15 text-emerald-700'
+      : item.storyKind === 'NETWORK'
+        ? 'bg-violet-500/15 text-violet-700'
+        : 'bg-sky-500/15 text-sky-700';
+  const Root = href ? 'a' : 'div';
+  return (
+    <Root
+      {...(href ? { href, target: '_blank', rel: 'noreferrer noopener' } : {})}
+      className="theme-surface-soft theme-border-soft mx-2 my-2.5 block rounded-2xl border p-3 shadow-[0_4px_14px_rgba(15,23,42,0.06)] transition hover:border-[var(--accent-ring)]"
+    >
+      <div className="flex items-center gap-1.5">
+        <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${kindCls}`}>{kindLabel}</span>
+        <span className="rounded-full border border-[var(--border-soft)] px-2 py-0.5 text-[10px] font-semibold text-[var(--text-secondary)]">
+          Story Curated
+        </span>
+        {item.trustLabel ? (
+          <span className="rounded-full border border-[var(--border-soft)] px-2 py-0.5 text-[10px] font-semibold text-[var(--text-secondary)]">
+            {item.trustLabel}
+          </span>
+        ) : null}
+      </div>
+      <p className="mt-2 text-[13px] font-extrabold text-[var(--text-primary)]">{item.title}</p>
+      <p className="mt-1 line-clamp-2 text-[12px] text-[var(--text-secondary)]">
+        {item.summary || 'گزیده کوتاه در دسترس نیست.'}
+      </p>
+      <p className="mt-2 text-[11px] font-semibold text-[var(--accent-hover)]">{item.source.name}</p>
+    </Root>
   );
 }
 
