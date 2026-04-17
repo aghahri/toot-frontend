@@ -11,6 +11,7 @@ import { FeedEmptyState } from '@/components/home/FeedEmptyState';
 import { HomeFeedHeader } from '@/components/home/HomeFeedHeader';
 import { HomeComposeSheet } from '@/components/home/HomeComposeSheet';
 import { PostReplySheet } from '@/components/home/PostReplySheet';
+import { StoryCuratedRail } from '@/components/home/StoryCuratedRail';
 import type { FeedPost, FeedTabId } from '@/components/home/feed-types';
 import { normalizeFeedPost } from '@/lib/feed-normalize';
 
@@ -41,6 +42,7 @@ type StoryItem = {
   summary: string | null;
   category: string | null;
   url: string | null;
+  imageUrl?: string | null;
   publishedAt: string | null;
   source: { name: string };
 };
@@ -327,36 +329,11 @@ function HomePageInner() {
               </button>
             </div>
           </section>
-          <section className="mx-2 mt-2">
-            <div className="theme-card-bg theme-border-soft rounded-2xl border px-3 py-2.5">
-              <div className="mb-2 flex items-center justify-between gap-2">
-                <p className="text-xs font-extrabold text-[var(--text-primary)]">Story Curated</p>
-                <span className="text-[10px] text-[var(--text-secondary)]">
-                  {tab === 'local' ? 'My Neighborhood' : tab === 'networks' ? 'Networks' : 'Today'}
-                </span>
-              </div>
-              {storyLoading ? (
-                <p className="text-[11px] text-[var(--text-secondary)]">در حال بارگذاری خبرهای منتخب…</p>
-              ) : storyItems.length === 0 ? (
-                <p className="text-[11px] text-[var(--text-secondary)]">
-                  هنوز آیتم منتشرشده‌ای برای این بخش وجود ندارد.
-                </p>
-              ) : (
-                <ul className="space-y-1.5">
-                  {storyItems.slice(0, 3).map((item) => (
-                    <li key={item.id} className="rounded-xl border border-[var(--border-soft)] px-2.5 py-2">
-                      <p className="line-clamp-1 text-[12px] font-semibold text-[var(--text-primary)]">
-                        {item.title}
-                      </p>
-                      <p className="mt-0.5 line-clamp-1 text-[11px] text-[var(--text-secondary)]">
-                        {item.summary || item.source.name}
-                      </p>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          </section>
+          <StoryCuratedRail
+            scope={tab === 'local' ? 'local' : tab === 'networks' ? 'networks' : 'today'}
+            loading={storyLoading}
+            items={storyItems}
+          />
           {postTargetMissed ? (
             <div className="mx-3 mb-3 rounded-2xl border border-amber-200/90 bg-amber-50/95 px-4 py-3 text-sm text-amber-950">
               <p className="font-bold">پست پیدا نشد یا دیگر در دسترس نیست.</p>
