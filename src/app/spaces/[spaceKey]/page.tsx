@@ -6,7 +6,13 @@ import { notFound, useParams, useRouter } from 'next/navigation';
 import { AuthGate } from '@/components/AuthGate';
 import { getAccessToken } from '@/lib/auth';
 import { apiFetch } from '@/lib/api';
-import { NEIGHBORHOOD_CAPABILITY_CARDS } from '@/lib/neighborhoodPack';
+import {
+  BULLETIN_KIND_LABELS,
+  fetchNeighborhoodVisibility,
+  NEIGHBORHOOD_CAPABILITY_CARDS,
+  neighborhoodPageHref,
+  type NeighborhoodVisibilitySnapshot,
+} from '@/lib/neighborhoodPack';
 import { isSpaceKey, SPACE_CARD_META, type SpaceKey } from '@/lib/spacesCatalog';
 
 type GroupRow = {
@@ -78,6 +84,47 @@ const BTN_PRI =
   'shrink-0 rounded-full bg-[var(--accent)] px-3 py-2 text-[11px] font-extrabold text-[var(--accent-contrast)] hover:bg-[var(--accent-hover)] disabled:opacity-50';
 const BTN_SEC =
   'shrink-0 rounded-full border border-[var(--border-soft)] bg-[var(--card-bg)] px-3 py-2 text-[11px] font-extrabold text-[var(--text-primary)] hover:bg-[var(--surface-soft)]';
+const TEASER =
+  'rounded-2xl border border-[var(--border-soft)] bg-[var(--surface-soft)] p-3 text-right ring-1 ring-[var(--border-soft)]';
+const TEASER_LINK = 'mt-2 inline-flex text-[10px] font-extrabold text-[var(--accent-hover)] hover:underline';
+
+function fa(n: number) {
+  return n.toLocaleString('fa-IR');
+}
+
+function hoodCapabilityStatusLine(
+  v: NeighborhoodVisibilitySnapshot | null,
+  loading: boolean,
+  href: string,
+): string {
+  if (loading) return '…';
+  if (!v) return '';
+  if (href.includes('/polls')) {
+    return v.counts.openPolls > 0 ? `${fa(v.counts.openPolls)} نظرسنجی فعال` : 'بدون نظرسنجی فعال';
+  }
+  if (href.includes('/forms')) {
+    return v.counts.publishedForms > 0 ? `${fa(v.counts.publishedForms)} فرم منتشرشده` : 'فرم منتشرشده‌ای نیست';
+  }
+  if (href.includes('/showcase')) {
+    return v.counts.spotlights > 0 ? `${fa(v.counts.spotlights)} کسب‌وکار محلی` : 'هنوز معرفی ثبت نشده';
+  }
+  if (href.includes('/bulletin')) {
+    return v.counts.bulletins > 0 ? `${fa(v.counts.bulletins)} اطلاعیه` : 'اطلاعیه‌ای نیست';
+  }
+  return '';
+}
+
+function isSameLocalDay(iso: string) {
+  try {
+    const d = new Date(iso);
+    const now = new Date();
+    return (
+      d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth() && d.getDate() === now.getDate()
+    );
+  } catch {
+    return false;
+  }
+}
 
 function capabilityLinks(sk: SpaceKey, mid: string | null): { label: string; href: string }[] {
   const nid = mid ? `&networkId=${encodeURIComponent(mid)}` : '';
@@ -339,6 +386,34 @@ function SpaceDetailInner() {
   }, [displayNetworks]);
 
   const memberNetworkId = useMemo(() => joinedNetworks[0]?.id ?? null, [joinedNetworks]);
+
+  const [hoodVisibility, setHoodVisibility] = useState<NeighborhoodVisibilitySnapshot | null>(null);
+  const [hoodVisibilityLoading, setHoodVisibilityLoading] = useState(false);
+
+  useEffect(() => {
+    if (!isNeighborhood || !memberNetworkId) {
+      setHoodVisibility(null);
+      setHoodVisibilityLoading(false);
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      const token = getAccessToken();
+      if (!token) return;
+      setHoodVisibilityLoading(true);
+      try {
+        const snap = await fetchNeighborhoodVisibility(memberNetworkId);
+        if (!cancelled) setHoodVisibility(snap);
+      } catch {
+        if (!cancelled) setHoodVisibility(null);
+      } finally {
+        if (!cancelled) setHoodVisibilityLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [isNeighborhood, memberNetworkId]);
 
   const caps = useMemo(() => {
     if (!isSpaceKey(raw)) return [];
@@ -633,22 +708,138 @@ function SpaceDetailInner() {
                 ابزارهای محله
               </h2>
               {spaceKey === 'NEIGHBORHOOD' ? (
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  {NEIGHBORHOOD_CAPABILITY_CARDS.map((c) => (
-                    <Link
-                      key={c.href}
-                      href={c.href}
-                      className="group flex flex-col gap-1.5 rounded-3xl border border-[var(--border-soft)] bg-gradient-to-br from-[var(--surface-soft)] to-[var(--card-bg)] p-4 text-right shadow-sm ring-1 ring-emerald-600/10 transition hover:ring-emerald-500/25 dark:ring-emerald-400/15"
-                    >
-                      <span className="text-2xl leading-none" aria-hidden>
-                        {c.emoji}
-                      </span>
-                      <span className="text-sm font-black text-[var(--text-primary)]">{c.label}</span>
-                      <span className="text-[11px] leading-snug text-[var(--text-secondary)]">{c.sub}</span>
-                      <span className="mt-1 text-[10px] font-extrabold text-[var(--accent-hover)]">شروع ←</span>
-                    </Link>
-                  ))}
-                </div>
+                <>
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    {NEIGHBORHOOD_CAPABILITY_CARDS.map((c) => {
+                      const href = neighborhoodPageHref(c.href, memberNetworkId);
+                      const status = hoodCapabilityStatusLine(hoodVisibility, hoodVisibilityLoading, c.href);
+                      return (
+                        <Link
+                          key={c.href}
+                          href={href}
+                          className="group flex flex-col gap-1.5 rounded-3xl border border-[var(--border-soft)] bg-gradient-to-br from-[var(--surface-soft)] to-[var(--card-bg)] p-4 text-right shadow-sm ring-1 ring-emerald-600/10 transition hover:ring-emerald-500/25 dark:ring-emerald-400/15"
+                        >
+                          <span className="text-2xl leading-none" aria-hidden>
+                            {c.emoji}
+                          </span>
+                          <span className="text-sm font-black text-[var(--text-primary)]">{c.label}</span>
+                          <span className="text-[11px] leading-snug text-[var(--text-secondary)]">{c.sub}</span>
+                          {status ? (
+                            <span className="text-[10px] font-bold text-emerald-800/90 dark:text-emerald-300/90">{status}</span>
+                          ) : null}
+                          <span className="mt-1 text-[10px] font-extrabold text-[var(--accent-hover)]">شروع ←</span>
+                        </Link>
+                      );
+                    })}
+                  </div>
+
+                  {memberNetworkId ? (
+                    <div className="mt-4 space-y-3">
+                      <p className="text-[11px] font-extrabold text-[var(--text-secondary)]">
+                        تازه‌ها در شبکهٔ اول شما
+                        {hoodVisibilityLoading ? <span className="mr-1 text-[10px] font-normal">…</span> : null}
+                      </p>
+                      {hoodVisibilityLoading && !hoodVisibility ? (
+                        <div className="space-y-2">
+                          <div className="h-16 animate-pulse rounded-2xl bg-[var(--surface-soft)]" />
+                          <div className="h-16 animate-pulse rounded-2xl bg-[var(--surface-soft)]" />
+                        </div>
+                      ) : (
+                        <>
+                          <div className={TEASER}>
+                            <p className="text-[10px] font-extrabold text-[var(--accent-hover)]">آخرین نظرسنجی محلی</p>
+                            {hoodVisibility?.poll ? (
+                              <>
+                                <p className="mt-1 line-clamp-2 text-xs font-bold text-[var(--text-primary)]">
+                                  {hoodVisibility.poll.question}
+                                </p>
+                                <p className="mt-1 text-[10px] text-[var(--text-secondary)]">
+                                  {hoodVisibility.poll.effectiveClosed ? 'بسته‌شده' : 'در حال برگزاری'} · شرکت‌کننده:{' '}
+                                  {fa(hoodVisibility.poll.totalVotes)}
+                                </p>
+                              </>
+                            ) : (
+                              <p className="mt-1 text-[11px] text-[var(--text-secondary)]">هنوز نظرسنجی ثبت نشده.</p>
+                            )}
+                            <Link
+                              href={neighborhoodPageHref('/spaces/neighborhood/polls', memberNetworkId)}
+                              className={TEASER_LINK}
+                            >
+                              مشاهده همه نظرسنجی‌ها
+                            </Link>
+                          </div>
+
+                          <div className={TEASER}>
+                            <p className="text-[10px] font-extrabold text-[var(--accent-hover)]">آخرین اطلاعیه محلی</p>
+                            {hoodVisibility?.bulletin ? (
+                              <>
+                                <p className="mt-1 text-[10px] font-bold text-[var(--text-secondary)]">
+                                  {BULLETIN_KIND_LABELS[hoodVisibility.bulletin.kind] ?? hoodVisibility.bulletin.kind}
+                                </p>
+                                <p className="line-clamp-2 text-xs font-bold text-[var(--text-primary)]">
+                                  {hoodVisibility.bulletin.title}
+                                </p>
+                                <p className="mt-1 text-[10px] text-[var(--text-secondary)]">
+                                  {new Intl.DateTimeFormat('fa-IR', { dateStyle: 'medium', timeStyle: 'short' }).format(
+                                    new Date(hoodVisibility.bulletin.createdAt),
+                                  )}
+                                  {isSameLocalDay(hoodVisibility.bulletin.createdAt) ? ' · امروز' : ''}
+                                </p>
+                              </>
+                            ) : (
+                              <p className="mt-1 text-[11px] text-[var(--text-secondary)]">اطلاعیه‌ای ثبت نشده.</p>
+                            )}
+                            <Link
+                              href={neighborhoodPageHref('/spaces/neighborhood/bulletin', memberNetworkId)}
+                              className={TEASER_LINK}
+                            >
+                              مشاهده همه اعلانات
+                            </Link>
+                          </div>
+
+                          <div className={TEASER}>
+                            <p className="text-[10px] font-extrabold text-[var(--accent-hover)]">کسب‌وکار محلی</p>
+                            {hoodVisibility?.spotlight ? (
+                              <div className="mt-2 flex gap-2">
+                                {hoodVisibility.spotlight.imageUrl ? (
+                                  // eslint-disable-next-line @next/next/no-img-element
+                                  <img
+                                    src={hoodVisibility.spotlight.imageUrl}
+                                    alt=""
+                                    className="h-14 w-14 shrink-0 rounded-xl object-cover ring-1 ring-[var(--border-soft)]"
+                                  />
+                                ) : null}
+                                <div className="min-w-0 flex-1">
+                                  <p className="text-[10px] font-extrabold text-[var(--accent-hover)]">
+                                    {hoodVisibility.spotlight.category}
+                                  </p>
+                                  <p className="text-xs font-black text-[var(--text-primary)]">
+                                    {hoodVisibility.spotlight.businessName}
+                                  </p>
+                                  <p className="mt-0.5 line-clamp-2 text-[11px] text-[var(--text-secondary)]">
+                                    {hoodVisibility.spotlight.intro}
+                                  </p>
+                                </div>
+                              </div>
+                            ) : (
+                              <p className="mt-1 text-[11px] text-[var(--text-secondary)]">هنوز معرفی کسب‌وکاری نیست.</p>
+                            )}
+                            <Link
+                              href={neighborhoodPageHref('/spaces/neighborhood/showcase', memberNetworkId)}
+                              className={TEASER_LINK}
+                            >
+                              همه کسب‌وکارهای محلی
+                            </Link>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  ) : (
+                    <p className="mt-3 rounded-2xl bg-[var(--surface-soft)] px-3 py-2 text-[11px] text-[var(--text-secondary)] ring-1 ring-[var(--border-soft)]">
+                      با پیوستن به یک شبکه محله، تازه‌های نظرسنجی، اعلان و کسب‌وکار اینجا دیده می‌شود.
+                    </p>
+                  )}
+                </>
               ) : (
                 <div className="grid grid-cols-2 gap-2">
                   {caps.map((c) => (
@@ -670,7 +861,7 @@ function SpaceDetailInner() {
                   </p>
                   <p className="mt-2 text-center">
                     <Link
-                      href="/spaces/neighborhood/forms/manage"
+                      href={neighborhoodPageHref('/spaces/neighborhood/forms/manage', memberNetworkId)}
                       className="text-[11px] font-extrabold text-[var(--accent-hover)] underline-offset-2 hover:underline"
                     >
                       مدیریت فرم‌ها (فقط ادمین شبکه)

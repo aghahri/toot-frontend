@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AuthGate } from '@/components/AuthGate';
 import { NeighborhoodNetworkContext, NeighborhoodVisibilityNote } from '@/components/neighborhood/NeighborhoodContextStrip';
@@ -31,6 +32,7 @@ function formatShortDate(iso: string | null) {
 }
 
 export default function NeighborhoodPollsPage() {
+  const searchParams = useSearchParams();
   const [networks, setNetworks] = useState<NeighborhoodNetworkRow[]>([]);
   const [networkId, setNetworkId] = useState('');
   const [polls, setPolls] = useState<NeighborhoodPollRow[]>([]);
@@ -65,12 +67,14 @@ export default function NeighborhoodPollsPage() {
       try {
         const list = await fetchMemberNeighborhoodNetworks();
         setNetworks(list);
-        if (list[0]) setNetworkId((prev) => prev || list[0].id);
+        const q = searchParams.get('networkId');
+        const pick = q && list.some((n) => n.id === q) ? q : list[0]?.id;
+        if (pick) setNetworkId(pick);
       } catch (e) {
         setError(e instanceof Error ? e.message : 'خطا');
       }
     })();
-  }, []);
+  }, [searchParams]);
 
   useEffect(() => {
     void refreshPolls();

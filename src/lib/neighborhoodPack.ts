@@ -263,3 +263,44 @@ export const BULLETIN_KIND_LABELS: Record<string, string> = {
   MAINTENANCE: 'تعمیرات',
   OTHER: 'سایر',
 };
+
+/** Append networkId for deep links from space detail / teasers (optional). */
+export function neighborhoodPageHref(path: string, networkId: string | null): string {
+  if (!networkId) return path;
+  const sep = path.includes('?') ? '&' : '?';
+  return `${path}${sep}networkId=${encodeURIComponent(networkId)}`;
+}
+
+export type NeighborhoodVisibilitySnapshot = {
+  poll: {
+    id: string;
+    question: string;
+    effectiveClosed: boolean;
+    totalVotes: number;
+    openPollsCount: number;
+  } | null;
+  bulletin: { id: string; kind: string; title: string; createdAt: string } | null;
+  spotlight: {
+    id: string;
+    businessName: string;
+    category: string;
+    intro: string;
+    imageUrl: string | null;
+    createdAt: string;
+  } | null;
+  counts: {
+    openPolls: number;
+    bulletins: number;
+    spotlights: number;
+    publishedForms: number;
+  };
+};
+
+export async function fetchNeighborhoodVisibility(networkId: string): Promise<NeighborhoodVisibilitySnapshot> {
+  const token = getAccessToken();
+  if (!token) throw new Error('ورود لازم است');
+  return apiFetch<NeighborhoodVisibilitySnapshot>(
+    `networks/${encodeURIComponent(networkId)}/neighborhood/visibility`,
+    { method: 'GET', token },
+  );
+}
