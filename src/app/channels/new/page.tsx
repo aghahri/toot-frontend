@@ -28,6 +28,7 @@ function NewChannelPageInner() {
   const [networkId, setNetworkId] = useState('');
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
+  const [postingMode, setPostingMode] = useState<'ADMINS_ONLY' | 'PUBLISHERS_AND_ADMINS' | 'ALL_MEMBERS'>('ADMINS_ONLY');
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -92,6 +93,7 @@ function NewChannelPageInner() {
               : isStreamPreset
                 ? 'TECH'
                 : 'PUBLIC_GENERAL',
+          ...(isProfessionalPreset ? { postingMode } : {}),
         }),
       });
       router.replace(`/channels/${created.id}?network=${encodeURIComponent(created.networkId)}`);
@@ -120,7 +122,7 @@ function NewChannelPageInner() {
           <Link
             href={
               isProfessionalPreset
-                ? '/spaces/PUBLIC_GENERAL'
+                ? '/spaces/business'
                 : isCoachPreset
                   ? '/spaces/SPORT'
                   : isStreamPreset
@@ -217,6 +219,21 @@ function NewChannelPageInner() {
                   className="w-full resize-none rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
                 />
               </label>
+
+              {isProfessionalPreset ? (
+                <label className="block">
+                  <span className="mb-1 block text-[11px] font-bold text-slate-600">چه کسانی می‌توانند پست بگذارند؟</span>
+                  <select
+                    value={postingMode}
+                    onChange={(e) => setPostingMode(e.target.value as typeof postingMode)}
+                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
+                  >
+                    <option value="ADMINS_ONLY">فقط مدیر کانال</option>
+                    <option value="PUBLISHERS_AND_ADMINS">ناشر و مدیر</option>
+                    <option value="ALL_MEMBERS">همه اعضا (بحث آزاد)</option>
+                  </select>
+                </label>
+              ) : null}
 
               <button
                 type="button"

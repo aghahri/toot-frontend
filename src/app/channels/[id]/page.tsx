@@ -13,9 +13,16 @@ type ChannelPayload = {
   name: string;
   description: string | null;
   networkId: string;
+  postingMode?: string;
   network: { id: string; name: string };
   isMember: boolean;
   myRole: string | null;
+};
+
+const POSTING_MODE_FA: Record<string, string> = {
+  ADMINS_ONLY: 'ارسال: فقط مدیر کانال',
+  PUBLISHERS_AND_ADMINS: 'ارسال: ناشر و مدیر',
+  ALL_MEMBERS: 'ارسال: همه اعضا',
 };
 
 type ChannelMsg = {
@@ -142,6 +149,14 @@ function ChannelDetailInner() {
                   {channel.network.name}
                 </Link>
               </p>
+              {channel.postingMode ? (
+                <p className="theme-text-secondary mt-1 text-[11px]">
+                  {POSTING_MODE_FA[channel.postingMode] ?? channel.postingMode}
+                </p>
+              ) : null}
+              {channel.myRole ? (
+                <p className="theme-text-secondary mt-0.5 text-[10px]">نقش شما: {channel.myRole}</p>
+              ) : null}
               {channel.description ? (
                 <p className="theme-text-secondary mt-3 text-sm leading-relaxed">{channel.description}</p>
               ) : null}

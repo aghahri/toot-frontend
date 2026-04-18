@@ -1,8 +1,9 @@
 import { apiFetch } from '@/lib/api';
 import { getAccessToken } from '@/lib/auth';
 
-export type CapabilityKind = 'POLL' | 'FORM' | 'BULLETIN';
+export type CapabilityKind = 'POLL' | 'FORM' | 'BULLETIN' | 'JOB' | 'PROJECT' | 'BUSINESS_LISTING';
 export type CapabilityTargetKind = 'NETWORK' | 'GROUP' | 'CHANNEL';
+export type CapabilitySourceSpace = 'NEIGHBORHOOD' | 'PUBLIC_GENERAL';
 
 export type CapabilityLinkResolved =
   | {
@@ -27,6 +28,30 @@ export type CapabilityLinkResolved =
       networkId: string;
       title: string;
       description: string | null;
+      href: string;
+    }
+  | {
+      ok: true;
+      kind: 'JOB';
+      networkId: string;
+      title: string;
+      companyName: string;
+      href: string;
+    }
+  | {
+      ok: true;
+      kind: 'PROJECT';
+      networkId: string;
+      title: string;
+      status: string;
+      href: string;
+    }
+  | {
+      ok: true;
+      kind: 'BUSINESS_LISTING';
+      networkId: string;
+      businessName: string;
+      category: string;
       href: string;
     }
   | { ok: false; reason: 'NOT_FOUND' };
@@ -60,7 +85,7 @@ export async function fetchCapabilityLinkTargets(networkId: string): Promise<Cap
 export async function createCapabilityLink(body: {
   capabilityType: CapabilityKind;
   capabilityId: string;
-  sourceSpaceCategory: 'NEIGHBORHOOD';
+  sourceSpaceCategory: CapabilitySourceSpace;
   targetEntityType: CapabilityTargetKind;
   targetEntityId: string;
   linkLabel?: string;

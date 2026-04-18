@@ -5,6 +5,7 @@ import {
   createCapabilityLink,
   fetchCapabilityLinkTargets,
   type CapabilityKind,
+  type CapabilitySourceSpace,
   type CapabilityTargetKind,
 } from '@/lib/capabilityLinks';
 
@@ -14,10 +15,20 @@ type Props = {
   networkId: string;
   capabilityType: CapabilityKind;
   capabilityId: string;
+  /** Neighborhood polls/forms vs Business jobs/projects/listings */
+  sourceSpaceCategory?: CapabilitySourceSpace;
   onLinked?: () => void;
 };
 
-export function LinkCapabilityModal({ open, onClose, networkId, capabilityType, capabilityId, onLinked }: Props) {
+export function LinkCapabilityModal({
+  open,
+  onClose,
+  networkId,
+  capabilityType,
+  capabilityId,
+  sourceSpaceCategory = 'NEIGHBORHOOD',
+  onLinked,
+}: Props) {
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -70,7 +81,7 @@ export function LinkCapabilityModal({ open, onClose, networkId, capabilityType, 
       await createCapabilityLink({
         capabilityType,
         capabilityId,
-        sourceSpaceCategory: 'NEIGHBORHOOD',
+        sourceSpaceCategory,
         targetEntityType: targetKind,
         targetEntityId: targetId,
       });
@@ -96,7 +107,9 @@ export function LinkCapabilityModal({ open, onClose, networkId, capabilityType, 
       <div className="relative z-[81] w-full max-w-md rounded-t-3xl border border-[var(--border-soft)] bg-[var(--card-bg)] p-4 shadow-xl sm:rounded-3xl">
         <h2 className="text-sm font-black text-[var(--text-primary)]">اشتراک در جامعه</h2>
         <p className="mt-1 text-[11px] text-[var(--text-secondary)]">
-          این قابلیت را به گروه، کانال یا صفحهٔ همان شبکه محله وصل کنید (بدون کپی کردن محتوا).
+          {sourceSpaceCategory === 'PUBLIC_GENERAL'
+            ? 'این مورد را به گروه، کانال یا صفحهٔ همان شبکه کسب‌وکار وصل کنید.'
+            : 'این قابلیت را به گروه، کانال یا صفحهٔ همان شبکه محله وصل کنید (بدون کپی کردن محتوا).'}
         </p>
 
         {loading ? (

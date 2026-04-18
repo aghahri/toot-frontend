@@ -52,18 +52,57 @@ function ResolvedCard({ row }: { row: LinkedCapabilityRow }) {
       </div>
     );
   }
-  return (
-    <div className={CARD}>
-      <p className="text-[10px] font-extrabold text-[var(--accent-hover)]">📋 فرم محله</p>
-      <p className="mt-1 text-sm font-bold text-[var(--text-primary)]">{r.title}</p>
-      {r.description ? (
-        <p className="mt-1 line-clamp-2 text-[11px] text-[var(--text-secondary)]">{r.description}</p>
-      ) : null}
-      <Link href={r.href} className="mt-2 inline-block text-[11px] font-extrabold text-[var(--accent-hover)] underline">
-        پر کردن / مشاهده فرم
-      </Link>
-    </div>
-  );
+  if (r.kind === 'FORM') {
+    return (
+      <div className={CARD}>
+        <p className="text-[10px] font-extrabold text-[var(--accent-hover)]">📋 فرم محله</p>
+        <p className="mt-1 text-sm font-bold text-[var(--text-primary)]">{r.title}</p>
+        {r.description ? (
+          <p className="mt-1 line-clamp-2 text-[11px] text-[var(--text-secondary)]">{r.description}</p>
+        ) : null}
+        <Link href={r.href} className="mt-2 inline-block text-[11px] font-extrabold text-[var(--accent-hover)] underline">
+          پر کردن / مشاهده فرم
+        </Link>
+      </div>
+    );
+  }
+  if (r.kind === 'JOB') {
+    return (
+      <div className={CARD}>
+        <p className="text-[10px] font-extrabold text-[var(--accent-hover)]">💼 فرصت شغلی</p>
+        <p className="mt-1 text-sm font-bold text-[var(--text-primary)]">{r.title}</p>
+        <p className="mt-1 text-[11px] text-[var(--text-secondary)]">{r.companyName}</p>
+        <Link href={r.href} className="mt-2 inline-block text-[11px] font-extrabold text-[var(--accent-hover)] underline">
+          مشاهده آگهی
+        </Link>
+      </div>
+    );
+  }
+  if (r.kind === 'PROJECT') {
+    return (
+      <div className={CARD}>
+        <p className="text-[10px] font-extrabold text-[var(--accent-hover)]">📌 پروژه</p>
+        <p className="mt-1 text-sm font-bold text-[var(--text-primary)]">{r.title}</p>
+        <p className="mt-1 text-[10px] text-[var(--text-secondary)]">وضعیت: {r.status}</p>
+        <Link href={r.href} className="mt-2 inline-block text-[11px] font-extrabold text-[var(--accent-hover)] underline">
+          باز کردن پروژه
+        </Link>
+      </div>
+    );
+  }
+  if (r.kind === 'BUSINESS_LISTING') {
+    return (
+      <div className={CARD}>
+        <p className="text-[10px] font-extrabold text-[var(--accent-hover)]">🏪 کسب‌وکار</p>
+        <p className="mt-1 text-sm font-bold text-[var(--text-primary)]">{r.businessName}</p>
+        <p className="mt-1 text-[11px] text-[var(--text-secondary)]">{r.category}</p>
+        <Link href={r.href} className="mt-2 inline-block text-[11px] font-extrabold text-[var(--accent-hover)] underline">
+          مشاهده معرفی
+        </Link>
+      </div>
+    );
+  }
+  return null;
 }
 
 export type LinkedCapabilitiesPanelProps = {

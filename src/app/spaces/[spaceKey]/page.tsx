@@ -535,6 +535,15 @@ function SpaceDetailInner() {
           </div>
         </div>
 
+        {spaceKey === 'PUBLIC_GENERAL' ? (
+          <Link
+            href="/spaces/business"
+            className="block rounded-2xl border border-slate-400/40 bg-gradient-to-r from-slate-800 to-zinc-900 px-4 py-3 text-center text-[12px] font-extrabold text-white shadow-md ring-1 ring-white/10 transition hover:brightness-110"
+          >
+            ورود به فضای کسب‌وکار (استخدام، پروژه، فهرست)
+          </Link>
+        ) : null}
+
         {loading ? (
           <p className="text-sm text-[var(--text-secondary)]">در حال بارگذاری…</p>
         ) : error ? (

@@ -361,7 +361,7 @@ export default function SpacesOverviewPage() {
                   {dashboardSpaces.map((k) => (
                     <Link
                       key={k}
-                      href={`/spaces/${DETAIL_ROUTE[k]}`}
+                      href={k === 'business' ? '/spaces/business' : `/spaces/${DETAIL_ROUTE[k]}`}
                       className="flex flex-col items-center rounded-3xl border border-[var(--border-soft)] bg-[var(--card-bg)] px-3 py-5 text-center shadow-sm ring-1 ring-[var(--border-soft)] transition hover:shadow-md active:scale-[0.98]"
                     >
                       <span className="text-4xl leading-none" aria-hidden>
@@ -426,7 +426,7 @@ export default function SpacesOverviewPage() {
                   return (
                     <Link
                       key={bp.id}
-                      href={`/spaces/${bp.mappedCategory}`}
+                      href={bp.id === 'business' ? '/spaces/business' : `/spaces/${bp.mappedCategory}`}
                       className={`relative block overflow-hidden rounded-3xl border border-[var(--border-soft)] bg-[var(--card-bg)] p-5 shadow-sm ring-1 ring-[var(--border-soft)] transition hover:shadow-md active:scale-[0.99] ${
                         isHood ? 'sm:col-span-2' : ''
                       }`}
