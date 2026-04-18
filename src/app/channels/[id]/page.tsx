@@ -6,7 +6,7 @@ import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { AuthGate } from '@/components/AuthGate';
 import { getAccessToken } from '@/lib/auth';
 import { apiFetch } from '@/lib/api';
-import { LinkedCapabilitiesSection } from '@/components/capability/LinkedCapabilitiesSection';
+import { CommunityToolsSheet } from '@/components/capability/CommunityToolsSheet';
 
 type ChannelPayload = {
   id: string;
@@ -39,6 +39,7 @@ function ChannelDetailInner() {
   const [loadingMsgs, setLoadingMsgs] = useState(false);
   const [joining, setJoining] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [toolsOpen, setToolsOpen] = useState(false);
 
   const loadChannel = useCallback(async () => {
     const token = getAccessToken();
@@ -122,7 +123,19 @@ function ChannelDetailInner() {
         ) : channel ? (
           <>
             <div className="theme-card-bg theme-border-soft rounded-2xl border p-5 shadow-sm">
-              <h1 className="theme-text-primary text-xl font-extrabold">{channel.name}</h1>
+              <div className="flex items-start justify-between gap-2">
+                <h1 className="theme-text-primary min-w-0 flex-1 text-xl font-extrabold">{channel.name}</h1>
+                {channel.isMember && id ? (
+                  <button
+                    type="button"
+                    onClick={() => setToolsOpen(true)}
+                    className="flex shrink-0 items-center gap-1 rounded-full border border-[var(--border-soft)] bg-[var(--surface-soft)] px-2.5 py-1.5 text-[11px] font-extrabold text-[var(--text-primary)] shadow-sm transition hover:bg-[var(--card-bg)]"
+                  >
+                    <span aria-hidden>🧰</span>
+                    <span className="max-[380px]:hidden">ابزارها</span>
+                  </button>
+                ) : null}
+              </div>
               <p className="theme-text-secondary mt-1 text-xs">
                 شبکه:{' '}
                 <Link href={`/networks/${channel.networkId}`} className="font-bold text-[var(--accent-hover)] underline">
@@ -148,10 +161,6 @@ function ChannelDetailInner() {
                 <p className="mt-4 text-sm font-bold text-emerald-800">عضو کانال هستید</p>
               )}
             </div>
-
-            {channel.isMember && id ? (
-              <LinkedCapabilitiesSection targetType="CHANNEL" targetId={id} className="mt-4" />
-            ) : null}
 
             {channel.isMember ? (
               <section className="theme-panel-bg theme-border-soft mt-6 flex-1 rounded-2xl border p-3">
@@ -187,6 +196,15 @@ function ChannelDetailInner() {
                   </ul>
                 )}
               </section>
+            ) : null}
+
+            {channel.isMember && id ? (
+              <CommunityToolsSheet
+                open={toolsOpen}
+                onClose={() => setToolsOpen(false)}
+                targetType="CHANNEL"
+                targetId={id}
+              />
             ) : null}
           </>
         ) : fallbackNetworkId ? (

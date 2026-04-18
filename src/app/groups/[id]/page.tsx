@@ -27,7 +27,7 @@ import { isVoiceMedia, formatVoiceClock } from '@/lib/chat-media';
 import { calendarDayKey, dayDividerLabelFa } from '@/lib/chat-dates';
 import { formatFileSize } from '@/lib/format-file-size';
 import { Card } from '@/components/ui/Card';
-import { LinkedCapabilitiesSection } from '@/components/capability/LinkedCapabilitiesSection';
+import { CommunityToolsSheet } from '@/components/capability/CommunityToolsSheet';
 
 const PAGE_SIZE = 40;
 const MAX_VOICE_RECORD_SEC = 120;
@@ -108,6 +108,7 @@ export default function GroupThreadPage() {
   const [searchHits, setSearchHits] = useState<GroupMessage[]>([]);
   const [searchLoading, setSearchLoading] = useState(false);
   const [searchHighlightIndex, setSearchHighlightIndex] = useState(0);
+  const [communityToolsOpen, setCommunityToolsOpen] = useState(false);
   const [attachmentSheetOpen, setAttachmentSheetOpen] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -1166,7 +1167,7 @@ export default function GroupThreadPage() {
               </div>
             </div>
           ) : (
-            <div className="flex items-center gap-2 px-2.5 py-1.5">
+            <div className="flex flex-wrap items-center gap-1.5 px-2.5 py-1.5 sm:gap-2">
               <Link
                 href={backHref}
                 className="theme-text-primary flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition hover:bg-[var(--surface-soft)] active:bg-[var(--surface-strong)]"
@@ -1202,6 +1203,16 @@ export default function GroupThreadPage() {
 
               <button
                 type="button"
+                title="ابزارهای جامعه"
+                onClick={() => setCommunityToolsOpen(true)}
+                className="flex h-9 shrink-0 items-center gap-1 rounded-full border border-slate-200/90 bg-white px-2.5 py-1 text-[11px] font-extrabold text-slate-700 shadow-sm transition hover:bg-slate-50 active:bg-slate-100"
+              >
+                <span aria-hidden>🧰</span>
+                <span className="max-[380px]:hidden">ابزارها</span>
+              </button>
+
+              <button
+                type="button"
                 title="جستجو در گفتگو"
                 onClick={() => {
                   setSearchOpen(true);
@@ -1229,8 +1240,6 @@ export default function GroupThreadPage() {
             </div>
           )}
         </header>
-
-        {groupId ? <LinkedCapabilitiesSection targetType="GROUP" targetId={groupId} className="mx-3 mt-2" /> : null}
 
         {createdNotice ? (
           <div className="mx-3 mt-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-[11px] font-semibold text-emerald-800" dir="rtl">
@@ -2177,6 +2186,15 @@ export default function GroupThreadPage() {
               </div>
             </div>
           </div>
+        ) : null}
+
+        {groupId ? (
+          <CommunityToolsSheet
+            open={communityToolsOpen}
+            onClose={() => setCommunityToolsOpen(false)}
+            targetType="GROUP"
+            targetId={groupId}
+          />
         ) : null}
       </main>
     </AuthGate>
