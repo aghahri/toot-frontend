@@ -6,6 +6,7 @@ import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { AuthGate } from '@/components/AuthGate';
 import { getAccessToken } from '@/lib/auth';
 import { apiFetch } from '@/lib/api';
+import { LinkedCapabilitiesSection } from '@/components/capability/LinkedCapabilitiesSection';
 
 type ChannelPayload = {
   id: string;
@@ -147,6 +148,10 @@ function ChannelDetailInner() {
                 <p className="mt-4 text-sm font-bold text-emerald-800">عضو کانال هستید</p>
               )}
             </div>
+
+            {channel.isMember && id ? (
+              <LinkedCapabilitiesSection targetType="CHANNEL" targetId={id} className="mt-4" />
+            ) : null}
 
             {channel.isMember ? (
               <section className="theme-panel-bg theme-border-soft mt-6 flex-1 rounded-2xl border p-3">

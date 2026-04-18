@@ -13,11 +13,14 @@ import {
   type NeighborhoodBulletinRow,
   type NeighborhoodNetworkRow,
 } from '@/lib/neighborhoodPack';
+import { LinkCapabilityModal } from '@/components/capability/LinkCapabilityModal';
 
 const CARD =
   'rounded-2xl border border-[var(--border-soft)] bg-[var(--card-bg)] p-4 shadow-sm ring-1 ring-[var(--border-soft)]';
 const BTN_PRI =
   'rounded-full bg-[var(--accent)] px-4 py-2 text-[11px] font-extrabold text-[var(--accent-contrast)] hover:bg-[var(--accent-hover)] disabled:opacity-50';
+const BTN_SEC =
+  'rounded-full border border-[var(--border-soft)] px-4 py-2 text-[11px] font-extrabold text-[var(--text-primary)] hover:bg-[var(--surface-soft)] disabled:opacity-50';
 
 const KINDS = ['NOTICE', 'EVENT', 'LOST_FOUND', 'MAINTENANCE', 'OTHER'] as const;
 
@@ -41,6 +44,7 @@ function NeighborhoodBulletinPageContent() {
   const [title, setTitle] = useState('');
   const [body, setBody] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [shareBulletinId, setShareBulletinId] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     if (!networkId) {
@@ -201,6 +205,9 @@ function NeighborhoodBulletinPageContent() {
               <h2 className="text-sm font-black text-[var(--text-primary)]">{r.title}</h2>
               <p className="mt-2 whitespace-pre-wrap text-[13px] leading-relaxed text-[var(--text-primary)]">{r.body}</p>
               <p className="mt-2 text-[10px] text-[var(--text-secondary)]">از {r.createdBy.name}</p>
+              <button type="button" onClick={() => setShareBulletinId(r.id)} className={'mt-3 ' + BTN_SEC}>
+                اشتراک در جامعه
+              </button>
             </li>
           ))}
         </ul>
@@ -214,6 +221,16 @@ function NeighborhoodBulletinPageContent() {
             هنوز برای «{activeNetwork?.name ?? 'این شبکه'}» اعلانی ثبت نشده — با «اعلان جدید» یکی اضافه کنید؛ فقط اعضای همین
             شبکه آن را اینجا می‌بینند.
           </p>
+        ) : null}
+
+        {shareBulletinId && networkId ? (
+          <LinkCapabilityModal
+            open
+            onClose={() => setShareBulletinId(null)}
+            networkId={networkId}
+            capabilityType="BULLETIN"
+            capabilityId={shareBulletinId}
+          />
         ) : null}
       </main>
     </AuthGate>

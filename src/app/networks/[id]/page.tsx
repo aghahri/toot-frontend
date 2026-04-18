@@ -6,6 +6,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { AuthGate } from '@/components/AuthGate';
 import { getAccessToken } from '@/lib/auth';
 import { apiFetch } from '@/lib/api';
+import { LinkedCapabilitiesSection } from '@/components/capability/LinkedCapabilitiesSection';
 
 type NetworkPayload = {
   id: string;
@@ -96,6 +97,12 @@ export default function NetworkDetailPage() {
             ) : null}
             {net.description ? <p className="mt-3 text-sm leading-relaxed text-slate-600">{net.description}</p> : null}
             <p className="mt-2 text-[11px] font-medium text-slate-500">وضعیت: {net.visibility}</p>
+
+            {net.isMember && id ? (
+              <div className="mt-4">
+                <LinkedCapabilitiesSection targetType="NETWORK" targetId={id} />
+              </div>
+            ) : null}
 
             {error ? <p className="mt-3 text-xs font-semibold text-amber-700">{error}</p> : null}
 

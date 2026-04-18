@@ -14,6 +14,7 @@ import {
   type NeighborhoodPollRow,
   voteNeighborhoodPoll,
 } from '@/lib/neighborhoodPack';
+import { LinkCapabilityModal } from '@/components/capability/LinkCapabilityModal';
 
 const CARD =
   'rounded-3xl border border-[var(--border-soft)] bg-[var(--card-bg)] p-4 shadow-sm ring-1 ring-[var(--border-soft)]';
@@ -44,6 +45,7 @@ function NeighborhoodPollsPageContent() {
   const [opts, setOpts] = useState('گزینه ۱\nگزینه ۲');
   const [deadline, setDeadline] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [sharePollId, setSharePollId] = useState<string | null>(null);
 
   const refreshPolls = useCallback(async () => {
     if (!networkId) {
@@ -270,11 +272,16 @@ function NeighborhoodPollsPageContent() {
                       {p.deadlineAt ? ` · مهلت: ${formatShortDate(p.deadlineAt)}` : ''}
                     </p>
                   </div>
-                  {!closed ? (
-                    <button type="button" onClick={() => void onClose(p.id)} className={BTN_SEC}>
-                      بستن
+                  <div className="flex flex-wrap gap-2">
+                    {!closed ? (
+                      <button type="button" onClick={() => void onClose(p.id)} className={BTN_SEC}>
+                        بستن
+                      </button>
+                    ) : null}
+                    <button type="button" onClick={() => setSharePollId(p.id)} className={BTN_SEC}>
+                      اشتراک در جامعه
                     </button>
-                  ) : null}
+                  </div>
                 </div>
                 <div className="space-y-2">
                   {p.options.map((label, i) => {
@@ -313,6 +320,16 @@ function NeighborhoodPollsPageContent() {
             );
           })}
         </ul>
+
+        {sharePollId && networkId ? (
+          <LinkCapabilityModal
+            open
+            onClose={() => setSharePollId(null)}
+            networkId={networkId}
+            capabilityType="POLL"
+            capabilityId={sharePollId}
+          />
+        ) : null}
       </main>
     </AuthGate>
   );

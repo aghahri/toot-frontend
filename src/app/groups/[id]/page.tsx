@@ -27,6 +27,7 @@ import { isVoiceMedia, formatVoiceClock } from '@/lib/chat-media';
 import { calendarDayKey, dayDividerLabelFa } from '@/lib/chat-dates';
 import { formatFileSize } from '@/lib/format-file-size';
 import { Card } from '@/components/ui/Card';
+import { LinkedCapabilitiesSection } from '@/components/capability/LinkedCapabilitiesSection';
 
 const PAGE_SIZE = 40;
 const MAX_VOICE_RECORD_SEC = 120;
@@ -1228,6 +1229,8 @@ export default function GroupThreadPage() {
             </div>
           )}
         </header>
+
+        {groupId ? <LinkedCapabilitiesSection targetType="GROUP" targetId={groupId} className="mx-3 mt-2" /> : null}
 
         {createdNotice ? (
           <div className="mx-3 mt-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-[11px] font-semibold text-emerald-800" dir="rtl">

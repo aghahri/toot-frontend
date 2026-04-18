@@ -17,6 +17,7 @@ import {
   writeLastSelectedNetworkId,
 } from '@/lib/neighborhoodFormsPerf';
 import { formStatusBadgeClass, formStatusLabel } from '@/lib/neighborhoodForms';
+import { LinkCapabilityModal } from '@/components/capability/LinkCapabilityModal';
 
 type NetworkRow = {
   id: string;
@@ -54,6 +55,7 @@ export default function NeighborhoodFormsListPage() {
   const [formsLoading, setFormsLoading] = useState(false);
   const [formsRefreshing, setFormsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [shareFormId, setShareFormId] = useState<string | null>(null);
 
   const activeNetwork = useMemo(() => networks.find((n) => n.id === networkId) ?? null, [networks, networkId]);
   const canManage = activeNetwork?.myRole === 'NETWORK_ADMIN';
@@ -265,13 +267,18 @@ export default function NeighborhoodFormsListPage() {
                     {formStatusLabel(form.status)}
                   </span>
                 </div>
-                <div className="mt-3 flex gap-2">
+                <div className="mt-3 flex flex-wrap gap-2">
                   <Link
                     href={`/spaces/neighborhood/forms/${form.id}?networkId=${encodeURIComponent(networkId)}`}
                     className={PRIMARY_CTA}
                   >
                     مشاهده / ثبت پاسخ
                   </Link>
+                  {form.status === 'PUBLISHED' ? (
+                    <button type="button" onClick={() => setShareFormId(form.id)} className={SECONDARY_CTA}>
+                      اشتراک در جامعه
+                    </button>
+                  ) : null}
                   {canManage ? (
                     <Link
                       href={`/spaces/neighborhood/forms/${form.id}/responses?networkId=${encodeURIComponent(networkId)}`}
@@ -285,6 +292,16 @@ export default function NeighborhoodFormsListPage() {
             ))}
           </ul>
         </section>
+
+        {shareFormId && networkId ? (
+          <LinkCapabilityModal
+            open
+            onClose={() => setShareFormId(null)}
+            networkId={networkId}
+            capabilityType="FORM"
+            capabilityId={shareFormId}
+          />
+        ) : null}
       </main>
     </AuthGate>
   );

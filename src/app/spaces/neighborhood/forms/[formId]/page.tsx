@@ -7,6 +7,7 @@ import { AuthGate } from '@/components/AuthGate';
 import { apiFetch } from '@/lib/api';
 import { getAccessToken } from '@/lib/auth';
 import { fieldHelperText, fieldTypeLabel, formStatusBadgeClass, formStatusLabel } from '@/lib/neighborhoodForms';
+import { LinkCapabilityModal } from '@/components/capability/LinkCapabilityModal';
 
 type FieldRow = {
   id: string;
@@ -45,6 +46,7 @@ export default function NeighborhoodFormDetailPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [shareOpen, setShareOpen] = useState(false);
 
   const canSubmit = useMemo(
     () => !!detail && detail.status === 'PUBLISHED' && !detail.myResponse,
@@ -148,6 +150,11 @@ export default function NeighborhoodFormDetailPage() {
               {detail.description ? (
                 <p className="mt-1 text-xs leading-relaxed text-slate-600">{detail.description}</p>
               ) : null}
+              {detail.status === 'PUBLISHED' ? (
+                <button type="button" onClick={() => setShareOpen(true)} className={SECONDARY_CTA + ' mt-3'}>
+                  اشتراک در جامعه
+                </button>
+              ) : null}
               {detail.myResponse ? (
                 <p className="mt-3 rounded-2xl bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-800">
                   شما قبلا این فرم را پاسخ داده‌اید.
@@ -247,6 +254,16 @@ export default function NeighborhoodFormDetailPage() {
             </>
           ) : null}
         </section>
+
+        {shareOpen && networkId && formId ? (
+          <LinkCapabilityModal
+            open
+            onClose={() => setShareOpen(false)}
+            networkId={networkId}
+            capabilityType="FORM"
+            capabilityId={formId}
+          />
+        ) : null}
       </main>
     </AuthGate>
   );
