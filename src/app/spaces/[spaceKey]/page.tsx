@@ -53,6 +53,24 @@ type SearchNetworksResponse = {
   meta: { total: number; limit: number; offset: number; hasMore: boolean };
 };
 
+/** Matches discover/spaces/detail network filter so merged rows stay space-accurate */
+type UserNetworkListItem = {
+  id: string;
+  name: string;
+  description?: string | null;
+  slug?: string | null;
+  networkType?: string;
+  spaceCategory?: string;
+  alignedSpaceCategory?: string | null;
+  isMember?: boolean;
+};
+
+function networkMatchesDiscoverSpace(n: UserNetworkListItem, spaceKey: SpaceKey): boolean {
+  if (spaceKey === 'EDUCATION') return n.networkType === 'EDUCATION';
+  if (spaceKey === 'PUBLIC_GENERAL') return n.networkType === 'BUSINESS';
+  return n.spaceCategory === spaceKey || n.alignedSpaceCategory === spaceKey;
+}
+
 const SECTION =
   'rounded-3xl border border-[var(--border-soft)] bg-[var(--card-bg)] p-4 shadow-sm ring-1 ring-[var(--border-soft)] sm:p-5';
 const BTN_PRI =
@@ -117,6 +135,8 @@ function SpaceDetailInner() {
 
   const isNeighborhood = raw === 'NEIGHBORHOOD';
   const [memberNetworkIds, setMemberNetworkIds] = useState<Set<string>>(() => new Set());
+  /** Full list from GET /networks — used to show every joined network not in discover's capped page */
+  const [userNetworksList, setUserNetworksList] = useState<UserNetworkListItem[] | null>(null);
   const [hoodQuery, setHoodQuery] = useState('');
   const [hoodSearchActive, setHoodSearchActive] = useState(false);
   const [hoodHits, setHoodHits] = useState<SearchNetworksResponse['data']>([]);
@@ -175,26 +195,30 @@ function SpaceDetailInner() {
   }, [raw, refreshDetail]);
 
   useEffect(() => {
-    if (!isNeighborhood) return;
+    if (!isSpaceKey(raw)) return;
     let cancelled = false;
     void (async () => {
       const token = getAccessToken();
-      if (!token) return;
+      if (!token) {
+        setUserNetworksList(null);
+        return;
+      }
       try {
-        const list = await apiFetch<Array<{ id: string; isMember?: boolean }>>('networks', {
+        const list = await apiFetch<UserNetworkListItem[]>('networks', {
           method: 'GET',
           token,
         });
         if (cancelled || !Array.isArray(list)) return;
         setMemberNetworkIds(new Set(list.filter((n) => n.isMember).map((n) => n.id)));
+        setUserNetworksList(list);
       } catch {
-        /* optional */
+        if (!cancelled) setUserNetworksList(null);
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [isNeighborhood, raw]);
+  }, [raw]);
 
   const fetchNeighborhoodSearchPage = useCallback(
     async (opts: { reset: boolean; q: string }) => {
@@ -256,7 +280,7 @@ function SpaceDetailInner() {
   );
 
   const displayNetworks = useMemo(() => {
-    if (!data) return [];
+    if (!data || !isSpaceKey(raw)) return [];
     if (isNeighborhood && hoodSearchActive) {
       return hoodHits.map((h) => ({
         id: h.id,
@@ -266,11 +290,45 @@ function SpaceDetailInner() {
         isMember: mergedMember(h.id),
       }));
     }
-    return data.networks.map((n) => ({
-      ...n,
-      isMember: mergedMember(n.id, n),
-    }));
-  }, [data, hoodHits, hoodSearchActive, isNeighborhood, mergedMember]);
+
+    const byId = new Map<string, NetworkRow>();
+    for (const n of data.networks) {
+      byId.set(n.id, {
+        ...n,
+        isMember: mergedMember(n.id, n),
+      });
+    }
+
+    if (userNetworksList) {
+      for (const un of userNetworksList) {
+        if (!un.isMember || !networkMatchesDiscoverSpace(un, raw)) continue;
+        if (byId.has(un.id)) continue;
+        byId.set(un.id, {
+          id: un.id,
+          name: un.name,
+          description: un.description ?? null,
+          slug: un.slug ?? null,
+          networkType: un.networkType,
+          alignedSpaceCategory: (un.alignedSpaceCategory as NetworkRow['alignedSpaceCategory']) ?? null,
+          isMember: true,
+        });
+      }
+    }
+
+    const ordered: NetworkRow[] = [];
+    const seen = new Set<string>();
+    for (const n of data.networks) {
+      const row = byId.get(n.id);
+      if (row) {
+        ordered.push(row);
+        seen.add(n.id);
+      }
+    }
+    for (const row of byId.values()) {
+      if (!seen.has(row.id)) ordered.push(row);
+    }
+    return ordered;
+  }, [data, hoodHits, hoodSearchActive, isNeighborhood, mergedMember, userNetworksList, raw]);
 
   /** Joined first; remainder kept in API order for stable UX */
   const { joinedNetworks, otherNetworks } = useMemo(() => {
@@ -427,27 +485,37 @@ function SpaceDetailInner() {
                   {joinedNetworks.length > 0 ? (
                     <div className="mb-3 rounded-2xl border border-emerald-600/25 bg-emerald-500/[0.06] p-2 ring-1 ring-emerald-600/15 dark:bg-emerald-400/[0.07] dark:ring-emerald-400/20">
                       <p className="mb-2 px-1 text-[10px] font-extrabold text-emerald-800 dark:text-emerald-300">شبکه‌های شما</p>
-                      <ul className="divide-y divide-emerald-600/15">
-                        {joinedNetworks.map((n) => (
-                          <li key={n.id} className="flex items-start justify-between gap-2 py-2 first:pt-1 last:pb-1">
-                            <div className="min-w-0 flex-1">
-                              <Link
-                                href={`/networks/${n.id}`}
-                                className="text-sm font-extrabold text-[var(--accent-hover)] hover:underline"
-                              >
-                                {n.name}
+                      <div
+                        className={
+                          joinedNetworks.length > 5
+                            ? 'max-h-[min(42vh,18rem)] overflow-y-auto overscroll-contain [-webkit-overflow-scrolling:touch]'
+                            : undefined
+                        }
+                        role={joinedNetworks.length > 5 ? 'region' : undefined}
+                        aria-label={joinedNetworks.length > 5 ? 'همه شبکه‌های عضو شده در این فضا' : undefined}
+                      >
+                        <ul className="divide-y divide-emerald-600/15">
+                          {joinedNetworks.map((n) => (
+                            <li key={n.id} className="flex items-start justify-between gap-2 py-2 first:pt-1 last:pb-1">
+                              <div className="min-w-0 flex-1">
+                                <Link
+                                  href={`/networks/${n.id}`}
+                                  className="text-sm font-extrabold text-[var(--accent-hover)] hover:underline"
+                                >
+                                  {n.name}
+                                </Link>
+                                {n.description ? (
+                                  <p className="mt-0.5 line-clamp-1 text-[11px] text-[var(--text-secondary)]">{n.description}</p>
+                                ) : null}
+                                <p className="mt-0.5 text-[10px] font-bold text-emerald-700 dark:text-emerald-400">عضو هستید</p>
+                              </div>
+                              <Link href={`/networks/${n.id}`} className={BTN_SEC}>
+                                ورود
                               </Link>
-                              {n.description ? (
-                                <p className="mt-0.5 line-clamp-1 text-[11px] text-[var(--text-secondary)]">{n.description}</p>
-                              ) : null}
-                              <p className="mt-0.5 text-[10px] font-bold text-emerald-700 dark:text-emerald-400">عضو هستید</p>
-                            </div>
-                            <Link href={`/networks/${n.id}`} className={BTN_SEC}>
-                              ورود
-                            </Link>
-                          </li>
-                        ))}
-                      </ul>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
                     </div>
                   ) : null}
 
