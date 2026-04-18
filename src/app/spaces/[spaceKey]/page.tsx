@@ -186,6 +186,8 @@ function SpaceDetailInner() {
   const [hoodHits, setHoodHits] = useState<SearchNetworksResponse['data']>([]);
   const [hoodSearchLoading, setHoodSearchLoading] = useState(false);
   const [hoodSearchMeta, setHoodSearchMeta] = useState<SearchNetworksResponse['meta'] | null>(null);
+  /** Neighborhood: show discover/join list only after explicit expand or while search is active */
+  const [hoodBrowseAllNetworksOpen, setHoodBrowseAllNetworksOpen] = useState(false);
   const hoodDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hoodSearchMetaRef = useRef<SearchNetworksResponse['meta'] | null>(null);
   hoodSearchMetaRef.current = hoodSearchMeta;
@@ -384,6 +386,11 @@ function SpaceDetailInner() {
     }
     return { joinedNetworks: joined, otherNetworks: other };
   }, [displayNetworks]);
+
+  const showHoodPublicNetworksList = useMemo(
+    () => !isNeighborhood || hoodSearchActive || hoodBrowseAllNetworksOpen,
+    [isNeighborhood, hoodSearchActive, hoodBrowseAllNetworksOpen],
+  );
 
   const memberNetworkId = useMemo(() => joinedNetworks[0]?.id ?? null, [joinedNetworks]);
 
@@ -591,7 +598,20 @@ function SpaceDetailInner() {
                     </div>
                   ) : null}
 
-                  {otherNetworks.length > 0 ? (
+                  {isNeighborhood && otherNetworks.length > 0 && !showHoodPublicNetworksList ? (
+                    <button
+                      type="button"
+                      onClick={() => setHoodBrowseAllNetworksOpen(true)}
+                      className={'mt-2 w-full rounded-2xl border border-[var(--border-soft)] bg-[var(--card-bg)] px-3 py-2.5 text-center text-[11px] font-extrabold text-[var(--text-primary)] ring-1 ring-[var(--border-soft)] transition hover:bg-[var(--surface-soft)]'}
+                    >
+                      مشاهده همه شبکه‌های محله
+                      <span className="mr-1 tabular-nums text-[10px] font-bold text-[var(--text-secondary)]">
+                        ({otherNetworks.length})
+                      </span>
+                    </button>
+                  ) : null}
+
+                  {otherNetworks.length > 0 && showHoodPublicNetworksList ? (
                     <div>
                       {joinedNetworks.length > 0 ? (
                         <p className="mb-2 text-[10px] font-extrabold text-[var(--text-secondary)]">سایر شبکه‌ها</p>
@@ -627,6 +647,15 @@ function SpaceDetailInner() {
                           ))}
                         </ul>
                       </div>
+                      {isNeighborhood && hoodBrowseAllNetworksOpen && !hoodSearchActive ? (
+                        <button
+                          type="button"
+                          onClick={() => setHoodBrowseAllNetworksOpen(false)}
+                          className="mt-2 w-full text-center text-[10px] font-extrabold text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+                        >
+                          جمع کردن فهرست
+                        </button>
+                      ) : null}
                     </div>
                   ) : null}
                 </>
