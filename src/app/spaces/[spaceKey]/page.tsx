@@ -6,6 +6,7 @@ import { notFound, useParams, useRouter } from 'next/navigation';
 import { AuthGate } from '@/components/AuthGate';
 import { getAccessToken } from '@/lib/auth';
 import { apiFetch } from '@/lib/api';
+import { NEIGHBORHOOD_CAPABILITY_CARDS } from '@/lib/neighborhoodPack';
 import { isSpaceKey, SPACE_CARD_META, type SpaceKey } from '@/lib/spacesCatalog';
 
 type GroupRow = {
@@ -82,12 +83,8 @@ function capabilityLinks(sk: SpaceKey, mid: string | null): { label: string; hre
   const nid = mid ? `&networkId=${encodeURIComponent(mid)}` : '';
   switch (sk) {
     case 'NEIGHBORHOOD':
-      return [
-        { label: 'نظرسنجی حرفه‌ای', href: '/spaces/neighborhood/forms' },
-        { label: 'فرم‌های مدیریتی', href: '/spaces/neighborhood/forms/manage' },
-        { label: 'معرفی کسب‌وکار محلی', href: '/groups/new?kind=community&spaceKey=NEIGHBORHOOD&returnTo=spaces' },
-        { label: 'تابلو اعلانات محلی', href: '/spaces/NEIGHBORHOOD' },
-      ];
+      /* Rendered as NEIGHBORHOOD_CAPABILITY_CARDS in the detail UI */
+      return [];
     case 'EDUCATION':
       return [
         { label: 'کلاس زنده', href: `/groups/new?kind=community&spaceKey=EDUCATION${nid}&returnTo=spaces&preset=class` },
@@ -633,19 +630,48 @@ function SpaceDetailInner() {
             {/* 2 — ابزارها */}
             <section className={SECTION} aria-labelledby="sec-cap">
               <h2 id="sec-cap" className="mb-3 text-sm font-black text-[var(--text-primary)]">
-                ابزارها
+                ابزارهای محله
               </h2>
-              <div className="grid grid-cols-2 gap-2">
-                {caps.map((c) => (
+              {spaceKey === 'NEIGHBORHOOD' ? (
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  {NEIGHBORHOOD_CAPABILITY_CARDS.map((c) => (
+                    <Link
+                      key={c.href}
+                      href={c.href}
+                      className="group flex flex-col gap-1.5 rounded-3xl border border-[var(--border-soft)] bg-gradient-to-br from-[var(--surface-soft)] to-[var(--card-bg)] p-4 text-right shadow-sm ring-1 ring-emerald-600/10 transition hover:ring-emerald-500/25 dark:ring-emerald-400/15"
+                    >
+                      <span className="text-2xl leading-none" aria-hidden>
+                        {c.emoji}
+                      </span>
+                      <span className="text-sm font-black text-[var(--text-primary)]">{c.label}</span>
+                      <span className="text-[11px] leading-snug text-[var(--text-secondary)]">{c.sub}</span>
+                      <span className="mt-1 text-[10px] font-extrabold text-[var(--accent-hover)]">شروع ←</span>
+                    </Link>
+                  ))}
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 gap-2">
+                  {caps.map((c) => (
+                    <Link
+                      key={c.label}
+                      href={c.href}
+                      className="rounded-2xl border border-[var(--border-soft)] bg-[var(--surface-soft)] px-3 py-3 text-center text-[11px] font-extrabold text-[var(--text-primary)] transition hover:border-[var(--accent-ring)] hover:text-[var(--accent-hover)]"
+                    >
+                      {c.label}
+                    </Link>
+                  ))}
+                </div>
+              )}
+              {spaceKey === 'NEIGHBORHOOD' ? (
+                <p className="mt-3 text-center">
                   <Link
-                    key={c.label}
-                    href={c.href}
-                    className="rounded-2xl border border-[var(--border-soft)] bg-[var(--surface-soft)] px-3 py-3 text-center text-[11px] font-extrabold text-[var(--text-primary)] transition hover:border-[var(--accent-ring)] hover:text-[var(--accent-hover)]"
+                    href="/spaces/neighborhood/forms/manage"
+                    className="text-[11px] font-extrabold text-[var(--accent-hover)] underline-offset-2 hover:underline"
                   >
-                    {c.label}
+                    مدیریت فرم‌ها (مدیر شبکه)
                   </Link>
-                ))}
-              </div>
+                </p>
+              ) : null}
             </section>
 
             {/* 3 — آمار */}
