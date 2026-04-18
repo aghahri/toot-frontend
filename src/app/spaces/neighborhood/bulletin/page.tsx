@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AuthGate } from '@/components/AuthGate';
+import { NeighborhoodNetworkContext, NeighborhoodVisibilityNote } from '@/components/neighborhood/NeighborhoodContextStrip';
 import {
   BULLETIN_KIND_LABELS,
   createNeighborhoodBulletin,
@@ -113,12 +114,16 @@ export default function NeighborhoodBulletinPage() {
         </div>
 
         {networks.length === 0 && !loading ? (
-          <p className="text-sm text-[var(--text-secondary)]">
-            برای دیدن اعلانات باید عضو یک شبکه محله‌ای باشید.
+          <p className="rounded-2xl bg-[var(--surface-soft)] px-3 py-3 text-sm text-[var(--text-primary)] ring-1 ring-[var(--border-soft)]">
+            برای دیدن یا ثبت اعلان باید عضو حداقل یک شبکه محله باشید — از{' '}
+            <Link href="/spaces/NEIGHBORHOOD" className="font-bold text-[var(--accent-hover)]">
+              فضای محله
+            </Link>{' '}
+            به یک شبکه بپیوندید.
           </p>
         ) : (
           <div className={CARD + ' p-3'}>
-            <label className="mb-1 block text-[10px] font-extrabold text-[var(--text-secondary)]">شبکه</label>
+            <label className="mb-1 block text-[10px] font-extrabold text-[var(--text-secondary)]">شبکه محله</label>
             <select
               value={networkId}
               onChange={(e) => setNetworkId(e.target.value)}
@@ -130,7 +135,12 @@ export default function NeighborhoodBulletinPage() {
                 </option>
               ))}
             </select>
-            {activeNetwork ? <p className="mt-1 text-[10px] text-[var(--text-secondary)]">{activeNetwork.name}</p> : null}
+            {activeNetwork ? (
+              <div className="mt-3 space-y-2">
+                <NeighborhoodNetworkContext networkName={activeNetwork.name} role={activeNetwork.myRole} />
+                <NeighborhoodVisibilityNote networkName={activeNetwork.name} topic="bulletin" />
+              </div>
+            ) : null}
           </div>
         )}
 
@@ -191,8 +201,15 @@ export default function NeighborhoodBulletinPage() {
           ))}
         </ul>
 
+        {rows.length > 0 ? (
+          <p className="text-[10px] text-[var(--text-secondary)]">تازه‌ترین اعلان‌ها بالای فهرست‌اند.</p>
+        ) : null}
+
         {!loading && networkId && rows.length === 0 ? (
-          <p className="text-sm text-[var(--text-secondary)]">هنوز اعلانی ثبت نشده.</p>
+          <p className="rounded-2xl bg-[var(--surface-soft)] px-3 py-3 text-sm text-[var(--text-primary)] ring-1 ring-[var(--border-soft)]">
+            هنوز برای «{activeNetwork?.name ?? 'این شبکه'}» اعلانی ثبت نشده — با «اعلان جدید» یکی اضافه کنید؛ فقط اعضای همین
+            شبکه آن را اینجا می‌بینند.
+          </p>
         ) : null}
       </main>
     </AuthGate>

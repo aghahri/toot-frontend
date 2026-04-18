@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AuthGate } from '@/components/AuthGate';
+import { NeighborhoodNetworkContext, NeighborhoodVisibilityNote } from '@/components/neighborhood/NeighborhoodContextStrip';
 import {
   createNeighborhoodSpotlight,
   fetchMemberNeighborhoodNetworks,
@@ -116,10 +117,16 @@ export default function NeighborhoodShowcasePage() {
         </div>
 
         {networks.length === 0 && !loading ? (
-          <p className="text-sm text-[var(--text-secondary)]">برای مشاهده باید عضو شبکه محله‌ای باشید.</p>
+          <p className="rounded-2xl bg-[var(--surface-soft)] px-3 py-3 text-sm text-[var(--text-primary)] ring-1 ring-[var(--border-soft)]">
+            برای دیدن یا ثبت معرفی باید عضو یک شبکه محله باشید — از{' '}
+            <Link href="/spaces/NEIGHBORHOOD" className="font-bold text-[var(--accent-hover)]">
+              فضای محله
+            </Link>{' '}
+            یک شبکه انتخاب کنید.
+          </p>
         ) : (
           <div className={CARD + ' p-3'}>
-            <label className="mb-1 block text-[10px] font-extrabold text-[var(--text-secondary)]">شبکه</label>
+            <label className="mb-1 block text-[10px] font-extrabold text-[var(--text-secondary)]">شبکه محله</label>
             <select
               value={networkId}
               onChange={(e) => setNetworkId(e.target.value)}
@@ -131,7 +138,12 @@ export default function NeighborhoodShowcasePage() {
                 </option>
               ))}
             </select>
-            {activeNetwork ? <p className="mt-1 text-[10px] text-[var(--text-secondary)]">{activeNetwork.name}</p> : null}
+            {activeNetwork ? (
+              <div className="mt-3 space-y-2">
+                <NeighborhoodNetworkContext networkName={activeNetwork.name} role={activeNetwork.myRole} />
+                <NeighborhoodVisibilityNote networkName={activeNetwork.name} topic="showcase" />
+              </div>
+            ) : null}
           </div>
         )}
 
@@ -191,6 +203,10 @@ export default function NeighborhoodShowcasePage() {
         {error ? <p className="text-sm font-semibold text-red-600">{error}</p> : null}
         {loading ? <p className="text-sm text-[var(--text-secondary)]">…</p> : null}
 
+        {rows.length > 0 ? (
+          <p className="text-[10px] text-[var(--text-secondary)]">جدیدترین معرفی‌ها بالای فهرست‌اند.</p>
+        ) : null}
+
         <ul className="space-y-4">
           {rows.map((r) => (
             <li key={r.id} className={CARD + ' overflow-hidden'}>
@@ -219,7 +235,10 @@ export default function NeighborhoodShowcasePage() {
         </ul>
 
         {!loading && networkId && rows.length === 0 ? (
-          <p className="text-sm text-[var(--text-secondary)]">هنوز معرفی ثبت نشده.</p>
+          <p className="rounded-2xl bg-[var(--surface-soft)] px-3 py-3 text-sm text-[var(--text-primary)] ring-1 ring-[var(--border-soft)]">
+            هنوز برای «{activeNetwork?.name ?? 'این شبکه'}» معرفی ثبت نشده — با «معرفی کسب‌وکار» یکی اضافه کنید؛ فقط اعضای همین
+            شبکه آن را در همین صفحه می‌بینند.
+          </p>
         ) : null}
       </main>
     </AuthGate>

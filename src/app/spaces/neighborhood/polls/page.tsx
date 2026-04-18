@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AuthGate } from '@/components/AuthGate';
+import { NeighborhoodNetworkContext, NeighborhoodVisibilityNote } from '@/components/neighborhood/NeighborhoodContextStrip';
 import {
   closeNeighborhoodPoll,
   createNeighborhoodPoll,
@@ -176,7 +177,10 @@ export default function NeighborhoodPollsPage() {
               ))}
             </select>
             {activeNetwork ? (
-              <p className="mt-2 text-[10px] text-[var(--text-secondary)]">شبکه فعال: {activeNetwork.name}</p>
+              <div className="mt-3 space-y-2">
+                <NeighborhoodNetworkContext networkName={activeNetwork.name} role={activeNetwork.myRole} />
+                <NeighborhoodVisibilityNote networkName={activeNetwork.name} topic="polls" />
+              </div>
             ) : null}
           </div>
         )}
@@ -229,7 +233,16 @@ export default function NeighborhoodPollsPage() {
         {loading ? <p className="text-sm text-[var(--text-secondary)]">در حال بارگذاری…</p> : null}
 
         {!loading && networkId && polls.length === 0 ? (
-          <p className="text-sm text-[var(--text-secondary)]">هنوز نظرسنجی فعالی نیست — یک نظرسنجی بسازید.</p>
+          <div className="rounded-2xl bg-[var(--surface-soft)] px-3 py-3 text-sm text-[var(--text-primary)] ring-1 ring-[var(--border-soft)]">
+            <p>
+              هنوز برای «{activeNetwork?.name ?? 'این شبکه'}» نظرسنجی‌ای ثبت نشده — با «نظرسنجی جدید» اولین را بسازید؛ بعد از
+              ساخت همین‌جا در همین فهرست می‌ماند.
+            </p>
+          </div>
+        ) : null}
+
+        {polls.length > 0 ? (
+          <p className="text-[10px] text-[var(--text-secondary)]">جدیدترین نظرسنجی‌ها بالای فهرست هستند.</p>
         ) : null}
 
         <ul className="space-y-4">

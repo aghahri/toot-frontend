@@ -6,6 +6,8 @@ export type NeighborhoodNetworkRow = {
   name: string;
   spaceCategory: string;
   isMember?: boolean;
+  /** From GET /networks — used for admin vs member copy */
+  myRole?: 'NETWORK_ADMIN' | 'MEMBER' | null;
 };
 
 export async function fetchMemberNeighborhoodNetworks(): Promise<NeighborhoodNetworkRow[]> {

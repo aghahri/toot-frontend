@@ -663,14 +663,20 @@ function SpaceDetailInner() {
                 </div>
               )}
               {spaceKey === 'NEIGHBORHOOD' ? (
-                <p className="mt-3 text-center">
-                  <Link
-                    href="/spaces/neighborhood/forms/manage"
-                    className="text-[11px] font-extrabold text-[var(--accent-hover)] underline-offset-2 hover:underline"
-                  >
-                    مدیریت فرم‌ها (مدیر شبکه)
-                  </Link>
-                </p>
+                <>
+                  <p className="mt-3 text-center text-[10px] leading-relaxed text-[var(--text-secondary)]">
+                    محتوا به <strong className="text-[var(--text-primary)]">شبکه محله انتخاب‌شده در هر بخش</strong> وصل است و فقط
+                    برای اعضای همان شبکه در همان صفحه دیده می‌شود؛ در فید خانه پخش خودکار ندارد.
+                  </p>
+                  <p className="mt-2 text-center">
+                    <Link
+                      href="/spaces/neighborhood/forms/manage"
+                      className="text-[11px] font-extrabold text-[var(--accent-hover)] underline-offset-2 hover:underline"
+                    >
+                      مدیریت فرم‌ها (فقط ادمین شبکه)
+                    </Link>
+                  </p>
+                </>
               ) : null}
             </section>
 

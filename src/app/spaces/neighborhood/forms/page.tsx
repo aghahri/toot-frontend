@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { AuthGate } from '@/components/AuthGate';
+import { NeighborhoodNetworkContext } from '@/components/neighborhood/NeighborhoodContextStrip';
 import { apiFetch } from '@/lib/api';
 import { getAccessToken } from '@/lib/auth';
 import { formStatusBadgeClass, formStatusLabel } from '@/lib/neighborhoodForms';
@@ -26,11 +27,12 @@ type FormRow = {
 };
 
 const SECTION_CARD =
-  'rounded-3xl border border-slate-200/90 bg-white p-5 sm:p-6 shadow-[0_10px_24px_rgba(15,23,42,0.06)]';
+  'rounded-3xl border border-[var(--border-soft)] bg-[var(--card-bg)] p-5 shadow-sm ring-1 ring-[var(--border-soft)] sm:p-6';
 const PRIMARY_CTA =
-  'rounded-2xl bg-emerald-700 px-4 py-2.5 text-xs font-extrabold text-white shadow-sm transition hover:bg-emerald-600';
+  'rounded-2xl bg-[var(--accent)] px-4 py-2.5 text-xs font-extrabold text-[var(--accent-contrast)] shadow-sm transition hover:bg-[var(--accent-hover)]';
 const SECONDARY_CTA =
-  'rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-extrabold text-slate-700 transition hover:bg-slate-50';
+  'rounded-2xl border border-[var(--border-soft)] bg-[var(--card-bg)] px-4 py-2.5 text-xs font-extrabold text-[var(--text-primary)] transition hover:bg-[var(--surface-soft)]';
+const MUTED = 'text-[10px] leading-relaxed text-[var(--text-secondary)]';
 
 export default function NeighborhoodFormsListPage() {
   const [networks, setNetworks] = useState<NetworkRow[]>([]);
@@ -41,6 +43,10 @@ export default function NeighborhoodFormsListPage() {
 
   const activeNetwork = useMemo(() => networks.find((n) => n.id === networkId) ?? null, [networks, networkId]);
   const canManage = activeNetwork?.myRole === 'NETWORK_ADMIN';
+  const adminNetworks = useMemo(
+    () => networks.filter((n) => n.myRole === 'NETWORK_ADMIN'),
+    [networks],
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -54,9 +60,7 @@ export default function NeighborhoodFormsListPage() {
           return;
         }
         const allNetworks = await apiFetch<NetworkRow[]>('networks', { method: 'GET', token });
-        const neighborhood = allNetworks.filter(
-          (n) => n.spaceCategory === 'NEIGHBORHOOD' && (n.isMember ?? true),
-        );
+        const neighborhood = allNetworks.filter((n) => n.spaceCategory === 'NEIGHBORHOOD' && n.isMember === true);
         if (cancelled) return;
         setNetworks(neighborhood);
         if (neighborhood[0]) {
@@ -100,11 +104,11 @@ export default function NeighborhoodFormsListPage() {
 
   return (
     <AuthGate>
-      <main className="mx-auto w-full max-w-md px-4 pb-12 pt-4 sm:pb-14" dir="rtl">
+      <main className="theme-page-bg theme-text-primary mx-auto w-full max-w-md px-4 pb-12 pt-4 sm:pb-14" dir="rtl">
         <div className="mb-4 flex items-center justify-between gap-2">
           <div>
-            <h1 className="text-lg font-extrabold text-slate-900">Neighborhood Forms</h1>
-            <p className="text-xs text-slate-500">فرم‌های محلی شبکه‌های محله</p>
+            <h1 className="text-lg font-extrabold text-[var(--text-primary)]">فرم‌های محله</h1>
+            <p className={MUTED}>فقط فرم‌های منتشرشده برای شبکه انتخاب‌شده</p>
           </div>
           <Link href="/spaces/NEIGHBORHOOD" className={SECONDARY_CTA}>
             بازگشت
@@ -112,18 +116,36 @@ export default function NeighborhoodFormsListPage() {
         </div>
 
         <section className={SECTION_CARD}>
-          <label className="mb-1 block text-xs font-bold text-slate-700">انتخاب شبکه</label>
+          <label className="mb-1 block text-xs font-bold text-[var(--text-primary)]">انتخاب شبکه محله</label>
           <select
             value={networkId}
             onChange={(e) => setNetworkId(e.target.value)}
-            className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm outline-none focus:border-emerald-300"
+            className="w-full rounded-2xl border border-[var(--border-soft)] bg-[var(--surface-soft)] px-3 py-2.5 text-sm outline-none focus:border-[var(--accent)]"
           >
             {networks.map((n) => (
               <option key={n.id} value={n.id}>
                 {n.name}
+                {n.myRole === 'NETWORK_ADMIN' ? ' (ادمین)' : ''}
               </option>
             ))}
           </select>
+          {activeNetwork ? (
+            <div className="mt-3 space-y-2">
+              <NeighborhoodNetworkContext networkName={activeNetwork.name} role={activeNetwork.myRole} mode="forms">
+                {!canManage ? (
+                  <p className="mt-2 border-t border-[var(--border-soft)] pt-2 text-[10px] leading-relaxed text-[var(--text-secondary)]">
+                    بخش مدیریت و ایجاد فرم فقط برای <strong className="text-[var(--text-primary)]">ادمین همان شبکه</strong>{' '}
+                    است. شما همچنان می‌توانید فرم‌های <strong className="text-[var(--text-primary)]">منتشرشده</strong> را
+                    ببینید و پر کنید.
+                  </p>
+                ) : (
+                  <p className="mt-2 border-t border-[var(--border-soft)] pt-2 text-[10px] text-[var(--text-secondary)]">
+                    این فهرست فقط فرم‌های با وضعیت «منتشر شده» را نشان می‌دهد؛ اعضای همین شبکه آن‌ها را می‌بینند.
+                  </p>
+                )}
+              </NeighborhoodNetworkContext>
+            </div>
+          ) : null}
           <div className="mt-3 flex flex-wrap gap-2">
             {canManage ? (
               <Link href={`/spaces/neighborhood/forms/manage?networkId=${encodeURIComponent(networkId)}`} className={PRIMARY_CTA}>
@@ -131,42 +153,62 @@ export default function NeighborhoodFormsListPage() {
               </Link>
             ) : null}
             {networkId ? (
-              <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-extrabold text-emerald-800 ring-1 ring-emerald-200/80">
-                فرم‌های فعال: {forms.length}
+              <span className="rounded-full bg-[var(--surface-soft)] px-2.5 py-1 text-[10px] font-extrabold text-[var(--text-primary)] ring-1 ring-[var(--border-soft)]">
+                فرم منتشرشده: {forms.length}
               </span>
             ) : null}
           </div>
           {!loading && !error && networks.length === 0 ? (
-            <p className="mt-3 rounded-2xl bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-800">
-              هنوز عضو شبکه محله‌ای نیستید؛ ابتدا به یک شبکه محله بپیوندید.
+            <p className="mt-3 rounded-2xl bg-amber-500/10 px-3 py-2 text-xs font-semibold text-amber-900 dark:text-amber-200">
+              هنوز عضو هیچ شبکه محله‌ای نیستید. از{' '}
+              <Link href="/spaces/NEIGHBORHOOD" className="font-bold underline">
+                فضای محله
+              </Link>{' '}
+              به یک شبکه بپیوندید، بعد برگردید.
+            </p>
+          ) : null}
+          {!loading && networks.length > 0 && adminNetworks.length > 0 ? (
+            <p className={'mt-2 ' + MUTED}>
+              شبکه‌هایی که ادمین آن هستید: {adminNetworks.map((n) => n.name).join('، ')}
             </p>
           ) : null}
         </section>
 
         <section className={SECTION_CARD + ' mt-4'}>
+          <p className="mb-2 text-[10px] font-bold text-[var(--text-secondary)]">فرم‌های منتشرشده همین شبکه</p>
           {loading ? (
             <div className="space-y-2">
-              <p className="text-sm text-slate-500">در حال بارگذاری فرم‌ها…</p>
-              <div className="h-20 animate-pulse rounded-2xl bg-slate-100" />
+              <p className="text-sm text-[var(--text-secondary)]">در حال بارگذاری…</p>
+              <div className="h-20 animate-pulse rounded-2xl bg-[var(--surface-soft)]" />
             </div>
           ) : null}
-          {error ? <p className="rounded-2xl bg-rose-50 px-3 py-2 text-sm font-semibold text-rose-700">{error}</p> : null}
-          {!loading && !error && forms.length === 0 ? (
-            <p className="rounded-2xl bg-slate-50 px-3 py-3 text-sm text-slate-600">
-              در این شبکه هنوز فرم منتشرشده‌ای ثبت نشده است.
-            </p>
+          {error ? <p className="rounded-2xl bg-red-500/10 px-3 py-2 text-sm font-semibold text-red-700">{error}</p> : null}
+          {!loading && !error && networkId && forms.length === 0 ? (
+            <div className="space-y-2 rounded-2xl bg-[var(--surface-soft)] px-3 py-3 text-sm text-[var(--text-primary)] ring-1 ring-[var(--border-soft)]">
+              <p>
+                هنوز <strong>هیچ فرم منتشرشده‌ای</strong> برای «{activeNetwork?.name ?? 'این شبکه'}» وجود ندارد — یعنی یا فرمی
+                ساخته نشده، یا هنوز توسط ادمین <strong>منتشر</strong> نشده است.
+              </p>
+              {canManage ? (
+                <p className={MUTED}>
+                  از «ایجاد / مدیریت فرم» فرم بسازید و دکمه <strong>انتشار</strong> را بزنید تا اینجا ظاهر شود.
+                </p>
+              ) : (
+                <p className={MUTED}>اگر ادمین شبکه فرم را منتشر کند، اینجا دیده می‌شود.</p>
+              )}
+            </div>
           ) : null}
           <ul className="space-y-2.5">
             {forms.map((form) => (
-              <li key={form.id} className="rounded-2xl border border-slate-200 bg-slate-50 p-3.5">
+              <li key={form.id} className="rounded-2xl border border-[var(--border-soft)] bg-[var(--surface-soft)] p-3.5">
                 <div className="flex items-start justify-between gap-2">
                   <div>
-                    <p className="text-sm font-extrabold text-slate-900">{form.title}</p>
+                    <p className="text-sm font-extrabold text-[var(--text-primary)]">{form.title}</p>
                     {form.description ? (
-                      <p className="mt-1 line-clamp-2 text-xs text-slate-600">{form.description}</p>
+                      <p className="mt-1 line-clamp-2 text-xs text-[var(--text-secondary)]">{form.description}</p>
                     ) : null}
                   </div>
-                  <span className="rounded-full bg-sky-50 px-2 py-0.5 text-[10px] font-bold text-sky-700">
+                  <span className="rounded-full bg-[var(--card-bg)] px-2 py-0.5 text-[10px] font-bold text-[var(--accent-hover)] ring-1 ring-[var(--border-soft)]">
                     پاسخ: {form._count.responses}
                   </span>
                 </div>
