@@ -192,6 +192,19 @@ function SpaceDetailInner() {
   const hoodSearchMetaRef = useRef<SearchNetworksResponse['meta'] | null>(null);
   hoodSearchMetaRef.current = hoodSearchMeta;
 
+  /** Reset neighborhood browse/search when switching spaces so list/flags cannot leak across [spaceKey]. */
+  useEffect(() => {
+    if (hoodDebounceRef.current) {
+      clearTimeout(hoodDebounceRef.current);
+      hoodDebounceRef.current = null;
+    }
+    setHoodBrowseAllNetworksOpen(false);
+    setHoodQuery('');
+    setHoodSearchActive(false);
+    setHoodHits([]);
+    setHoodSearchMeta(null);
+  }, [raw]);
+
   const refreshDetail = useCallback(async () => {
     if (!isSpaceKey(raw)) return;
     const token = getAccessToken();
