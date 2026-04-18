@@ -31,8 +31,8 @@ export type NeighborhoodNetworkRow = {
 export async function fetchMemberNeighborhoodNetworks(): Promise<NeighborhoodNetworkRow[]> {
   const token = getAccessToken();
   if (!token) return [];
-  const all = await apiFetch<NeighborhoodNetworkRow[]>('networks', { method: 'GET', token });
-  return all.filter((n) => n.spaceCategory === 'NEIGHBORHOOD' && (n.isMember ?? false));
+  /** Lean server-side filter — avoids loading all networks (see networks?spaceCategory=NEIGHBORHOOD). */
+  return apiFetch<NeighborhoodNetworkRow[]>('networks?spaceCategory=NEIGHBORHOOD', { method: 'GET', token });
 }
 
 export type NeighborhoodPollRow = {

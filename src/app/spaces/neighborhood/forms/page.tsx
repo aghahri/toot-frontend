@@ -1,11 +1,21 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AuthGate } from '@/components/AuthGate';
 import { NeighborhoodNetworkContext } from '@/components/neighborhood/NeighborhoodContextStrip';
 import { apiFetch } from '@/lib/api';
 import { getAccessToken } from '@/lib/auth';
+import {
+  dedupedGet,
+  getCachedNetworksList,
+  getCachedPublishedForms,
+  NEIGHBORHOOD_NETWORKS_QUERY,
+  readLastSelectedNetworkId,
+  setCachedNetworksList,
+  setCachedPublishedForms,
+  writeLastSelectedNetworkId,
+} from '@/lib/neighborhoodFormsPerf';
 import { formStatusBadgeClass, formStatusLabel } from '@/lib/neighborhoodForms';
 
 type NetworkRow = {
@@ -34,11 +44,15 @@ const SECONDARY_CTA =
   'rounded-2xl border border-[var(--border-soft)] bg-[var(--card-bg)] px-4 py-2.5 text-xs font-extrabold text-[var(--text-primary)] transition hover:bg-[var(--surface-soft)]';
 const MUTED = 'text-[10px] leading-relaxed text-[var(--text-secondary)]';
 
+const NETWORKS_PATH = `networks?${NEIGHBORHOOD_NETWORKS_QUERY}`;
+
 export default function NeighborhoodFormsListPage() {
   const [networks, setNetworks] = useState<NetworkRow[]>([]);
   const [networkId, setNetworkId] = useState('');
   const [forms, setForms] = useState<FormRow[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [networksLoading, setNetworksLoading] = useState(true);
+  const [formsLoading, setFormsLoading] = useState(false);
+  const [formsRefreshing, setFormsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const activeNetwork = useMemo(() => networks.find((n) => n.id === networkId) ?? null, [networks, networkId]);
@@ -48,53 +62,78 @@ export default function NeighborhoodFormsListPage() {
     [networks],
   );
 
-  useEffect(() => {
-    let cancelled = false;
-    void (async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const token = getAccessToken();
-        if (!token) {
-          setError('برای مشاهده فرم‌های محله باید وارد شوید.');
-          return;
-        }
-        const allNetworks = await apiFetch<NetworkRow[]>('networks', { method: 'GET', token });
-        const neighborhood = allNetworks.filter((n) => n.spaceCategory === 'NEIGHBORHOOD' && n.isMember === true);
-        if (cancelled) return;
-        setNetworks(neighborhood);
-        if (neighborhood[0]) {
-          setNetworkId(neighborhood[0].id);
-        }
-      } catch (e) {
-        if (!cancelled) setError(e instanceof Error ? e.message : 'بارگذاری شبکه‌ها ممکن نیست');
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
+  const loadNetworks = useCallback(async () => {
+    const token = getAccessToken();
+    if (!token) {
+      setError('برای مشاهده فرم‌های محله باید وارد شوید.');
+      return;
+    }
+    const cached = getCachedNetworksList<NetworkRow[]>(NEIGHBORHOOD_NETWORKS_QUERY);
+    if (cached?.length) {
+      setNetworks(cached);
+      const last = readLastSelectedNetworkId();
+      const pick = last && cached.some((n) => n.id === last) ? last : cached[0].id;
+      setNetworkId((prev) => (prev && cached.some((n) => n.id === prev) ? prev : pick));
+      setNetworksLoading(false);
+    } else {
+      setNetworksLoading(true);
+    }
+    setError(null);
+    try {
+      const fresh = await dedupedGet(`GET:${NETWORKS_PATH}`, () =>
+        apiFetch<NetworkRow[]>(NETWORKS_PATH, { method: 'GET', token }),
+      );
+      setCachedNetworksList(NEIGHBORHOOD_NETWORKS_QUERY, fresh);
+      setNetworks(fresh);
+      setNetworkId((prev) => {
+        if (prev && fresh.some((n) => n.id === prev)) return prev;
+        const last = readLastSelectedNetworkId();
+        if (last && fresh.some((n) => n.id === last)) return last;
+        return fresh[0]?.id ?? '';
+      });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'بارگذاری شبکه‌ها ممکن نیست');
+    } finally {
+      setNetworksLoading(false);
+    }
   }, []);
 
   useEffect(() => {
+    void loadNetworks();
+  }, [loadNetworks]);
+
+  useEffect(() => {
+    if (!networkId) return;
     let cancelled = false;
     void (async () => {
-      if (!networkId) return;
-      setLoading(true);
-      setError(null);
+      const cached = getCachedPublishedForms<FormRow[]>(networkId);
+      if (cached) {
+        setForms(cached);
+        setFormsLoading(false);
+      } else {
+        setFormsLoading(true);
+      }
+      setFormsRefreshing(true);
+      writeLastSelectedNetworkId(networkId);
       try {
         const token = getAccessToken();
         if (!token) {
-          setError('برای مشاهده فرم‌های محله باید وارد شوید.');
+          if (!cancelled) setError('برای مشاهده فرم‌های محله باید وارد شوید.');
           return;
         }
-        const rows = await apiFetch<FormRow[]>(`networks/${networkId}/forms`, { method: 'GET', token });
-        if (!cancelled) setForms(rows);
+        const rows = await dedupedGet(`GET:networks/${networkId}/forms`, () =>
+          apiFetch<FormRow[]>(`networks/${networkId}/forms`, { method: 'GET', token }),
+        );
+        if (cancelled) return;
+        setCachedPublishedForms(networkId, rows);
+        setForms(rows);
       } catch (e) {
         if (!cancelled) setError(e instanceof Error ? e.message : 'بارگذاری فرم‌ها ممکن نیست');
       } finally {
-        if (!cancelled) setLoading(false);
+        if (!cancelled) {
+          setFormsLoading(false);
+          setFormsRefreshing(false);
+        }
       }
     })();
     return () => {
@@ -117,19 +156,26 @@ export default function NeighborhoodFormsListPage() {
 
         <section className={SECTION_CARD}>
           <label className="mb-1 block text-xs font-bold text-[var(--text-primary)]">انتخاب شبکه محله</label>
-          <select
-            value={networkId}
-            onChange={(e) => setNetworkId(e.target.value)}
-            className="w-full rounded-2xl border border-[var(--border-soft)] bg-[var(--surface-soft)] px-3 py-2.5 text-sm outline-none focus:border-[var(--accent)]"
-          >
-            {networks.map((n) => (
-              <option key={n.id} value={n.id}>
-                {n.name}
-                {n.myRole === 'NETWORK_ADMIN' ? ' (ادمین)' : ''}
-              </option>
-            ))}
-          </select>
-          {activeNetwork ? (
+          {networksLoading ? (
+            <div className="space-y-2">
+              <div className="h-11 animate-pulse rounded-2xl bg-[var(--surface-soft)]" />
+              <p className="text-[11px] text-[var(--text-secondary)]">در حال بارگذاری شبکه‌ها…</p>
+            </div>
+          ) : (
+            <select
+              value={networkId}
+              onChange={(e) => setNetworkId(e.target.value)}
+              className="w-full rounded-2xl border border-[var(--border-soft)] bg-[var(--surface-soft)] px-3 py-2.5 text-sm outline-none focus:border-[var(--accent)]"
+            >
+              {networks.map((n) => (
+                <option key={n.id} value={n.id}>
+                  {n.name}
+                  {n.myRole === 'NETWORK_ADMIN' ? ' (ادمین)' : ''}
+                </option>
+              ))}
+            </select>
+          )}
+          {activeNetwork && !networksLoading ? (
             <div className="mt-3 space-y-2">
               <NeighborhoodNetworkContext networkName={activeNetwork.name} role={activeNetwork.myRole} mode="forms">
                 {!canManage ? (
@@ -152,13 +198,14 @@ export default function NeighborhoodFormsListPage() {
                 ایجاد / مدیریت فرم
               </Link>
             ) : null}
-            {networkId ? (
+            {networkId && !networksLoading ? (
               <span className="rounded-full bg-[var(--surface-soft)] px-2.5 py-1 text-[10px] font-extrabold text-[var(--text-primary)] ring-1 ring-[var(--border-soft)]">
                 فرم منتشرشده: {forms.length}
+                {formsRefreshing ? ' · به‌روزرسانی' : ''}
               </span>
             ) : null}
           </div>
-          {!loading && !error && networks.length === 0 ? (
+          {!networksLoading && !error && networks.length === 0 ? (
             <p className="mt-3 rounded-2xl bg-amber-500/10 px-3 py-2 text-xs font-semibold text-amber-900 dark:text-amber-200">
               هنوز عضو هیچ شبکه محله‌ای نیستید. از{' '}
               <Link href="/spaces/NEIGHBORHOOD" className="font-bold underline">
@@ -167,7 +214,7 @@ export default function NeighborhoodFormsListPage() {
               به یک شبکه بپیوندید، بعد برگردید.
             </p>
           ) : null}
-          {!loading && networks.length > 0 && adminNetworks.length > 0 ? (
+          {!networksLoading && networks.length > 0 && adminNetworks.length > 0 ? (
             <p className={'mt-2 ' + MUTED}>
               شبکه‌هایی که ادمین آن هستید: {adminNetworks.map((n) => n.name).join('، ')}
             </p>
@@ -176,14 +223,15 @@ export default function NeighborhoodFormsListPage() {
 
         <section className={SECTION_CARD + ' mt-4'}>
           <p className="mb-2 text-[10px] font-bold text-[var(--text-secondary)]">فرم‌های منتشرشده همین شبکه</p>
-          {loading ? (
+          {formsLoading && forms.length === 0 ? (
             <div className="space-y-2">
-              <p className="text-sm text-[var(--text-secondary)]">در حال بارگذاری…</p>
+              <p className="text-sm text-[var(--text-secondary)]">در حال بارگذاری فرم‌ها…</p>
+              <div className="h-20 animate-pulse rounded-2xl bg-[var(--surface-soft)]" />
               <div className="h-20 animate-pulse rounded-2xl bg-[var(--surface-soft)]" />
             </div>
           ) : null}
           {error ? <p className="rounded-2xl bg-red-500/10 px-3 py-2 text-sm font-semibold text-red-700">{error}</p> : null}
-          {!loading && !error && networkId && forms.length === 0 ? (
+          {!formsLoading && !error && networkId && forms.length === 0 ? (
             <div className="space-y-2 rounded-2xl bg-[var(--surface-soft)] px-3 py-3 text-sm text-[var(--text-primary)] ring-1 ring-[var(--border-soft)]">
               <p>
                 هنوز <strong>هیچ فرم منتشرشده‌ای</strong> برای «{activeNetwork?.name ?? 'این شبکه'}» وجود ندارد — یعنی یا فرمی
@@ -198,7 +246,7 @@ export default function NeighborhoodFormsListPage() {
               )}
             </div>
           ) : null}
-          <ul className="space-y-2.5">
+          <ul className={`space-y-2.5 ${formsRefreshing && forms.length > 0 ? 'opacity-90 transition-opacity' : ''}`}>
             {forms.map((form) => (
               <li key={form.id} className="rounded-2xl border border-[var(--border-soft)] bg-[var(--surface-soft)] p-3.5">
                 <div className="flex items-start justify-between gap-2">

@@ -7,6 +7,7 @@ import { Suspense } from 'react';
 import { AuthGate } from '@/components/AuthGate';
 import { apiFetch } from '@/lib/api';
 import { getAccessToken } from '@/lib/auth';
+import { dedupedGet, NEIGHBORHOOD_ADMIN_NETWORKS_QUERY } from '@/lib/neighborhoodFormsPerf';
 import { FIELD_TYPE_OPTIONS, formStatusBadgeClass, formStatusLabel } from '@/lib/neighborhoodForms';
 
 type ManageFormRow = {
@@ -116,9 +117,8 @@ function NeighborhoodFormsManageInner() {
         return;
       }
       try {
-        const allNetworks = await apiFetch<NetworkOption[]>('networks', { method: 'GET', token });
-        const adminNeighborhood = allNetworks.filter(
-          (n) => n.spaceCategory === 'NEIGHBORHOOD' && n.myRole === 'NETWORK_ADMIN',
+        const adminNeighborhood = await dedupedGet(`GET:networks?${NEIGHBORHOOD_ADMIN_NETWORKS_QUERY}`, () =>
+          apiFetch<NetworkOption[]>(`networks?${NEIGHBORHOOD_ADMIN_NETWORKS_QUERY}`, { method: 'GET', token }),
         );
         if (cancelled) return;
         setNetworkOptions(adminNeighborhood);
