@@ -272,10 +272,18 @@ function SpaceDetailInner() {
     }));
   }, [data, hoodHits, hoodSearchActive, isNeighborhood, mergedMember]);
 
-  const memberNetworkId = useMemo(
-    () => displayNetworks.find((n) => n.isMember)?.id ?? null,
-    [displayNetworks],
-  );
+  /** Joined first; remainder kept in API order for stable UX */
+  const { joinedNetworks, otherNetworks } = useMemo(() => {
+    const joined: NetworkRow[] = [];
+    const other: NetworkRow[] = [];
+    for (const n of displayNetworks) {
+      if (n.isMember) joined.push(n);
+      else other.push(n);
+    }
+    return { joinedNetworks: joined, otherNetworks: other };
+  }, [displayNetworks]);
+
+  const memberNetworkId = useMemo(() => joinedNetworks[0]?.id ?? null, [joinedNetworks]);
 
   const caps = useMemo(() => {
     if (!isSpaceKey(raw)) return [];
@@ -409,38 +417,80 @@ function SpaceDetailInner() {
               ) : null}
 
               <h3 className="mb-2 text-[11px] font-extrabold text-[var(--text-secondary)]">شبکه‌ها</h3>
-              <ul className="divide-y divide-[var(--border-soft)]">
-                {displayNetworks.length === 0 ? (
-                  <li className="py-6 text-center text-xs text-[var(--text-secondary)]">
-                    {hoodSearchLoading ? '…' : 'شبکه‌ای نیست'}
-                  </li>
-                ) : (
-                  displayNetworks.map((n) => (
-                    <li key={n.id} className="flex items-start justify-between gap-2 py-3">
-                      <div className="min-w-0 flex-1">
-                        <Link href={`/networks/${n.id}`} className="text-sm font-extrabold text-[var(--accent-hover)] hover:underline">
-                          {n.name}
-                        </Link>
-                        {n.description ? (
-                          <p className="mt-0.5 line-clamp-2 text-[11px] text-[var(--text-secondary)]">{n.description}</p>
-                        ) : null}
-                        {n.isMember ? (
-                          <p className="mt-1 text-[10px] font-bold text-emerald-700">عضو هستید</p>
-                        ) : null}
+
+              {displayNetworks.length === 0 ? (
+                <p className="rounded-2xl border border-[var(--border-soft)] bg-[var(--surface-soft)] py-6 text-center text-xs text-[var(--text-secondary)]">
+                  {hoodSearchLoading ? '…' : 'شبکه‌ای نیست'}
+                </p>
+              ) : (
+                <>
+                  {joinedNetworks.length > 0 ? (
+                    <div className="mb-3 rounded-2xl border border-emerald-600/25 bg-emerald-500/[0.06] p-2 ring-1 ring-emerald-600/15 dark:bg-emerald-400/[0.07] dark:ring-emerald-400/20">
+                      <p className="mb-2 px-1 text-[10px] font-extrabold text-emerald-800 dark:text-emerald-300">شبکه‌های شما</p>
+                      <ul className="divide-y divide-emerald-600/15">
+                        {joinedNetworks.map((n) => (
+                          <li key={n.id} className="flex items-start justify-between gap-2 py-2 first:pt-1 last:pb-1">
+                            <div className="min-w-0 flex-1">
+                              <Link
+                                href={`/networks/${n.id}`}
+                                className="text-sm font-extrabold text-[var(--accent-hover)] hover:underline"
+                              >
+                                {n.name}
+                              </Link>
+                              {n.description ? (
+                                <p className="mt-0.5 line-clamp-1 text-[11px] text-[var(--text-secondary)]">{n.description}</p>
+                              ) : null}
+                              <p className="mt-0.5 text-[10px] font-bold text-emerald-700 dark:text-emerald-400">عضو هستید</p>
+                            </div>
+                            <Link href={`/networks/${n.id}`} className={BTN_SEC}>
+                              ورود
+                            </Link>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ) : null}
+
+                  {otherNetworks.length > 0 ? (
+                    <div>
+                      {joinedNetworks.length > 0 ? (
+                        <p className="mb-2 text-[10px] font-extrabold text-[var(--text-secondary)]">سایر شبکه‌ها</p>
+                      ) : null}
+                      <div
+                        className="max-h-[min(55vh,22rem)] overflow-y-auto overscroll-contain rounded-2xl border border-[var(--border-soft)] bg-[var(--surface-soft)] [-webkit-overflow-scrolling:touch]"
+                        role="region"
+                        aria-label="فهرست شبکه‌ها برای پیوستن"
+                      >
+                        <ul className="divide-y divide-[var(--border-soft)]">
+                          {otherNetworks.map((n) => (
+                            <li key={n.id} className="flex items-start justify-between gap-2 px-2 py-3 sm:px-3">
+                              <div className="min-w-0 flex-1">
+                                <Link
+                                  href={`/networks/${n.id}`}
+                                  className="text-sm font-extrabold text-[var(--accent-hover)] hover:underline"
+                                >
+                                  {n.name}
+                                </Link>
+                                {n.description ? (
+                                  <p className="mt-0.5 line-clamp-2 text-[11px] text-[var(--text-secondary)]">{n.description}</p>
+                                ) : null}
+                              </div>
+                              <button
+                                type="button"
+                                disabled={joiningNet === n.id}
+                                onClick={() => void joinNetwork(n.id)}
+                                className={BTN_PRI}
+                              >
+                                {joiningNet === n.id ? '…' : 'پیوستن'}
+                              </button>
+                            </li>
+                          ))}
+                        </ul>
                       </div>
-                      {!n.isMember ? (
-                        <button type="button" disabled={joiningNet === n.id} onClick={() => void joinNetwork(n.id)} className={BTN_PRI}>
-                          {joiningNet === n.id ? '…' : 'پیوستن'}
-                        </button>
-                      ) : (
-                        <Link href={`/networks/${n.id}`} className={BTN_SEC}>
-                          ورود
-                        </Link>
-                      )}
-                    </li>
-                  ))
-                )}
-              </ul>
+                    </div>
+                  ) : null}
+                </>
+              )}
 
               {isNeighborhood && hoodSearchActive && hoodSearchMeta?.hasMore ? (
                 <button
