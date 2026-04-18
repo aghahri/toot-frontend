@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import { AuthGate } from '@/components/AuthGate';
 import { NeighborhoodNetworkContext, NeighborhoodVisibilityNote } from '@/components/neighborhood/NeighborhoodContextStrip';
 import {
@@ -36,7 +36,7 @@ const emptyForm = () => ({
   contactHint: '',
 });
 
-export default function NeighborhoodShowcasePage() {
+function NeighborhoodShowcasePageContent() {
   const searchParams = useSearchParams();
   const [networks, setNetworks] = useState<NeighborhoodNetworkRow[]>([]);
   const [networkId, setNetworkId] = useState('');
@@ -438,5 +438,19 @@ export default function NeighborhoodShowcasePage() {
         ) : null}
       </main>
     </AuthGate>
+  );
+}
+
+export default function NeighborhoodShowcasePage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="theme-page-bg px-4 py-10 text-center text-sm text-[var(--text-secondary)]" dir="rtl">
+          …
+        </div>
+      }
+    >
+      <NeighborhoodShowcasePageContent />
+    </Suspense>
   );
 }

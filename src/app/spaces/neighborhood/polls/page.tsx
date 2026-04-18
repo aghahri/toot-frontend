@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import { AuthGate } from '@/components/AuthGate';
 import { NeighborhoodNetworkContext, NeighborhoodVisibilityNote } from '@/components/neighborhood/NeighborhoodContextStrip';
 import {
@@ -31,7 +31,7 @@ function formatShortDate(iso: string | null) {
   }
 }
 
-export default function NeighborhoodPollsPage() {
+function NeighborhoodPollsPageContent() {
   const searchParams = useSearchParams();
   const [networks, setNetworks] = useState<NeighborhoodNetworkRow[]>([]);
   const [networkId, setNetworkId] = useState('');
@@ -315,5 +315,19 @@ export default function NeighborhoodPollsPage() {
         </ul>
       </main>
     </AuthGate>
+  );
+}
+
+export default function NeighborhoodPollsPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="theme-page-bg px-4 py-10 text-center text-sm text-[var(--text-secondary)]" dir="rtl">
+          …
+        </div>
+      }
+    >
+      <NeighborhoodPollsPageContent />
+    </Suspense>
   );
 }
