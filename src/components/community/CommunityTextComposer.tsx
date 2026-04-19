@@ -21,6 +21,8 @@ type Props = {
   hint?: string | null;
   maxLength?: number;
   rows?: number;
+  /** Extra classes on the outer section (e.g. mt-auto for bottom-anchored composer). */
+  className?: string;
 };
 
 export function CommunityTextComposer({
@@ -37,11 +39,15 @@ export function CommunityTextComposer({
   hint,
   maxLength = 10000,
   rows = 3,
+  className = '',
 }: Props) {
   const allow = canSubmit && !!value.trim() && !sending;
 
   return (
-    <section className="theme-card-bg theme-border-soft mt-4 rounded-2xl border p-3 shadow-sm" dir="rtl">
+    <section
+      className={`theme-card-bg theme-border-soft mt-3 rounded-2xl border p-3 shadow-sm ${className}`.trim()}
+      dir="rtl"
+    >
       <h2 className="theme-text-secondary mb-2 text-xs font-extrabold">{title}</h2>
       {hint ? <p className="theme-text-secondary mb-2 text-[11px] leading-snug">{hint}</p> : null}
       {error ? <p className="mb-2 text-xs font-semibold text-red-600">{error}</p> : null}
@@ -64,3 +70,4 @@ export function CommunityTextComposer({
     </section>
   );
 }
+

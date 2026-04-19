@@ -28,6 +28,7 @@ import { calendarDayKey, dayDividerLabelFa } from '@/lib/chat-dates';
 import { formatFileSize } from '@/lib/format-file-size';
 import { Card } from '@/components/ui/Card';
 import { CommunityToolsSheet } from '@/components/capability/CommunityToolsSheet';
+import { CommunityToolsTrigger } from '@/components/community/CommunityWorkspace';
 
 const PAGE_SIZE = 40;
 const MAX_VOICE_RECORD_SEC = 120;
@@ -1201,15 +1202,7 @@ export default function GroupThreadPage() {
                 </p>
               </Link>
 
-              <button
-                type="button"
-                title="ابزارهای جامعه"
-                onClick={() => setCommunityToolsOpen(true)}
-                className="flex h-9 shrink-0 items-center gap-1 rounded-full border border-slate-200/90 bg-white px-2.5 py-1 text-[11px] font-extrabold text-slate-700 shadow-sm transition hover:bg-slate-50 active:bg-slate-100"
-              >
-                <span aria-hidden>🧰</span>
-                <span className="max-[380px]:hidden">ابزارها</span>
-              </button>
+              <CommunityToolsTrigger onClick={() => setCommunityToolsOpen(true)} />
 
               <button
                 type="button"
