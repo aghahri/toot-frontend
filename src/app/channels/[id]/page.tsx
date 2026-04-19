@@ -292,7 +292,7 @@ function ChannelDetailInner() {
               ) : null}
             </CommunityWorkspaceHeaderBar>
 
-            <div className="flex min-h-0 flex-1 flex-col px-2.5 pb-10 pt-3 sm:px-3">
+            <div className="flex min-h-0 flex-1 flex-col overflow-hidden px-2.5 pb-10 pt-3 sm:px-3">
               <ChannelReframeHero
                 titleInitial={titleInitial}
                 channelName={channel.name}
@@ -336,11 +336,11 @@ function ChannelDetailInner() {
               ) : null}
 
               {channel.isMember ? (
-                <div id="channel-feed-anchor" className="scroll-mt-28">
+                <div id="channel-feed-anchor" className="min-h-0 flex-1 scroll-mt-28">
                   <CommunityTimelineFrame
                     title="انتشارات"
                     subtitle="فید رسمی کانال — نه گفت‌وگوی گروهی"
-                    className="mt-4 min-h-[200px]"
+                    className="mt-4 min-h-[200px] overflow-hidden"
                   >
                     {loadingMsgs ? (
                       <p className="theme-text-secondary mt-3 px-1 text-xs">بارگذاری فید…</p>
@@ -361,7 +361,8 @@ function ChannelDetailInner() {
                         ) : null}
                       </div>
                     ) : (
-                      <ul className="mt-4 space-y-4 pr-0.5">
+                      <div className="mt-4 min-h-0 flex-1 overflow-y-auto overscroll-contain pr-0.5 [-webkit-overflow-scrolling:touch]">
+                        <ul className="space-y-4">
                         {timelineMessages.map((m) => (
                           <li key={m.id}>
                             <ChannelPublicationCard
@@ -393,7 +394,8 @@ function ChannelDetailInner() {
                             />
                           </li>
                         ))}
-                      </ul>
+                        </ul>
+                      </div>
                     )}
                   </CommunityTimelineFrame>
                 </div>
