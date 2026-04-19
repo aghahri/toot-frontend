@@ -40,7 +40,8 @@ const tabs = [
     label: 'فضاها',
     Icon: IconTabSpaces,
     primary: false,
-    match: (p: string) => p === '/spaces' || p.startsWith('/spaces/'),
+    match: (p: string) =>
+      p === '/spaces' || p.startsWith('/spaces/') || p.startsWith('/meetings'),
   },
 ] as const;
 

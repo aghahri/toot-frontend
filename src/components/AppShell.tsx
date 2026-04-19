@@ -10,6 +10,7 @@ import { VoiceCallProvider } from '@/context/VoiceCallContext';
 function shouldShowBottomNav(pathname: string): boolean {
   if (pathname === '/') return false;
   if (pathname === '/login' || pathname === '/register') return false;
+  if (/^\/meetings\/[^/]+\/room\/?$/.test(pathname)) return false;
   return true;
 }
 

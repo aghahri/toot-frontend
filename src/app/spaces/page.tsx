@@ -426,7 +426,13 @@ export default function SpacesOverviewPage() {
                   return (
                     <Link
                       key={bp.id}
-                      href={bp.id === 'business' ? '/spaces/business' : `/spaces/${bp.mappedCategory}`}
+                      href={
+                        bp.id === 'business'
+                          ? '/spaces/business'
+                          : bp.id === 'education'
+                            ? '/spaces/education'
+                            : `/spaces/${bp.mappedCategory}`
+                      }
                       className={`relative block overflow-hidden rounded-3xl border border-[var(--border-soft)] bg-[var(--card-bg)] p-5 shadow-sm ring-1 ring-[var(--border-soft)] transition hover:shadow-md active:scale-[0.99] ${
                         isHood ? 'sm:col-span-2' : ''
                       }`}

@@ -127,7 +127,7 @@ function NewChannelPageInner() {
                   ? '/spaces/SPORT'
                   : isStreamPreset
                     ? '/spaces/TECH'
-                    : '/spaces/EDUCATION'
+                    : '/spaces/education'
             }
             className="rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-extrabold text-slate-700 transition hover:bg-slate-50"
           >

@@ -8,7 +8,9 @@ export function getAppSectionTitle(pathname: string): string | null {
   if (pathname === '/home') return null;
   if (pathname === '/direct' || pathname.startsWith('/direct/')) return 'چت‌ها';
   if (pathname === '/vitrin' || pathname.startsWith('/vitrin/')) return 'ویترین';
-  if (pathname === '/spaces' || pathname.startsWith('/spaces/')) return 'فضاها';
+  if (pathname === '/spaces' || pathname.startsWith('/spaces/') || pathname.startsWith('/meetings')) {
+    return 'فضاها';
+  }
   return null;
 }
 
