@@ -6,6 +6,13 @@ import { useParams } from 'next/navigation';
 import { AuthGate } from '@/components/AuthGate';
 import { getAccessToken } from '@/lib/auth';
 import { apiFetch } from '@/lib/api';
+import {
+  formatAppDateTime,
+  getAppLocale,
+  isoToDatetimeLocalValue,
+  isoToJalaliInputValue,
+  parseJalaliInputToIso,
+} from '@/lib/locale-date';
 
 type Row = {
   id: string;
@@ -26,6 +33,8 @@ export default function ChannelScheduledPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editContent, setEditContent] = useState('');
   const [editScheduledFor, setEditScheduledFor] = useState('');
+  const locale = getAppLocale();
+  const isFa = locale === 'fa';
 
   const load = useCallback(async () => {
     const token = getAccessToken();
@@ -54,11 +63,13 @@ export default function ChannelScheduledPage() {
     setSaving(true);
     setErr(null);
     try {
+      const iso = isFa ? parseJalaliInputToIso(scheduledFor) : new Date(scheduledFor).toISOString();
+      if (!iso) throw new Error('تاریخ/زمان نامعتبر است');
       await apiFetch(`channels/${encodeURIComponent(id)}/scheduled-posts`, {
         method: 'POST',
         token,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content: content.trim() || undefined, scheduledFor: new Date(scheduledFor).toISOString() }),
+        body: JSON.stringify({ content: content.trim() || undefined, scheduledFor: iso }),
       });
       setContent('');
       setScheduledFor('');
@@ -80,13 +91,18 @@ export default function ChannelScheduledPage() {
   async function onEditSave(rowId: string) {
     const token = getAccessToken();
     if (!token || !id || !editScheduledFor) return;
+    const iso = isFa ? parseJalaliInputToIso(editScheduledFor) : new Date(editScheduledFor).toISOString();
+    if (!iso) {
+      setErr('تاریخ/زمان نامعتبر است');
+      return;
+    }
     await apiFetch(`channels/${encodeURIComponent(id)}/scheduled-posts/${encodeURIComponent(rowId)}`, {
       method: 'PATCH',
       token,
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         content: editContent.trim() || undefined,
-        scheduledFor: new Date(editScheduledFor).toISOString(),
+        scheduledFor: iso,
       }),
     });
     setEditingId(null);
@@ -102,7 +118,25 @@ export default function ChannelScheduledPage() {
             <h1 className="text-sm font-black text-[var(--text-primary)]">زمان‌بندی انتشار</h1>
             <form onSubmit={onCreate} className="mt-3 space-y-2">
               <textarea value={content} onChange={(e) => setContent(e.target.value)} rows={3} placeholder="متن انتشار" className="w-full rounded-xl border border-[var(--border-soft)] bg-[var(--surface-soft)] px-3 py-2 text-sm" />
-              <input type="datetime-local" value={scheduledFor} onChange={(e) => setScheduledFor(e.target.value)} className="w-full rounded-xl border border-[var(--border-soft)] bg-[var(--surface-soft)] px-3 py-2 text-sm" />
+              {isFa ? (
+                <input
+                  type="text"
+                  value={scheduledFor}
+                  onChange={(e) => setScheduledFor(e.target.value)}
+                  placeholder="۱۴۰۵-۰۲-۰۱ ۱۰:۳۰"
+                  className="w-full rounded-xl border border-[var(--border-soft)] bg-[var(--surface-soft)] px-3 py-2 text-sm"
+                />
+              ) : (
+                <input
+                  type="datetime-local"
+                  value={scheduledFor}
+                  onChange={(e) => setScheduledFor(e.target.value)}
+                  className="w-full rounded-xl border border-[var(--border-soft)] bg-[var(--surface-soft)] px-3 py-2 text-sm"
+                />
+              )}
+              <p className="text-[11px] text-[var(--text-secondary)]">
+                {isFa ? 'ورودی جلالی (شمسی): YYYY-MM-DD HH:mm' : 'Input format: Gregorian local date/time'}
+              </p>
               <button disabled={saving || !scheduledFor} className="rounded-xl bg-violet-700 px-4 py-2 text-sm font-bold text-white disabled:opacity-50">
                 {saving ? '…' : 'ثبت انتشار زمان‌بندی‌شده'}
               </button>
@@ -118,12 +152,27 @@ export default function ChannelScheduledPage() {
                     {editingId === r.id ? (
                       <div className="space-y-2">
                         <textarea value={editContent} onChange={(e) => setEditContent(e.target.value)} rows={2} className="w-full rounded-xl border border-[var(--border-soft)] bg-white px-2 py-1 text-xs" />
-                        <input type="datetime-local" value={editScheduledFor} onChange={(e) => setEditScheduledFor(e.target.value)} className="w-full rounded-xl border border-[var(--border-soft)] bg-white px-2 py-1 text-xs" />
+                        {isFa ? (
+                          <input
+                            type="text"
+                            value={editScheduledFor}
+                            onChange={(e) => setEditScheduledFor(e.target.value)}
+                            placeholder="۱۴۰۵-۰۲-۰۱ ۱۰:۳۰"
+                            className="w-full rounded-xl border border-[var(--border-soft)] bg-white px-2 py-1 text-xs"
+                          />
+                        ) : (
+                          <input
+                            type="datetime-local"
+                            value={editScheduledFor}
+                            onChange={(e) => setEditScheduledFor(e.target.value)}
+                            className="w-full rounded-xl border border-[var(--border-soft)] bg-white px-2 py-1 text-xs"
+                          />
+                        )}
                       </div>
                     ) : (
                       <>
                         <p className="text-xs font-bold">{r.content || '(بدون متن)'}</p>
-                        <p className="mt-1 text-[11px] text-[var(--text-secondary)]">{new Date(r.scheduledFor).toLocaleString('fa-IR')} · {r.status}</p>
+                        <p className="mt-1 text-[11px] text-[var(--text-secondary)]">{formatAppDateTime(r.scheduledFor)} · {r.status}</p>
                       </>
                     )}
                     {r.status === 'PENDING' ? (
@@ -135,7 +184,7 @@ export default function ChannelScheduledPage() {
                             onClick={() => {
                               setEditingId(r.id);
                               setEditContent(r.content || '');
-                              setEditScheduledFor(new Date(r.scheduledFor).toISOString().slice(0, 16));
+                              setEditScheduledFor(isFa ? isoToJalaliInputValue(r.scheduledFor) : isoToDatetimeLocalValue(r.scheduledFor));
                             }}
                             className="text-[11px] font-bold text-[var(--accent-hover)]"
                           >

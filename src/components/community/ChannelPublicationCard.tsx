@@ -5,6 +5,7 @@ import type { ChannelMsg } from './channelTypes';
 export type { ChannelMsg } from './channelTypes';
 
 import { isVoiceMedia } from '@/lib/chat-media';
+import { formatAppDateTime } from '@/lib/locale-date';
 
 function isImageMedia(m: ChannelMsg['media']): boolean {
   if (!m) return false;
@@ -141,12 +142,7 @@ export function ChannelPublicationCard({
 
 function fmtShort(iso: string): string {
   try {
-    return new Date(iso).toLocaleString('fa-IR', {
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
+    return formatAppDateTime(iso);
   } catch {
     return iso;
   }

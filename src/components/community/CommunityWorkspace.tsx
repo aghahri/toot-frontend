@@ -14,7 +14,7 @@ export function CommunityWorkspaceShell({
 }) {
   return (
     <main
-      className={`theme-page-bg theme-text-primary mx-auto flex min-h-[100dvh] w-full max-w-md flex-col ${
+      className={`theme-page-bg theme-text-primary mx-auto flex h-[100dvh] min-h-0 w-full max-w-md flex-col overflow-hidden ${
         withWorkspaceGradient ? 'bg-[linear-gradient(180deg,var(--surface-soft)_0%,var(--page-bg)_28%)]' : ''
       }`}
       dir="rtl"

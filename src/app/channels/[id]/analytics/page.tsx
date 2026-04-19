@@ -6,6 +6,7 @@ import { useParams } from 'next/navigation';
 import { AuthGate } from '@/components/AuthGate';
 import { getAccessToken } from '@/lib/auth';
 import { apiFetch } from '@/lib/api';
+import { formatAppDateTime } from '@/lib/locale-date';
 
 type Analytics = {
   summary: {
@@ -60,7 +61,7 @@ export default function ChannelAnalyticsPage() {
                 <div className="rounded-xl border border-[var(--border-soft)] bg-[var(--surface-soft)] p-3">کل پست‌ها: {data.summary.totalPosts}</div>
                 <div className="rounded-xl border border-[var(--border-soft)] bg-[var(--surface-soft)] p-3">۷ روز اخیر: {data.summary.postsLast7Days}</div>
                 <div className="rounded-xl border border-[var(--border-soft)] bg-[var(--surface-soft)] p-3">اعضا: {data.summary.memberCount}</div>
-                <div className="rounded-xl border border-[var(--border-soft)] bg-[var(--surface-soft)] p-3">آخرین انتشار: {data.summary.latestPublishAt ? new Date(data.summary.latestPublishAt).toLocaleString('fa-IR') : '—'}</div>
+                <div className="rounded-xl border border-[var(--border-soft)] bg-[var(--surface-soft)] p-3">آخرین انتشار: {data.summary.latestPublishAt ? formatAppDateTime(data.summary.latestPublishAt) : '—'}</div>
               </div>
             )}
           </section>
@@ -70,7 +71,7 @@ export default function ChannelAnalyticsPage() {
               <ul className="mt-3 space-y-2">
                 {data.recentPosts.map((p) => (
                   <li key={p.id} className="rounded-xl border border-[var(--border-soft)] bg-[var(--surface-soft)] p-3 text-xs">
-                    <p>{new Date(p.createdAt).toLocaleString('fa-IR')}</p>
+                    <p>{formatAppDateTime(p.createdAt)}</p>
                     <p className="mt-1 text-[var(--text-secondary)]">نمایش تقریبی: {p.impressionCount} · واکنش: {p.reactionsCount} · رسانه: {p.mediaType || p.messageType || 'TEXT'}</p>
                   </li>
                 ))}

@@ -340,7 +340,7 @@ function ChannelDetailInner() {
                   <CommunityTimelineFrame
                     title="انتشارات"
                     subtitle="فید رسمی کانال — نه گفت‌وگوی گروهی"
-                    className="mt-4 min-h-[200px] overflow-hidden"
+                    className="mt-4 min-h-0 overflow-hidden"
                   >
                     {loadingMsgs ? (
                       <p className="theme-text-secondary mt-3 px-1 text-xs">بارگذاری فید…</p>
