@@ -16,6 +16,9 @@ type Props = {
   message: ChannelMsg;
   variant?: 'timeline' | 'featured';
   broadcastLabel?: string;
+  pinActionLabel?: string;
+  onPinAction?: (message: ChannelMsg) => void;
+  pinActionDisabled?: boolean;
 };
 
 /** Publication-styled post — not a chat bubble */
@@ -23,6 +26,9 @@ export function ChannelPublicationCard({
   message: m,
   variant = 'timeline',
   broadcastLabel = 'انتشار',
+  pinActionLabel,
+  onPinAction,
+  pinActionDisabled,
 }: Props) {
   const isFeatured = variant === 'featured';
   const pad = isFeatured ? 'px-4 py-3.5' : 'px-4 py-4';
@@ -51,6 +57,16 @@ export function ChannelPublicationCard({
           >
             {fmtShort(m.createdAt)}
           </time>
+          {pinActionLabel && onPinAction ? (
+            <button
+              type="button"
+              disabled={pinActionDisabled}
+              onClick={() => onPinAction(m)}
+              className="shrink-0 rounded-lg border border-[var(--border-soft)] bg-[var(--surface-soft)] px-2 py-1 text-[10px] font-bold text-[var(--accent-hover)] disabled:opacity-50"
+            >
+              {pinActionLabel}
+            </button>
+          ) : null}
         </header>
 
         {loc && typeof loc.lat === 'number' && typeof loc.lng === 'number' ? (

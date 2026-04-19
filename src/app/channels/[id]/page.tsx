@@ -76,6 +76,8 @@ function ChannelDetailInner() {
   const [sending, setSending] = useState(false);
   const [sendErr, setSendErr] = useState<string | null>(null);
   const [excludeMessageId, setExcludeMessageId] = useState<string | null>(null);
+  const [pinnedMessage, setPinnedMessage] = useState<ChannelMsg | null>(null);
+  const [pinBusyId, setPinBusyId] = useState<string | null>(null);
 
   const titleInitial = useMemo(() => {
     const t = channel?.name?.trim();
@@ -128,6 +130,11 @@ function ChannelDetailInner() {
     else setMessages([]);
   }, [channel?.id, channel?.isMember, loadMessages]);
 
+  useEffect(() => {
+    if (channel?.isMember) void loadPinned();
+    else setPinnedMessage(null);
+  }, [channel?.id, channel?.isMember, loadPinned]);
+
   const onTimelineExclude = useCallback((mid: string | null) => {
     setExcludeMessageId(mid);
   }, []);
@@ -144,11 +151,27 @@ function ChannelDetailInner() {
           if (mode === 'PUBLISHERS_AND_ADMINS') return role === 'CHANNEL_ADMIN' || role === 'PUBLISHER';
           return role === 'CHANNEL_ADMIN';
         })());
+  const canManagePins = channel?.myRole === 'CHANNEL_ADMIN';
+  const canManageSchedule = !!canShowComposer;
 
   const newestPost = useMemo(
     () => (messages.length ? messages[messages.length - 1] : null),
     [messages],
   );
+
+  const loadPinned = useCallback(async () => {
+    const token = getAccessToken();
+    if (!token || !id || !channel?.isMember) return;
+    try {
+      const res = await apiFetch<{ message: ChannelMsg | null }>(`channels/${encodeURIComponent(id)}/pinned-message`, {
+        method: 'GET',
+        token,
+      });
+      setPinnedMessage(res?.message ?? null);
+    } catch {
+      setPinnedMessage(null);
+    }
+  }, [id, channel?.isMember]);
 
   const timelineMessages = useMemo(() => {
     if (!excludeMessageId) return messages;
@@ -218,6 +241,24 @@ function ChannelDetailInner() {
         >
           جستجو
         </Link>
+        {canManageSchedule ? (
+          <>
+            <Link
+              href={`/channels/${encodeURIComponent(id)}/scheduled`}
+              className="flex shrink-0 items-center rounded-full border border-slate-200/90 bg-white px-3 py-2 text-[11px] font-extrabold text-slate-800 shadow-sm transition hover:bg-slate-50"
+            >
+              زمان‌بندی انتشار
+            </Link>
+            {canManagePins ? (
+              <Link
+                href={`/channels/${encodeURIComponent(id)}/analytics`}
+                className="flex shrink-0 items-center rounded-full border border-slate-200/90 bg-white px-3 py-2 text-[11px] font-extrabold text-slate-800 shadow-sm transition hover:bg-slate-50"
+              >
+                آمار کانال
+              </Link>
+            ) : null}
+          </>
+        ) : null}
       </div>
     ) : null;
 
@@ -285,6 +326,7 @@ function ChannelDetailInner() {
                 <div className="mt-4">
                   <ChannelFeaturedZone
                     channelId={id}
+                    pinnedPost={pinnedMessage}
                     newestPost={newestPost}
                     onOpenTools={() => setToolsOpen(true)}
                     canPost={!!canShowComposer}
@@ -322,7 +364,33 @@ function ChannelDetailInner() {
                       <ul className="mt-4 space-y-4 pr-0.5">
                         {timelineMessages.map((m) => (
                           <li key={m.id}>
-                            <ChannelPublicationCard message={m} variant="timeline" broadcastLabel="انتشار کانال" />
+                            <ChannelPublicationCard
+                              message={m}
+                              variant="timeline"
+                              broadcastLabel="انتشار کانال"
+                              pinActionLabel={
+                                canManagePins ? (pinnedMessage?.id === m.id ? 'برداشتن سنجاق' : 'سنجاق کردن') : undefined
+                              }
+                              pinActionDisabled={pinBusyId === m.id}
+                              onPinAction={
+                                canManagePins
+                                  ? (msg) => {
+                                      const token = getAccessToken();
+                                      if (!token || !id) return;
+                                      const targetId = pinnedMessage?.id === msg.id ? null : msg.id;
+                                      setPinBusyId(msg.id);
+                                      void apiFetch<{ message: ChannelMsg | null }>(`channels/${encodeURIComponent(id)}/pin`, {
+                                        method: 'POST',
+                                        token,
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify({ messageId: targetId }),
+                                      })
+                                        .then((res) => setPinnedMessage(res?.message ?? null))
+                                        .finally(() => setPinBusyId(null));
+                                    }
+                                  : undefined
+                              }
+                            />
                           </li>
                         ))}
                       </ul>

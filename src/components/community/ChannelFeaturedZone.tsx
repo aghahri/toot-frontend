@@ -90,6 +90,7 @@ function LinkFeaturedCard({ row }: { row: LinkedCapabilityRow }) {
 
 type Props = {
   channelId: string;
+  pinnedPost?: ChannelMsg | null;
   /** Newest message in chronological feed (last item) */
   newestPost: ChannelMsg | null;
   onOpenTools: () => void;
@@ -103,6 +104,7 @@ type Props = {
  */
 export function ChannelFeaturedZone({
   channelId,
+  pinnedPost = null,
   newestPost,
   onOpenTools,
   canPost,
@@ -128,7 +130,7 @@ export function ChannelFeaturedZone({
 
   useEffect(() => {
     if (rows === null) return;
-    if (featuredLink) {
+    if (pinnedPost || featuredLink) {
       onTimelineExcludeId?.(null);
     } else if (newestPost) {
       onTimelineExcludeId?.(newestPost.id);
@@ -137,12 +139,26 @@ export function ChannelFeaturedZone({
     }
   }, [rows, featuredLink, newestPost, onTimelineExcludeId]);
 
-  const showLatestPostCard = !featuredLink && !!newestPost;
+  const showLatestPostCard = !pinnedPost && !featuredLink && !!newestPost;
 
   if (rows === null) {
     return (
       <section className="rounded-2xl border border-dashed border-[var(--border-soft)] bg-[var(--surface-soft)]/50 px-4 py-4">
         <p className="text-[11px] text-[var(--text-secondary)]">در حال آماده‌سازی بخش ویژه…</p>
+      </section>
+    );
+  }
+
+  if (pinnedPost) {
+    return (
+      <section aria-label="پست سنجاق‌شده">
+        <div className="mb-2 flex items-center justify-between px-0.5">
+          <p className="text-[10px] font-black uppercase tracking-[0.12em] text-[var(--text-secondary)]">سنجاق‌شده</p>
+          <button type="button" onClick={onOpenTools} className="text-[10px] font-bold text-[var(--accent-hover)] hover:underline">
+            مدیریت کانال
+          </button>
+        </div>
+        <ChannelPublicationCard message={pinnedPost} variant="featured" broadcastLabel="📌 سنجاق‌شده" />
       </section>
     );
   }
