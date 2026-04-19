@@ -17,6 +17,8 @@ type ChannelPayload = {
   network: { id: string; name: string };
   isMember: boolean;
   myRole: string | null;
+  /** From API; whether POST /channels/:id/messages is allowed for this user. */
+  canPost?: boolean;
 };
 
 const POSTING_MODE_FA: Record<string, string> = {
@@ -47,6 +49,9 @@ function ChannelDetailInner() {
   const [joining, setJoining] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [toolsOpen, setToolsOpen] = useState(false);
+  const [draft, setDraft] = useState('');
+  const [sending, setSending] = useState(false);
+  const [sendErr, setSendErr] = useState<string | null>(null);
 
   const loadChannel = useCallback(async () => {
     const token = getAccessToken();
@@ -92,6 +97,40 @@ function ChannelDetailInner() {
     if (channel?.isMember) void loadMessages();
     else setMessages([]);
   }, [channel?.id, channel?.isMember, loadMessages]);
+
+  const canShowComposer =
+    channel?.isMember &&
+    (channel.canPost !== undefined
+      ? channel.canPost
+      : (() => {
+          const mode = channel.postingMode ?? 'ADMINS_ONLY';
+          const role = channel.myRole;
+          if (!role) return false;
+          if (mode === 'ALL_MEMBERS') return true;
+          if (mode === 'PUBLISHERS_AND_ADMINS') return role === 'CHANNEL_ADMIN' || role === 'PUBLISHER';
+          return role === 'CHANNEL_ADMIN';
+        })());
+
+  async function sendMessage() {
+    const token = getAccessToken();
+    if (!token || !id || !draft.trim() || sending) return;
+    setSending(true);
+    setSendErr(null);
+    try {
+      await apiFetch(`channels/${encodeURIComponent(id)}/messages`, {
+        method: 'POST',
+        token,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content: draft.trim() }),
+      });
+      setDraft('');
+      await loadMessages();
+    } catch (e) {
+      setSendErr(e instanceof Error ? e.message : 'ارسال نشد');
+    } finally {
+      setSending(false);
+    }
+  }
 
   async function joinChannel() {
     const token = getAccessToken();
@@ -211,6 +250,35 @@ function ChannelDetailInner() {
                   </ul>
                 )}
               </section>
+            ) : null}
+
+            {channel.isMember && canShowComposer ? (
+              <section className="theme-card-bg theme-border-soft mt-4 rounded-2xl border p-3 shadow-sm">
+                <h2 className="theme-text-secondary mb-2 text-xs font-extrabold">ارسال پیام</h2>
+                {sendErr ? <p className="mb-2 text-xs font-semibold text-red-600">{sendErr}</p> : null}
+                <textarea
+                  value={draft}
+                  onChange={(e) => setDraft(e.target.value)}
+                  placeholder="پیام خود را بنویسید…"
+                  rows={3}
+                  maxLength={10000}
+                  className="theme-text-primary w-full resize-none rounded-xl border border-[var(--border-soft)] bg-[var(--surface-soft)] px-3 py-2 text-sm outline-none focus:border-[var(--accent)]"
+                />
+                <button
+                  type="button"
+                  disabled={sending || !draft.trim()}
+                  onClick={() => void sendMessage()}
+                  className="mt-2 w-full rounded-xl bg-[var(--accent)] py-2.5 text-sm font-extrabold text-[var(--accent-contrast)] disabled:opacity-50"
+                >
+                  {sending ? 'در حال ارسال…' : 'ارسال'}
+                </button>
+              </section>
+            ) : null}
+
+            {channel.isMember && !canShowComposer ? (
+              <p className="theme-text-secondary mt-4 text-center text-[11px]">
+                فقط مدیران یا نقش تعیین‌شده می‌توانند در این کانال پست بگذارند.
+              </p>
             ) : null}
 
             {channel.isMember && id ? (
