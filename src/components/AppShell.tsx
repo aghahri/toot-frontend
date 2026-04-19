@@ -13,11 +13,18 @@ function shouldShowBottomNav(pathname: string): boolean {
   return true;
 }
 
+/** `/channels/[id]` thread only — fixed workspace fills viewport between navbar and tab bar (no extra document scroll). */
+function isChannelThreadPath(pathname: string): boolean {
+  if (pathname === '/channels/new') return false;
+  return /^\/channels\/[^/]+$/.test(pathname);
+}
+
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname() ?? '';
   const showNav = shouldShowBottomNav(pathname);
   const sectionTitle = getAppSectionTitle(pathname);
   const showSectionHeader = sectionTitle !== null;
+  const channelThreadFixed = isChannelThreadPath(pathname);
 
   return (
     <AppRealtimeProvider>
@@ -25,7 +32,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         {showSectionHeader ? <AppSectionHeader /> : null}
         <div
           className={
-            showNav
+            showNav && !channelThreadFixed
               ? 'theme-page-bg theme-text-primary pb-[calc(5rem+env(safe-area-inset-bottom,0px))]'
               : 'theme-page-bg theme-text-primary'
           }

@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { AuthGate } from '@/components/AuthGate';
@@ -60,6 +60,7 @@ function ChannelDetailInner() {
   const fallbackNetworkId = searchParams.get('network')?.trim() || '';
 
   const timelineScrollRef = useRef<HTMLDivElement>(null);
+  const initialTimelineScrollDoneRef = useRef(false);
 
   const [channel, setChannel] = useState<ChannelPayload | null>(null);
   const [messages, setMessages] = useState<ChannelMsg[]>([]);
@@ -203,281 +204,309 @@ function ChannelDetailInner() {
 
   const fixedMemberWorkspace = !loading && !!channel?.isMember;
 
+  useEffect(() => {
+    initialTimelineScrollDoneRef.current = false;
+  }, [id]);
+
+  useLayoutEffect(() => {
+    if (!fixedMemberWorkspace || loadingMsgs) return;
+    const el = timelineScrollRef.current;
+    if (!el || messages.length === 0) return;
+    if (!initialTimelineScrollDoneRef.current) {
+      el.scrollTop = el.scrollHeight;
+      initialTimelineScrollDoneRef.current = true;
+    }
+  }, [fixedMemberWorkspace, loadingMsgs, messages]);
+
+  const scrollTimelineToBottom = useCallback(() => {
+    const el = timelineScrollRef.current;
+    if (!el) return;
+    requestAnimationFrame(() => {
+      el.scrollTop = el.scrollHeight;
+    });
+  }, []);
+
+  const memberWorkspace = channel?.isMember ? (
+    <>
+      <div
+        className="theme-page-bg fixed left-0 right-0 z-[5] mx-auto flex min-h-0 w-full max-w-md flex-col overflow-hidden shadow-none"
+        style={{
+          top: 'var(--toot-navbar-height)',
+          bottom: 'var(--toot-bottom-nav-height)',
+        }}
+      >
+        <CommunityWorkspaceShell withWorkspaceGradient fixedWorkspace>
+          <CommunityWorkspaceHeaderBar>
+            <CommunityBackButton onClick={() => router.back()} />
+            {id ? (
+              <Link
+                href={`/channels/${encodeURIComponent(id)}/info`}
+                className="flex min-w-0 max-w-[46%] flex-1 items-center gap-2 rounded-xl px-1 py-0.5 text-right transition hover:bg-[var(--surface-soft)] sm:max-w-[55%]"
+              >
+                <CommunityAvatarInitial letter={titleInitial} label={channel.name} size="md" />
+                <div className="min-w-0">
+                  <p className="truncate text-[13px] font-black text-[var(--text-primary)]">{channel.name}</p>
+                  <p className="text-[10px] text-[var(--text-secondary)]">کانال انتشار</p>
+                </div>
+              </Link>
+            ) : (
+              <div className="min-w-0 flex-1" />
+            )}
+            {id ? (
+              <Link
+                href={`/channels/${encodeURIComponent(id)}/info`}
+                className="shrink-0 rounded-full px-2 py-1 text-[10px] font-extrabold text-[var(--accent-hover)] hover:underline"
+              >
+                اطلاعات
+              </Link>
+            ) : null}
+            <Link
+              href="/spaces"
+              className="shrink-0 rounded-full px-1.5 py-1 text-[10px] font-extrabold text-[var(--accent-hover)] hover:underline"
+            >
+              فضاها
+            </Link>
+          </CommunityWorkspaceHeaderBar>
+
+          {error ? (
+            <div className="shrink-0 border-b border-red-200/80 bg-red-50/90 px-3 py-2 text-center text-[11px] font-semibold text-red-800">
+              {error}
+            </div>
+          ) : null}
+
+          {id ? (
+            <ChannelActionStrip
+              channelId={id}
+              networkId={channel.networkId}
+              canShowComposer={!!canShowComposer}
+              canManageSchedule={canManageSchedule}
+              canManagePins={canManagePins}
+              onOpenTools={() => setToolsOpen(true)}
+              scrollTimelineToTop={scrollTimelineToTop}
+            />
+          ) : null}
+
+          {pinnedMessage ? (
+            <ChannelPinnedStrip message={pinnedMessage} onOpenTools={() => setToolsOpen(true)} />
+          ) : null}
+
+          <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden px-2 sm:px-2.5">
+            <div
+              ref={timelineScrollRef}
+              id="channel-feed-anchor"
+              className="channel-timeline-scroll min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain px-0.5 [-webkit-overflow-scrolling:touch]"
+            >
+              {id ? (
+                <div className="pt-2">
+                  <ChannelFeaturedZone
+                    channelId={id}
+                    pinnedPost={pinnedMessage}
+                    pinnedPresentation="external"
+                    newestPost={newestPost}
+                    onOpenTools={() => setToolsOpen(true)}
+                    canPost={!!canShowComposer}
+                    onTimelineExcludeId={onTimelineExclude}
+                  />
+                </div>
+              ) : null}
+
+              <CommunityTimelineFrame
+                title="انتشارات"
+                subtitle="فید رسمی کانال"
+                className="mt-3 border-0 bg-transparent p-0 shadow-none"
+              >
+                {loadingMsgs ? (
+                  <p className="theme-text-secondary mt-3 px-1 text-xs">بارگذاری فید…</p>
+                ) : messages.length === 0 ? (
+                  <div className="mt-3 rounded-2xl border border-dashed border-[var(--border-soft)] bg-[var(--surface-soft)]/90 px-4 py-8 text-center">
+                    <p className="text-[15px] font-black text-[var(--text-primary)]">{emptyCopy.title}</p>
+                    <p className="theme-text-secondary mt-2 text-[13px] leading-relaxed">{emptyCopy.subtitle}</p>
+                    {!canShowComposer ? (
+                      <p className="theme-text-secondary mt-4 text-[12px] font-medium">{emptyCopy.cta}</p>
+                    ) : null}
+                    {canShowComposer && emptyCopy.cta ? (
+                      <p className="mt-4 text-[12px] font-black text-[var(--accent-hover)]">{emptyCopy.cta}</p>
+                    ) : null}
+                    {!canShowComposer && channel.postingMode !== 'ALL_MEMBERS' ? (
+                      <p className="theme-text-secondary mt-3 text-[11px]">
+                        فقط نقش‌های مجاز می‌توانند منتشر کنند؛ شما مخاطب فید هستید.
+                      </p>
+                    ) : null}
+                  </div>
+                ) : (
+                  <div className="mt-3 pr-0.5">
+                    <ul className="space-y-4">
+                      {timelineMessages.map((m) => (
+                        <li key={m.id} id={`channel-msg-${m.id}`}>
+                          <ChannelPublicationCard
+                            message={m}
+                            variant="timeline"
+                            broadcastLabel="انتشار کانال"
+                            pinActionLabel={
+                              canManagePins ? (pinnedMessage?.id === m.id ? 'برداشتن سنجاق' : 'سنجاق کردن') : undefined
+                            }
+                            pinActionDisabled={pinBusyId === m.id}
+                            onPinAction={
+                              canManagePins
+                                ? (msg) => {
+                                    const token = getAccessToken();
+                                    if (!token || !id) return;
+                                    const targetId = pinnedMessage?.id === msg.id ? null : msg.id;
+                                    setPinBusyId(msg.id);
+                                    void apiFetch<{ message: ChannelMsg | null }>(`channels/${encodeURIComponent(id)}/pin`, {
+                                      method: 'POST',
+                                      token,
+                                      headers: { 'Content-Type': 'application/json' },
+                                      body: JSON.stringify({ messageId: targetId }),
+                                    })
+                                      .then((res) => setPinnedMessage(res?.message ?? null))
+                                      .finally(() => setPinBusyId(null));
+                                  }
+                                : undefined
+                            }
+                          />
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </CommunityTimelineFrame>
+            </div>
+          </div>
+
+          {canShowComposer && id ? (
+            <div className="theme-panel-bg shrink-0 border-t border-[var(--border-soft)] px-0 pb-[max(0.35rem,env(safe-area-inset-bottom))] pt-2 shadow-[0_-4px_16px_rgba(0,0,0,0.06)]">
+              <ChannelRichComposer
+                channelId={id}
+                id="channel-composer-anchor"
+                className=""
+                sending={sending}
+                setSending={setSending}
+                onSent={(created) => {
+                  setSendErr(null);
+                  setMessages((prev) => {
+                    if (prev.some((m) => m.id === created.id)) return prev;
+                    return [...prev, created];
+                  });
+                  setChannel((c) => (c ? { ...c, postCount: (c.postCount ?? 0) + 1 } : c));
+                  scrollTimelineToBottom();
+                }}
+                onError={setSendErr}
+              />
+              {sendErr ? <p className="mt-2 text-center text-[11px] font-semibold text-red-700">{sendErr}</p> : null}
+            </div>
+          ) : null}
+
+          {!canShowComposer ? (
+            <div className="shrink-0 pb-[max(0.35rem,env(safe-area-inset-bottom))] pt-1">
+              <CommunityReadOnlyComposerBar>
+                {readOnlyHintForPostingMode(channel.postingMode)}{' '}
+                <span className="opacity-90">برای گفت‌وگوی آزاد، گروه مرتبط را باز کنید.</span>
+              </CommunityReadOnlyComposerBar>
+            </div>
+          ) : null}
+        </CommunityWorkspaceShell>
+      </div>
+
+      {id ? (
+        <CommunityToolsSheet open={toolsOpen} onClose={() => setToolsOpen(false)} targetType="CHANNEL" targetId={id} />
+      ) : null}
+    </>
+  ) : null;
+
   return (
     <AuthGate>
-      <CommunityWorkspaceShell withWorkspaceGradient fixedWorkspace={fixedMemberWorkspace}>
-        {loading && !channel ? (
+      {loading && !channel ? (
+        <CommunityWorkspaceShell withWorkspaceGradient>
           <CommunityWorkspaceHeaderBar>
             <CommunityBackButton onClick={() => router.back()} />
             <span className="text-[12px] text-[var(--text-secondary)]">در حال بارگذاری…</span>
           </CommunityWorkspaceHeaderBar>
-        ) : null}
+        </CommunityWorkspaceShell>
+      ) : null}
 
-        {!loading && channel ? (
-          <>
-            {!channel.isMember ? (
-              <>
-                <CommunityWorkspaceHeaderBar>
-                  <CommunityBackButton onClick={() => router.back()} />
-                  <div className="min-w-0 flex-1 text-right">
-                    <p className="theme-text-primary truncate text-[12px] font-black">کانال</p>
-                    <p className="truncate text-[10px] text-stone-500">{channel.name}</p>
-                  </div>
-                  {id ? (
-                    <Link
-                      href={`/channels/${encodeURIComponent(id)}/info`}
-                      className="shrink-0 rounded-full px-2 py-1 text-[10px] font-extrabold text-[var(--accent-hover)] hover:underline"
-                    >
-                      اطلاعات
-                    </Link>
-                  ) : null}
-                </CommunityWorkspaceHeaderBar>
+      {!loading && channel && channel.isMember ? memberWorkspace : null}
 
-                <div className="px-2.5 pb-10 pt-4 sm:px-3">
-                  <div className={`rounded-2xl border border-[var(--border-soft)] bg-[var(--card-bg)] p-4 shadow-sm`}>
-                    <div className="flex gap-3">
-                      <CommunityAvatarInitial letter={titleInitial} label={channel.name} size="lg" />
-                      <div className="min-w-0 flex-1 text-right">
-                        <h2 className="theme-text-primary text-[16px] font-black leading-tight">{channel.name}</h2>
-                        <p className="theme-text-secondary mt-1 line-clamp-3 text-[12px] leading-relaxed">{taglineGuest}</p>
-                        {id ? (
-                          <Link
-                            href={`/channels/${encodeURIComponent(id)}/info`}
-                            className="mt-2 inline-block text-[11px] font-extrabold text-[var(--accent-hover)] underline-offset-2 hover:underline"
-                          >
-                            مشاهدهٔ جزئیات و آمار کانال
-                          </Link>
-                        ) : null}
-                      </div>
-                    </div>
-                    {error ? <p className="mt-3 text-center text-[11px] font-semibold text-red-700">{error}</p> : null}
-                    <button
-                      type="button"
-                      disabled={joining}
-                      onClick={() => void joinChannel()}
-                      className="mt-4 w-full rounded-xl bg-violet-700 px-4 py-3 text-sm font-bold text-white shadow-md transition hover:bg-violet-800 disabled:opacity-50"
-                    >
-                      {joining ? '…' : 'پیوستن به کانال'}
-                    </button>
-                  </div>
-                </div>
-              </>
-            ) : (
-              <>
-                <CommunityWorkspaceHeaderBar>
-                  <CommunityBackButton onClick={() => router.back()} />
-                  {id ? (
-                    <Link
-                      href={`/channels/${encodeURIComponent(id)}/info`}
-                      className="flex min-w-0 max-w-[46%] flex-1 items-center gap-2 rounded-xl px-1 py-0.5 text-right transition hover:bg-[var(--surface-soft)] sm:max-w-[55%]"
-                    >
-                      <CommunityAvatarInitial letter={titleInitial} label={channel.name} size="md" />
-                      <div className="min-w-0">
-                        <p className="truncate text-[13px] font-black text-[var(--text-primary)]">{channel.name}</p>
-                        <p className="text-[10px] text-[var(--text-secondary)]">کانال انتشار</p>
-                      </div>
-                    </Link>
-                  ) : (
-                    <div className="min-w-0 flex-1" />
-                  )}
-                  {id ? (
-                    <Link
-                      href={`/channels/${encodeURIComponent(id)}/info`}
-                      className="shrink-0 rounded-full px-2 py-1 text-[10px] font-extrabold text-[var(--accent-hover)] hover:underline"
-                    >
-                      اطلاعات
-                    </Link>
-                  ) : null}
-                  <Link
-                    href="/spaces"
-                    className="shrink-0 rounded-full px-1.5 py-1 text-[10px] font-extrabold text-[var(--accent-hover)] hover:underline"
-                  >
-                    فضاها
-                  </Link>
-                </CommunityWorkspaceHeaderBar>
-
-                {error ? (
-                  <div className="shrink-0 border-b border-red-200/80 bg-red-50/90 px-3 py-2 text-center text-[11px] font-semibold text-red-800">
-                    {error}
-                  </div>
-                ) : null}
-
-                {id ? (
-                  <ChannelActionStrip
-                    channelId={id}
-                    networkId={channel.networkId}
-                    canShowComposer={!!canShowComposer}
-                    canManageSchedule={canManageSchedule}
-                    canManagePins={canManagePins}
-                    onOpenTools={() => setToolsOpen(true)}
-                    scrollTimelineToTop={scrollTimelineToTop}
-                  />
-                ) : null}
-
-                {pinnedMessage ? (
-                  <ChannelPinnedStrip message={pinnedMessage} onOpenTools={() => setToolsOpen(true)} />
-                ) : null}
-
-                <div className="flex min-h-0 flex-1 flex-col overflow-hidden px-2 sm:px-2.5">
-                  <div
-                    ref={timelineScrollRef}
-                    id="channel-feed-anchor"
-                    className="channel-timeline-scroll min-h-0 flex-1 overflow-y-auto overscroll-contain px-0.5 [-webkit-overflow-scrolling:touch]"
-                  >
-                    {id ? (
-                      <div className="pt-2">
-                        <ChannelFeaturedZone
-                          channelId={id}
-                          pinnedPost={pinnedMessage}
-                          pinnedPresentation="external"
-                          newestPost={newestPost}
-                          onOpenTools={() => setToolsOpen(true)}
-                          canPost={!!canShowComposer}
-                          onTimelineExcludeId={onTimelineExclude}
-                        />
-                      </div>
-                    ) : null}
-
-                    <CommunityTimelineFrame
-                      title="انتشارات"
-                      subtitle="فید رسمی کانال"
-                      className="mt-3 border-0 bg-transparent p-0 shadow-none"
-                    >
-                      {loadingMsgs ? (
-                        <p className="theme-text-secondary mt-3 px-1 text-xs">بارگذاری فید…</p>
-                      ) : messages.length === 0 ? (
-                        <div className="mt-3 rounded-2xl border border-dashed border-[var(--border-soft)] bg-[var(--surface-soft)]/90 px-4 py-8 text-center">
-                          <p className="text-[15px] font-black text-[var(--text-primary)]">{emptyCopy.title}</p>
-                          <p className="theme-text-secondary mt-2 text-[13px] leading-relaxed">{emptyCopy.subtitle}</p>
-                          {!canShowComposer ? (
-                            <p className="theme-text-secondary mt-4 text-[12px] font-medium">{emptyCopy.cta}</p>
-                          ) : null}
-                          {canShowComposer && emptyCopy.cta ? (
-                            <p className="mt-4 text-[12px] font-black text-[var(--accent-hover)]">{emptyCopy.cta}</p>
-                          ) : null}
-                          {!canShowComposer && channel.postingMode !== 'ALL_MEMBERS' ? (
-                            <p className="theme-text-secondary mt-3 text-[11px]">
-                              فقط نقش‌های مجاز می‌توانند منتشر کنند؛ شما مخاطب فید هستید.
-                            </p>
-                          ) : null}
-                        </div>
-                      ) : (
-                        <div className="mt-3 pr-0.5">
-                          <ul className="space-y-4">
-                            {timelineMessages.map((m) => (
-                              <li key={m.id} id={`channel-msg-${m.id}`}>
-                                <ChannelPublicationCard
-                                  message={m}
-                                  variant="timeline"
-                                  broadcastLabel="انتشار کانال"
-                                  pinActionLabel={
-                                    canManagePins ? (pinnedMessage?.id === m.id ? 'برداشتن سنجاق' : 'سنجاق کردن') : undefined
-                                  }
-                                  pinActionDisabled={pinBusyId === m.id}
-                                  onPinAction={
-                                    canManagePins
-                                      ? (msg) => {
-                                          const token = getAccessToken();
-                                          if (!token || !id) return;
-                                          const targetId = pinnedMessage?.id === msg.id ? null : msg.id;
-                                          setPinBusyId(msg.id);
-                                          void apiFetch<{ message: ChannelMsg | null }>(`channels/${encodeURIComponent(id)}/pin`, {
-                                            method: 'POST',
-                                            token,
-                                            headers: { 'Content-Type': 'application/json' },
-                                            body: JSON.stringify({ messageId: targetId }),
-                                          })
-                                            .then((res) => setPinnedMessage(res?.message ?? null))
-                                            .finally(() => setPinBusyId(null));
-                                        }
-                                      : undefined
-                                  }
-                                />
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      )}
-                    </CommunityTimelineFrame>
-                  </div>
-                </div>
-
-                {canShowComposer && id ? (
-                  <div className="theme-panel-bg shrink-0 border-t border-[var(--border-soft)] px-0 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2 shadow-[0_-4px_16px_rgba(0,0,0,0.06)]">
-                    <ChannelRichComposer
-                      channelId={id}
-                      id="channel-composer-anchor"
-                      className=""
-                      sending={sending}
-                      setSending={setSending}
-                      onSent={(created) => {
-                        setSendErr(null);
-                        setMessages((prev) => {
-                          if (prev.some((m) => m.id === created.id)) return prev;
-                          return [...prev, created];
-                        });
-                        setChannel((c) => (c ? { ...c, postCount: (c.postCount ?? 0) + 1 } : c));
-                      }}
-                      onError={setSendErr}
-                    />
-                    {sendErr ? <p className="mt-2 text-center text-[11px] font-semibold text-red-700">{sendErr}</p> : null}
-                  </div>
-                ) : null}
-
-                {!canShowComposer ? (
-                  <div className="shrink-0 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-1">
-                    <CommunityReadOnlyComposerBar>
-                      {readOnlyHintForPostingMode(channel.postingMode)}{' '}
-                      <span className="opacity-90">برای گفت‌وگوی آزاد، گروه مرتبط را باز کنید.</span>
-                    </CommunityReadOnlyComposerBar>
-                  </div>
-                ) : null}
-              </>
-            )}
-
-            {channel.isMember && id ? (
-              <CommunityToolsSheet
-                open={toolsOpen}
-                onClose={() => setToolsOpen(false)}
-                targetType="CHANNEL"
-                targetId={id}
-              />
-            ) : null}
-          </>
-        ) : null}
-
-        {!loading && !channel && fallbackNetworkId ? (
-          <div className="px-3 pt-4">
-            <CommunityWorkspaceHeaderBar>
-              <CommunityBackButton onClick={() => router.back()} />
-            </CommunityWorkspaceHeaderBar>
-            <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50/90 p-4 text-sm text-amber-950">
-              <p className="font-bold">دسترسی به کانال</p>
-              <p className="mt-2 text-xs leading-relaxed">
-                احتمالاً هنوز عضو شبکهٔ این کانال نیستید. ابتدا به شبکه بپیوندید، سپس دوباره کانال را باز کنید.
-              </p>
+      {!loading && channel && !channel.isMember ? (
+        <CommunityWorkspaceShell withWorkspaceGradient>
+          <CommunityWorkspaceHeaderBar>
+            <CommunityBackButton onClick={() => router.back()} />
+            <div className="min-w-0 flex-1 text-right">
+              <p className="theme-text-primary truncate text-[12px] font-black">کانال</p>
+              <p className="truncate text-[10px] text-stone-500">{channel.name}</p>
+            </div>
+            {id ? (
               <Link
-                href={`/networks/${encodeURIComponent(fallbackNetworkId)}`}
-                className="mt-3 inline-block text-xs font-bold text-sky-800 underline"
+                href={`/channels/${encodeURIComponent(id)}/info`}
+                className="shrink-0 rounded-full px-2 py-1 text-[10px] font-extrabold text-[var(--accent-hover)] hover:underline"
               >
-                رفتن به صفحهٔ شبکه و پیوستن
+                اطلاعات
               </Link>
-              {error ? <p className="mt-2 text-[11px] text-amber-900/90">{error}</p> : null}
+            ) : null}
+          </CommunityWorkspaceHeaderBar>
+
+          <div className="px-2.5 pb-10 pt-4 sm:px-3">
+            <div className={`rounded-2xl border border-[var(--border-soft)] bg-[var(--card-bg)] p-4 shadow-sm`}>
+              <div className="flex gap-3">
+                <CommunityAvatarInitial letter={titleInitial} label={channel.name} size="lg" />
+                <div className="min-w-0 flex-1 text-right">
+                  <h2 className="theme-text-primary text-[16px] font-black leading-tight">{channel.name}</h2>
+                  <p className="theme-text-secondary mt-1 line-clamp-3 text-[12px] leading-relaxed">{taglineGuest}</p>
+                  {id ? (
+                    <Link
+                      href={`/channels/${encodeURIComponent(id)}/info`}
+                      className="mt-2 inline-block text-[11px] font-extrabold text-[var(--accent-hover)] underline-offset-2 hover:underline"
+                    >
+                      مشاهدهٔ جزئیات و آمار کانال
+                    </Link>
+                  ) : null}
+                </div>
+              </div>
+              {error ? <p className="mt-3 text-center text-[11px] font-semibold text-red-700">{error}</p> : null}
+              <button
+                type="button"
+                disabled={joining}
+                onClick={() => void joinChannel()}
+                className="mt-4 w-full rounded-xl bg-violet-700 px-4 py-3 text-sm font-bold text-white shadow-md transition hover:bg-violet-800 disabled:opacity-50"
+              >
+                {joining ? '…' : 'پیوستن به کانال'}
+              </button>
             </div>
           </div>
-        ) : null}
+        </CommunityWorkspaceShell>
+      ) : null}
 
-        {!loading && !channel && !fallbackNetworkId ? (
-          <div className="px-3 pt-4">
-            <CommunityWorkspaceHeaderBar>
-              <CommunityBackButton onClick={() => router.back()} />
-            </CommunityWorkspaceHeaderBar>
-            {error ? <p className="mt-4 text-sm font-semibold text-red-700">{error}</p> : (
-              <p className="theme-text-secondary mt-4 text-sm">کانال پیدا نشد</p>
-            )}
+      {!loading && !channel && fallbackNetworkId ? (
+        <div className="px-3 pt-4">
+          <CommunityWorkspaceHeaderBar>
+            <CommunityBackButton onClick={() => router.back()} />
+          </CommunityWorkspaceHeaderBar>
+          <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50/90 p-4 text-sm text-amber-950">
+            <p className="font-bold">دسترسی به کانال</p>
+            <p className="mt-2 text-xs leading-relaxed">
+              احتمالاً هنوز عضو شبکهٔ این کانال نیستید. ابتدا به شبکه بپیوندید، سپس دوباره کانال را باز کنید.
+            </p>
+            <Link
+              href={`/networks/${encodeURIComponent(fallbackNetworkId)}`}
+              className="mt-3 inline-block text-xs font-bold text-sky-800 underline"
+            >
+              رفتن به صفحهٔ شبکه و پیوستن
+            </Link>
+            {error ? <p className="mt-2 text-[11px] text-amber-900/90">{error}</p> : null}
           </div>
-        ) : null}
-      </CommunityWorkspaceShell>
+        </div>
+      ) : null}
+
+      {!loading && !channel && !fallbackNetworkId ? (
+        <div className="px-3 pt-4">
+          <CommunityWorkspaceHeaderBar>
+            <CommunityBackButton onClick={() => router.back()} />
+          </CommunityWorkspaceHeaderBar>
+          {error ? <p className="mt-4 text-sm font-semibold text-red-700">{error}</p> : (
+            <p className="theme-text-secondary mt-4 text-sm">کانال پیدا نشد</p>
+          )}
+        </div>
+      ) : null}
     </AuthGate>
   );
 }

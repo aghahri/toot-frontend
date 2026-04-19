@@ -3,6 +3,10 @@
 @tailwind utilities;
 
 :root {
+  /** App chrome: Navbar + fixed bottom tab bar — channel workspace fills the region between them. */
+  --toot-navbar-height: 3.25rem;
+  --toot-bottom-nav-height: calc(5rem + env(safe-area-inset-bottom, 0px));
+
   --app-bg: #eff6ff;
   --page-bg: #f6f9ff;
   --panel-bg: #e9f1ff;
