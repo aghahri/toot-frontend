@@ -41,24 +41,25 @@ export function ScheduledDateTimeField({ value, onChange, disabled, id }: Props)
   }, [value, calendar, loc]);
 
   return (
-    <DatePicker
-      calendar={calendar}
-      locale={loc}
-      value={pickerValue}
-      onChange={(date: DateObjectInstance | DateObjectInstance[] | null) => {
-        if (!date || Array.isArray(date)) {
-          onChange('');
-          return;
-        }
-        onChange(toIsoFromDateObject(date));
-      }}
-      disabled={disabled}
-      format="YYYY/MM/DD HH:mm"
-      plugins={[<TimePicker key="tp" position="bottom" hideSeconds />]}
-      containerClassName="w-full"
-      inputClass="w-full rounded-xl border border-[var(--border-soft)] bg-[var(--surface-soft)] px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-violet-500/40"
-      id={id}
-      dir={isFa ? 'rtl' : 'ltr'}
-    />
+    <div className="w-full" dir={isFa ? 'rtl' : 'ltr'}>
+      <DatePicker
+        calendar={calendar}
+        locale={loc}
+        value={pickerValue}
+        onChange={(date: DateObjectInstance | DateObjectInstance[] | null) => {
+          if (!date || Array.isArray(date)) {
+            onChange('');
+            return;
+          }
+          onChange(toIsoFromDateObject(date));
+        }}
+        disabled={disabled}
+        format="YYYY/MM/DD HH:mm"
+        plugins={[<TimePicker key="tp" position="bottom" hideSeconds />]}
+        containerClassName="w-full"
+        inputClass="w-full rounded-xl border border-[var(--border-soft)] bg-[var(--surface-soft)] px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-violet-500/40"
+        id={id}
+      />
+    </div>
   );
 }
