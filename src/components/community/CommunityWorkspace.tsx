@@ -72,12 +72,13 @@ export function CommunityAvatarInitial({
 }: {
   letter: string;
   label?: string;
-  /** md = 36px (group/channel default), lg = 44px for richer channel header */
-  size?: 'md' | 'lg';
+  /** md = 36px, lg = 44px, xl = 64px (channel hero — broadcast identity) */
+  size?: 'md' | 'lg' | 'xl';
 }) {
   const ch = letter.trim().slice(0, 1) || '؟';
-  const box = size === 'lg' ? 'h-11 w-11 ring-[2.5px]' : 'h-9 w-9 ring-2';
-  const text = size === 'lg' ? 'text-base' : 'text-sm';
+  const box =
+    size === 'xl' ? 'h-16 w-16 ring-[3px]' : size === 'lg' ? 'h-11 w-11 ring-[2.5px]' : 'h-9 w-9 ring-2';
+  const text = size === 'xl' ? 'text-2xl' : size === 'lg' ? 'text-base' : 'text-sm';
   return (
     <div
       className={`theme-surface-strong relative ${box} shrink-0 overflow-hidden rounded-full ring-white/70`}
@@ -116,10 +117,12 @@ export function CommunityToolsTrigger({
 /** Framed message list region — aligns channel timeline shell with group message area. */
 export function CommunityTimelineFrame({
   title,
+  subtitle,
   children,
   className = '',
 }: {
   title: string;
+  subtitle?: string;
   children: ReactNode;
   className?: string;
 }) {
@@ -127,7 +130,10 @@ export function CommunityTimelineFrame({
     <section
       className={`theme-panel-bg theme-border-soft mt-3 flex min-h-0 flex-1 flex-col rounded-2xl border p-3 ${className}`}
     >
-      <h2 className="theme-text-secondary px-1 text-xs font-extrabold">{title}</h2>
+      <div className="px-1">
+        <h2 className="theme-text-secondary text-xs font-extrabold">{title}</h2>
+        {subtitle ? <p className="mt-0.5 text-[10px] leading-snug text-[var(--text-secondary)]/90">{subtitle}</p> : null}
+      </div>
       {children}
     </section>
   );

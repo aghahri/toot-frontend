@@ -23,6 +23,8 @@ type Props = {
   rows?: number;
   /** Extra classes on the outer section (e.g. mt-auto for bottom-anchored composer). */
   className?: string;
+  /** Anchor for scroll-into-view (e.g. channel “انتشار”) */
+  id?: string;
 };
 
 export function CommunityTextComposer({
@@ -40,11 +42,13 @@ export function CommunityTextComposer({
   maxLength = 10000,
   rows = 3,
   className = '',
+  id,
 }: Props) {
   const allow = canSubmit && !!value.trim() && !sending;
 
   return (
     <section
+      id={id}
       className={`theme-card-bg theme-border-soft mt-3 rounded-2xl border p-3 shadow-sm ${className}`.trim()}
       dir="rtl"
     >

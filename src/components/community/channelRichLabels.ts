@@ -90,33 +90,65 @@ export function channelEmptyStateCopy(
   switch (kind) {
     case 'neighborhood':
       return {
-        title: 'هنوز اطلاعیه‌ای منتشر نشده',
-        subtitle: 'این کانال برای اطلاع‌رسانی محلی آماده است؛ اولین خبر را همین‌جا منتشر کنید.',
-        cta: canPost ? 'اولین انتشار را بنویسید' : undefined,
+        title: 'هنوز انتشاری ثبت نشده',
+        subtitle: 'این کانال برای اطلاعیه‌های محله آماده است؛ اخبار و اعلان‌های محلی اینجا پخش می‌شوند.',
+        cta: canPost ? 'اولین مطلب را منتشر کنید' : 'این کانال را دنبال کنید',
       };
     case 'business':
       return {
-        title: 'هنوز محتوایی منتشر نشده',
-        subtitle: 'کانال رسمی سازمان شماست؛ اعلان‌ها و فرصت‌ها را اینجا منتشر کنید.',
-        cta: canPost ? 'اولین اعلان یا فرصت شغلی را منتشر کنید' : undefined,
+        title: 'هنوز انتشاری ثبت نشده',
+        subtitle: 'این کانال برای اطلاعیه‌ها و انتشار اخبار آماده است؛ فضای رسمی و قابل اعتماد برای سازمان شما.',
+        cta: canPost ? 'اولین مطلب را منتشر کنید' : 'این کانال را دنبال کنید',
       };
     case 'education':
       return {
-        title: 'هنوز مطلبی منتشر نشده',
-        subtitle: 'کلاس، اخبار و برنامه‌ها را در این کانال اطلاع‌رسانی کنید.',
-        cta: canPost ? 'اولین مطلب آموزشی را بنویسید' : undefined,
+        title: 'هنوز انتشاری ثبت نشده',
+        subtitle: 'این کانال برای انتشار مطالب آموزشی آماده است؛ برنامه‌ها و مطالب را اینجا اطلاع‌رسانی کنید.',
+        cta: canPost ? 'اولین مطلب را منتشر کنید' : 'این کانال را دنبال کنید',
       };
     case 'sport':
       return {
-        title: 'هنوز خبری منتشر نشده',
-        subtitle: 'اخبار تیم و رویدادها را اینجا با اعضا به اشتراک بگذارید.',
-        cta: canPost ? 'اولین خبر را منتشر کنید' : undefined,
+        title: 'هنوز انتشاری ثبت نشده',
+        subtitle: 'اخبار تیم و رویدادها را اینجا به‌صورت فید رسمی منتشر کنید.',
+        cta: canPost ? 'اولین مطلب را منتشر کنید' : 'این کانال را دنبال کنید',
       };
     default:
       return {
-        title: 'این کانال آمادهٔ اولین انتشار است',
-        subtitle: 'پیام‌ها اینجا به‌صورت فید منتشر می‌شوند؛ با ابزارهای مرتبط، محله و شبکه را به کانال وصل کنید.',
-        cta: canPost ? 'اولین پست را بنویسید' : undefined,
+        title: 'کانال آمادهٔ اولین انتشار است',
+        subtitle: 'این فضا برای پخش و اطلاع‌رسانی است؛ رفتار آن شبیه گفت‌وگوی گروهی نیست.',
+        cta: canPost ? 'اولین مطلب را منتشر کنید' : 'این کانال را دنبال کنید',
       };
+  }
+}
+
+/** One-line broadcast purpose under the title — publication-first positioning */
+export function channelHeroTagline(kind: ChannelEmptyKind, networkName: string): string {
+  switch (kind) {
+    case 'business':
+      return `اطلاعیه‌ها، فرصت‌های شغلی و اخبار — ${networkName}`;
+    case 'neighborhood':
+      return `اطلاعیه‌ها و اخبار محلی — ${networkName}`;
+    case 'education':
+      return `مطالب آموزشی و برنامه‌ها — ${networkName}`;
+    case 'sport':
+      return `اخبار و رویدادها — ${networkName}`;
+    default:
+      return `فضای انتشار و اطلاع‌رسانی — ${networkName}`;
+  }
+}
+
+/** Subtle hero chrome — not a giant banner */
+export function channelHeroSurfaceClass(kind: ChannelEmptyKind): string {
+  switch (kind) {
+    case 'business':
+      return 'border-slate-300/80 bg-[linear-gradient(145deg,rgba(15,23,42,0.06)_0%,rgba(99,102,241,0.06)_45%,transparent_100%)] shadow-[0_12px_40px_-12px_rgba(15,23,42,0.25)]';
+    case 'neighborhood':
+      return 'border-emerald-400/35 bg-[linear-gradient(145deg,rgba(16,185,129,0.09)_0%,rgba(59,130,246,0.05)_50%,transparent_100%)] shadow-[0_12px_36px_-14px_rgba(16,185,129,0.28)]';
+    case 'education':
+      return 'border-indigo-400/30 bg-[linear-gradient(145deg,rgba(99,102,241,0.08)_0%,transparent_55%)] shadow-md';
+    case 'sport':
+      return 'border-orange-400/30 bg-[linear-gradient(145deg,rgba(249,115,22,0.07)_0%,transparent_55%)] shadow-md';
+    default:
+      return 'border-[var(--border-soft)] bg-[var(--card-bg)] shadow-md';
   }
 }
