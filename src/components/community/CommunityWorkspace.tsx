@@ -65,15 +65,26 @@ export function CommunityBackButton({
   );
 }
 
-export function CommunityAvatarInitial({ letter, label }: { letter: string; label?: string }) {
+export function CommunityAvatarInitial({
+  letter,
+  label,
+  size = 'md',
+}: {
+  letter: string;
+  label?: string;
+  /** md = 36px (group/channel default), lg = 44px for richer channel header */
+  size?: 'md' | 'lg';
+}) {
   const ch = letter.trim().slice(0, 1) || '؟';
+  const box = size === 'lg' ? 'h-11 w-11 ring-[2.5px]' : 'h-9 w-9 ring-2';
+  const text = size === 'lg' ? 'text-base' : 'text-sm';
   return (
     <div
-      className="theme-surface-strong relative h-9 w-9 shrink-0 overflow-hidden rounded-full ring-2 ring-white/70"
+      className={`theme-surface-strong relative ${box} shrink-0 overflow-hidden rounded-full ring-white/70`}
       title={label}
       aria-hidden={!label}
     >
-      <span className="flex h-full w-full items-center justify-center text-sm font-bold text-slate-600">{ch}</span>
+      <span className={`flex h-full w-full items-center justify-center font-bold text-slate-600 ${text}`}>{ch}</span>
     </div>
   );
 }
