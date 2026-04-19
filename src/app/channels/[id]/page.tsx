@@ -83,10 +83,10 @@ function ChannelDetailInner() {
     return t.slice(0, 1);
   }, [channel?.name]);
 
-  const loadChannel = useCallback(async () => {
+  const loadChannel = useCallback(async (soft?: boolean) => {
     const token = getAccessToken();
     if (!token || !id) return;
-    setLoading(true);
+    if (!soft) setLoading(true);
     setError(null);
     try {
       const row = await apiFetch<ChannelPayload>(`channels/${encodeURIComponent(id)}`, {
@@ -98,14 +98,14 @@ function ChannelDetailInner() {
       setError(e instanceof Error ? e.message : 'خطا');
       setChannel(null);
     } finally {
-      setLoading(false);
+      if (!soft) setLoading(false);
     }
   }, [id]);
 
-  const loadMessages = useCallback(async () => {
+  const loadMessages = useCallback(async (soft?: boolean) => {
     const token = getAccessToken();
     if (!token || !id) return;
-    setLoadingMsgs(true);
+    if (!soft) setLoadingMsgs(true);
     try {
       const res = await apiFetch<{ data: ChannelMsg[] }>(
         `channels/${encodeURIComponent(id)}/messages?limit=40`,
@@ -115,7 +115,7 @@ function ChannelDetailInner() {
     } catch {
       setMessages([]);
     } finally {
-      setLoadingMsgs(false);
+      if (!soft) setLoadingMsgs(false);
     }
   }, [id]);
 
@@ -162,7 +162,7 @@ function ChannelDetailInner() {
     setError(null);
     try {
       await apiFetch(`channels/${encodeURIComponent(id)}/join`, { method: 'POST', token });
-      await loadChannel();
+      await loadChannel(true);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'پیوستن ممکن نیست');
     } finally {
@@ -339,9 +339,13 @@ function ChannelDetailInner() {
                     className="mt-4 shrink-0 scroll-mt-24"
                     sending={sending}
                     setSending={setSending}
-                    onSent={() => {
+                    onSent={(created) => {
                       setSendErr(null);
-                      void Promise.all([loadMessages(), loadChannel()]);
+                      setMessages((prev) => {
+                        if (prev.some((m) => m.id === created.id)) return prev;
+                        return [...prev, created];
+                      });
+                      setChannel((c) => (c ? { ...c, postCount: (c.postCount ?? 0) + 1 } : c));
                     }}
                     onError={setSendErr}
                   />

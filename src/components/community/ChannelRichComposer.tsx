@@ -5,6 +5,7 @@ import { getAccessToken } from '@/lib/auth';
 import { apiFetch } from '@/lib/api';
 import { createLocationMetadata } from '@/lib/locationMetadata';
 import { uploadFileToMediaId, uploadVoiceBlobWithXhr } from '@/lib/mediaUpload';
+import type { ChannelMsg } from '@/components/community/channelTypes';
 
 const MAX_VIDEO_BYTES = 100 * 1024 * 1024;
 const MAX_VOICE_RECORD_SEC = 120;
@@ -14,7 +15,7 @@ type VoicePhase = 'idle' | 'recording' | 'sending';
 
 type Props = {
   channelId: string;
-  onSent: () => void;
+  onSent: (created: ChannelMsg) => void;
   onError: (msg: string | null) => void;
   sending: boolean;
   setSending: (v: boolean) => void;
@@ -89,10 +90,10 @@ export function ChannelRichComposer({
     }
   }, [onError]);
 
-  async function postPayload(body: Record<string, unknown>) {
+  async function postPayload(body: Record<string, unknown>): Promise<ChannelMsg> {
     const token = getAccessToken();
     if (!token || !channelId) throw new Error('نشست نامعتبر است');
-    await apiFetch(`channels/${encodeURIComponent(channelId)}/messages`, {
+    return apiFetch<ChannelMsg>(`channels/${encodeURIComponent(channelId)}/messages`, {
       method: 'POST',
       token,
       headers: { 'Content-Type': 'application/json' },
@@ -121,12 +122,12 @@ export function ChannelRichComposer({
         clearFile();
         setUploadProgress(null);
       }
-      await postPayload({
+      const created = await postPayload({
         content: trimmed || undefined,
         mediaId,
       });
       setText('');
-      onSent();
+      onSent(created);
     } catch (err) {
       onError(err instanceof Error ? err.message : 'ارسال نشد');
     } finally {
@@ -144,8 +145,8 @@ export function ChannelRichComposer({
     setUploadProgress(0);
     try {
       const mediaId = await uploadVoiceBlobWithXhr(token, blob, mime, durationMs, (p) => setUploadProgress(p));
-      await postPayload({ mediaId });
-      onSent();
+      const created = await postPayload({ mediaId });
+      onSent(created);
     } catch (err) {
       onError(err instanceof Error ? err.message : 'ارسال صدا نشد');
     } finally {
@@ -236,8 +237,8 @@ export function ChannelRichComposer({
     onError(null);
     try {
       const md = await createLocationMetadata();
-      await postPayload({ messageType: 'LOCATION', metadata: md });
-      onSent();
+      const created = await postPayload({ messageType: 'LOCATION', metadata: md });
+      onSent(created);
     } catch (err) {
       onError(err instanceof Error ? err.message : 'خطا در مکان');
     } finally {
@@ -253,11 +254,11 @@ export function ChannelRichComposer({
     setSending(true);
     onError(null);
     try {
-      await postPayload({
+      const created = await postPayload({
         messageType: 'CONTACT',
         metadata: { name, ...(phone ? { phone } : {}) },
       });
-      onSent();
+      onSent(created);
     } catch (err) {
       onError(err instanceof Error ? err.message : 'خطا');
     } finally {
