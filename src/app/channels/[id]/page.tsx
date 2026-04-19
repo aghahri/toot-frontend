@@ -121,6 +121,20 @@ function ChannelDetailInner() {
     }
   }, [id]);
 
+  const loadPinned = useCallback(async () => {
+    const token = getAccessToken();
+    if (!token || !id || !channel?.isMember) return;
+    try {
+      const res = await apiFetch<{ message: ChannelMsg | null }>(`channels/${encodeURIComponent(id)}/pinned-message`, {
+        method: 'GET',
+        token,
+      });
+      setPinnedMessage(res?.message ?? null);
+    } catch {
+      setPinnedMessage(null);
+    }
+  }, [id, channel?.isMember]);
+
   useEffect(() => {
     void loadChannel();
   }, [loadChannel]);
@@ -158,20 +172,6 @@ function ChannelDetailInner() {
     () => (messages.length ? messages[messages.length - 1] : null),
     [messages],
   );
-
-  const loadPinned = useCallback(async () => {
-    const token = getAccessToken();
-    if (!token || !id || !channel?.isMember) return;
-    try {
-      const res = await apiFetch<{ message: ChannelMsg | null }>(`channels/${encodeURIComponent(id)}/pinned-message`, {
-        method: 'GET',
-        token,
-      });
-      setPinnedMessage(res?.message ?? null);
-    } catch {
-      setPinnedMessage(null);
-    }
-  }, [id, channel?.isMember]);
 
   const timelineMessages = useMemo(() => {
     if (!excludeMessageId) return messages;
