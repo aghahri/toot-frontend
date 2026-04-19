@@ -7,6 +7,7 @@ import { AuthGate } from '@/components/AuthGate';
 import { getAccessToken } from '@/lib/auth';
 import { apiFetch } from '@/lib/api';
 import { CommunityToolsSheet } from '@/components/capability/CommunityToolsSheet';
+import { CommunityTextComposer } from '@/components/community/CommunityTextComposer';
 
 type ChannelPayload = {
   id: string;
@@ -253,26 +254,14 @@ function ChannelDetailInner() {
             ) : null}
 
             {channel.isMember && canShowComposer ? (
-              <section className="theme-card-bg theme-border-soft mt-4 rounded-2xl border p-3 shadow-sm">
-                <h2 className="theme-text-secondary mb-2 text-xs font-extrabold">ارسال پیام</h2>
-                {sendErr ? <p className="mb-2 text-xs font-semibold text-red-600">{sendErr}</p> : null}
-                <textarea
-                  value={draft}
-                  onChange={(e) => setDraft(e.target.value)}
-                  placeholder="پیام خود را بنویسید…"
-                  rows={3}
-                  maxLength={10000}
-                  className="theme-text-primary w-full resize-none rounded-xl border border-[var(--border-soft)] bg-[var(--surface-soft)] px-3 py-2 text-sm outline-none focus:border-[var(--accent)]"
-                />
-                <button
-                  type="button"
-                  disabled={sending || !draft.trim()}
-                  onClick={() => void sendMessage()}
-                  className="mt-2 w-full rounded-xl bg-[var(--accent)] py-2.5 text-sm font-extrabold text-[var(--accent-contrast)] disabled:opacity-50"
-                >
-                  {sending ? 'در حال ارسال…' : 'ارسال'}
-                </button>
-              </section>
+              <CommunityTextComposer
+                value={draft}
+                onChange={setDraft}
+                onSubmit={() => void sendMessage()}
+                sending={sending}
+                error={sendErr}
+                hint={channel.postingMode ? POSTING_MODE_FA[channel.postingMode] ?? null : null}
+              />
             ) : null}
 
             {channel.isMember && !canShowComposer ? (

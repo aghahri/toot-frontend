@@ -1,0 +1,35 @@
+---
+description: Group and Channel share one workspace UX; diverge only via permissions/modes
+globs: "**/app/**/groups/**/*,**/app/**/channels/**/*,**/components/community/**/*,**/components/capability/**/*"
+alwaysApply: false
+---
+
+# Group / Channel product alignment
+
+## Principle
+
+- Group and Channel are both **community workspaces** in one product family.
+- Prefer **one mental model**: same layout, timeline, composer *shape*, tools sheet, theme, and mobile behavior.
+- **Diverge only** where participation policy requires it (posting mode, membership semantics, reply rules)—not duplicate unrelated UIs.
+
+## Before adding Channel-only or Group-only UI
+
+Ask: is this difference **behavioral** (product) or **only permissions**?
+
+- If **only permissions**: reuse the same workspace shell; branch with roles, `canPost`, `postingMode`, badges, placeholders, disabled composer + hint text.
+- Do not build a separate “channel product” with unrelated patterns.
+
+## Composer
+
+- Same familiar surface: textarea + primary send, theme tokens (`theme-*`, `--accent`, `--border-soft`).
+- Differences should be: enabled/disabled, placeholder, permission hint, mode badge—not a different interaction model.
+- Extend shared primitives (e.g. `CommunityTextComposer`) rather than one-off channel styles.
+
+## Tools & parity
+
+- Linked capabilities, tools sheet, search, media, pins: **prefer parity** unless there is a clear product reason to omit on one side.
+
+## References
+
+- Group thread: `src/app/groups/[id]/page.tsx` (full chat; source of patterns).
+- Channel thread: `src/app/channels/[id]/page.tsx` (should converge visually; policy-driven composer).
