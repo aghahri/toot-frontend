@@ -4,5 +4,13 @@ export type ChannelMsg = {
   content: string | null;
   createdAt: string;
   sender: { id: string; name: string };
-  media?: { url: string; mimeType?: string; type?: string } | null;
+  messageType?: string | null;
+  metadata?: Record<string, unknown> | null;
+  media?: {
+    url: string;
+    mimeType?: string;
+    type?: string;
+    originalName?: string | null;
+    durationMs?: number | null;
+  } | null;
 };

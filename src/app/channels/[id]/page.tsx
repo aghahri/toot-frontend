@@ -7,7 +7,7 @@ import { AuthGate } from '@/components/AuthGate';
 import { getAccessToken } from '@/lib/auth';
 import { apiFetch } from '@/lib/api';
 import { CommunityToolsSheet } from '@/components/capability/CommunityToolsSheet';
-import { CommunityTextComposer } from '@/components/community/CommunityTextComposer';
+import { ChannelRichComposer } from '@/components/community/ChannelRichComposer';
 import { ChannelFeaturedZone } from '@/components/community/ChannelFeaturedZone';
 import { ChannelPublicationCard } from '@/components/community/ChannelPublicationCard';
 import { ChannelReframeHero } from '@/components/community/ChannelReframeHero';
@@ -73,7 +73,6 @@ function ChannelDetailInner() {
   const [joining, setJoining] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [toolsOpen, setToolsOpen] = useState(false);
-  const [draft, setDraft] = useState('');
   const [sending, setSending] = useState(false);
   const [sendErr, setSendErr] = useState<string | null>(null);
   const [excludeMessageId, setExcludeMessageId] = useState<string | null>(null);
@@ -155,27 +154,6 @@ function ChannelDetailInner() {
     if (!excludeMessageId) return messages;
     return messages.filter((m) => m.id !== excludeMessageId);
   }, [messages, excludeMessageId]);
-
-  async function sendMessage() {
-    const token = getAccessToken();
-    if (!token || !id || !draft.trim() || sending) return;
-    setSending(true);
-    setSendErr(null);
-    try {
-      await apiFetch(`channels/${encodeURIComponent(id)}/messages`, {
-        method: 'POST',
-        token,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content: draft.trim() }),
-      });
-      setDraft('');
-      await Promise.all([loadMessages(), loadChannel()]);
-    } catch (e) {
-      setSendErr(e instanceof Error ? e.message : 'ارسال نشد');
-    } finally {
-      setSending(false);
-    }
-  }
 
   async function joinChannel() {
     const token = getAccessToken();
@@ -353,19 +331,22 @@ function ChannelDetailInner() {
                 </div>
               ) : null}
 
-              {channel.isMember && canShowComposer ? (
-                <CommunityTextComposer
-                  id="channel-composer-anchor"
-                  value={draft}
-                  onChange={setDraft}
-                  onSubmit={() => void sendMessage()}
-                  sending={sending}
-                  error={sendErr}
-                  hint={null}
-                  title="انتشار در کانال"
-                  placeholder="متن انتشار را بنویسید…"
-                  className="mt-4 shrink-0 scroll-mt-24"
-                />
+              {channel.isMember && canShowComposer && id ? (
+                <>
+                  <ChannelRichComposer
+                    channelId={id}
+                    id="channel-composer-anchor"
+                    className="mt-4 shrink-0 scroll-mt-24"
+                    sending={sending}
+                    setSending={setSending}
+                    onSent={() => {
+                      setSendErr(null);
+                      void Promise.all([loadMessages(), loadChannel()]);
+                    }}
+                    onError={setSendErr}
+                  />
+                  {sendErr ? <p className="mt-2 text-center text-[11px] font-semibold text-red-700">{sendErr}</p> : null}
+                </>
               ) : null}
 
               {channel.isMember && !canShowComposer ? (
