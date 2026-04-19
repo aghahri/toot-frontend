@@ -292,7 +292,7 @@ function ChannelDetailInner() {
               ) : null}
             </CommunityWorkspaceHeaderBar>
 
-            <div className="flex min-h-0 flex-1 flex-col overflow-hidden px-2.5 pb-10 pt-3 sm:px-3">
+            <div className="flex flex-1 flex-col px-2.5 pt-3 sm:px-3">
               <ChannelReframeHero
                 titleInitial={titleInitial}
                 channelName={channel.name}
@@ -336,11 +336,11 @@ function ChannelDetailInner() {
               ) : null}
 
               {channel.isMember ? (
-                <div id="channel-feed-anchor" className="min-h-0 flex-1 scroll-mt-28">
+                <div id="channel-feed-anchor" className="scroll-mt-28">
                   <CommunityTimelineFrame
                     title="انتشارات"
                     subtitle="فید رسمی کانال — نه گفت‌وگوی گروهی"
-                    className="mt-4 min-h-0 overflow-hidden"
+                    className="mt-4"
                   >
                     {loadingMsgs ? (
                       <p className="theme-text-secondary mt-3 px-1 text-xs">بارگذاری فید…</p>
@@ -361,7 +361,7 @@ function ChannelDetailInner() {
                         ) : null}
                       </div>
                     ) : (
-                      <div className="mt-4 min-h-0 flex-1 overflow-y-auto overscroll-contain pr-0.5 [-webkit-overflow-scrolling:touch]">
+                      <div className="mt-4 pr-0.5">
                         <ul className="space-y-4">
                         {timelineMessages.map((m) => (
                           <li key={m.id}>
@@ -402,11 +402,11 @@ function ChannelDetailInner() {
               ) : null}
 
               {channel.isMember && canShowComposer && id ? (
-                <>
+                <div className="theme-panel-bg theme-border-soft sticky bottom-0 z-20 mt-4 border-t px-0 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2 shadow-[0_-1px_8px_rgba(0,0,0,0.05)] backdrop-blur-md [-webkit-backdrop-filter:blur(12px)]">
                   <ChannelRichComposer
                     channelId={id}
                     id="channel-composer-anchor"
-                    className="mt-4 shrink-0 scroll-mt-24"
+                    className="scroll-mt-24"
                     sending={sending}
                     setSending={setSending}
                     onSent={(created) => {
@@ -420,7 +420,7 @@ function ChannelDetailInner() {
                     onError={setSendErr}
                   />
                   {sendErr ? <p className="mt-2 text-center text-[11px] font-semibold text-red-700">{sendErr}</p> : null}
-                </>
+                </div>
               ) : null}
 
               {channel.isMember && !canShowComposer ? (

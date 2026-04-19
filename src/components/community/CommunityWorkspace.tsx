@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 
-/** Same outer shell family as group thread: full-height column workspace. */
+/** Same outer shell family as group thread: min-height column; document scroll (no fixed h / overflow trap). */
 export function CommunityWorkspaceShell({
   children,
   withWorkspaceGradient = false,
@@ -14,7 +14,7 @@ export function CommunityWorkspaceShell({
 }) {
   return (
     <main
-      className={`theme-page-bg theme-text-primary mx-auto flex h-[100dvh] min-h-0 w-full max-w-md flex-col overflow-hidden ${
+      className={`theme-page-bg theme-text-primary mx-auto flex min-h-[100dvh] w-full max-w-md flex-col ${
         withWorkspaceGradient ? 'bg-[linear-gradient(180deg,var(--surface-soft)_0%,var(--page-bg)_28%)]' : ''
       }`}
       dir="rtl"
@@ -128,7 +128,7 @@ export function CommunityTimelineFrame({
 }) {
   return (
     <section
-      className={`theme-panel-bg theme-border-soft mt-3 flex min-h-0 flex-1 flex-col rounded-2xl border p-3 ${className}`}
+      className={`theme-panel-bg theme-border-soft mt-3 flex flex-col rounded-2xl border p-3 ${className}`}
     >
       <div className="px-1">
         <h2 className="theme-text-secondary text-xs font-extrabold">{title}</h2>

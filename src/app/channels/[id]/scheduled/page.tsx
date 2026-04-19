@@ -4,15 +4,10 @@ import { FormEvent, useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { AuthGate } from '@/components/AuthGate';
+import { ScheduledDateTimeField } from '@/components/community/ScheduledDateTimeField';
 import { getAccessToken } from '@/lib/auth';
 import { apiFetch } from '@/lib/api';
-import {
-  formatAppDateTime,
-  getAppLocale,
-  isoToDatetimeLocalValue,
-  isoToJalaliInputValue,
-  parseJalaliInputToIso,
-} from '@/lib/locale-date';
+import { formatAppDateTime, getAppLocale } from '@/lib/locale-date';
 
 type Row = {
   id: string;
@@ -20,6 +15,12 @@ type Row = {
   scheduledFor: string;
   status: 'PENDING' | 'PUBLISHED' | 'CANCELED' | 'FAILED';
 };
+
+function toValidIso(raw: string): string | null {
+  const d = new Date(raw);
+  if (Number.isNaN(d.getTime())) return null;
+  return d.toISOString();
+}
 
 export default function ChannelScheduledPage() {
   const params = useParams();
@@ -60,11 +61,14 @@ export default function ChannelScheduledPage() {
     e.preventDefault();
     const token = getAccessToken();
     if (!token || !id || !scheduledFor) return;
+    const iso = toValidIso(scheduledFor);
+    if (!iso) {
+      setErr('تاریخ/زمان نامعتبر است');
+      return;
+    }
     setSaving(true);
     setErr(null);
     try {
-      const iso = isFa ? parseJalaliInputToIso(scheduledFor) : new Date(scheduledFor).toISOString();
-      if (!iso) throw new Error('تاریخ/زمان نامعتبر است');
       await apiFetch(`channels/${encodeURIComponent(id)}/scheduled-posts`, {
         method: 'POST',
         token,
@@ -91,7 +95,7 @@ export default function ChannelScheduledPage() {
   async function onEditSave(rowId: string) {
     const token = getAccessToken();
     if (!token || !id || !editScheduledFor) return;
-    const iso = isFa ? parseJalaliInputToIso(editScheduledFor) : new Date(editScheduledFor).toISOString();
+    const iso = toValidIso(editScheduledFor);
     if (!iso) {
       setErr('تاریخ/زمان نامعتبر است');
       return;
@@ -118,24 +122,11 @@ export default function ChannelScheduledPage() {
             <h1 className="text-sm font-black text-[var(--text-primary)]">زمان‌بندی انتشار</h1>
             <form onSubmit={onCreate} className="mt-3 space-y-2">
               <textarea value={content} onChange={(e) => setContent(e.target.value)} rows={3} placeholder="متن انتشار" className="w-full rounded-xl border border-[var(--border-soft)] bg-[var(--surface-soft)] px-3 py-2 text-sm" />
-              {isFa ? (
-                <input
-                  type="text"
-                  value={scheduledFor}
-                  onChange={(e) => setScheduledFor(e.target.value)}
-                  placeholder="۱۴۰۵-۰۲-۰۱ ۱۰:۳۰"
-                  className="w-full rounded-xl border border-[var(--border-soft)] bg-[var(--surface-soft)] px-3 py-2 text-sm"
-                />
-              ) : (
-                <input
-                  type="datetime-local"
-                  value={scheduledFor}
-                  onChange={(e) => setScheduledFor(e.target.value)}
-                  className="w-full rounded-xl border border-[var(--border-soft)] bg-[var(--surface-soft)] px-3 py-2 text-sm"
-                />
-              )}
+              <ScheduledDateTimeField value={scheduledFor} onChange={setScheduledFor} disabled={saving} />
               <p className="text-[11px] text-[var(--text-secondary)]">
-                {isFa ? 'ورودی جلالی (شمسی): YYYY-MM-DD HH:mm' : 'Input format: Gregorian local date/time'}
+                {isFa
+                  ? 'تاریخ و زمان را از تقویم شمسی انتخاب کنید (نمایش با تقویم برنامه یکسان است).'
+                  : 'Pick date and time from the calendar (matches app display locale).'}
               </p>
               <button disabled={saving || !scheduledFor} className="rounded-xl bg-violet-700 px-4 py-2 text-sm font-bold text-white disabled:opacity-50">
                 {saving ? '…' : 'ثبت انتشار زمان‌بندی‌شده'}
@@ -152,22 +143,7 @@ export default function ChannelScheduledPage() {
                     {editingId === r.id ? (
                       <div className="space-y-2">
                         <textarea value={editContent} onChange={(e) => setEditContent(e.target.value)} rows={2} className="w-full rounded-xl border border-[var(--border-soft)] bg-white px-2 py-1 text-xs" />
-                        {isFa ? (
-                          <input
-                            type="text"
-                            value={editScheduledFor}
-                            onChange={(e) => setEditScheduledFor(e.target.value)}
-                            placeholder="۱۴۰۵-۰۲-۰۱ ۱۰:۳۰"
-                            className="w-full rounded-xl border border-[var(--border-soft)] bg-white px-2 py-1 text-xs"
-                          />
-                        ) : (
-                          <input
-                            type="datetime-local"
-                            value={editScheduledFor}
-                            onChange={(e) => setEditScheduledFor(e.target.value)}
-                            className="w-full rounded-xl border border-[var(--border-soft)] bg-white px-2 py-1 text-xs"
-                          />
-                        )}
+                        <ScheduledDateTimeField value={editScheduledFor} onChange={setEditScheduledFor} />
                       </div>
                     ) : (
                       <>
@@ -184,7 +160,7 @@ export default function ChannelScheduledPage() {
                             onClick={() => {
                               setEditingId(r.id);
                               setEditContent(r.content || '');
-                              setEditScheduledFor(isFa ? isoToJalaliInputValue(r.scheduledFor) : isoToDatetimeLocalValue(r.scheduledFor));
+                              setEditScheduledFor(r.scheduledFor);
                             }}
                             className="text-[11px] font-bold text-[var(--accent-hover)]"
                           >
