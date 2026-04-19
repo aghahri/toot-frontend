@@ -3,20 +3,28 @@
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 
-/** Same outer shell family as group thread: min-height column; document scroll (no fixed h / overflow trap). */
+/**
+ * - Default: document-height column (e.g. group thread).
+ * - `fixedWorkspace`: viewport-locked column so only inner regions scroll (channel workspace).
+ */
 export function CommunityWorkspaceShell({
   children,
   withWorkspaceGradient = false,
+  fixedWorkspace = false,
 }: {
   children: ReactNode;
   /** Match group thread subtle gradient for “same family” feel */
   withWorkspaceGradient?: boolean;
+  /** Lock to 100dvh; use with flex-1 scroll region + fixed composer (channel). */
+  fixedWorkspace?: boolean;
 }) {
   return (
     <main
-      className={`theme-page-bg theme-text-primary mx-auto flex min-h-[100dvh] w-full max-w-md flex-col ${
-        withWorkspaceGradient ? 'bg-[linear-gradient(180deg,var(--surface-soft)_0%,var(--page-bg)_28%)]' : ''
-      }`}
+      className={`theme-page-bg theme-text-primary mx-auto flex w-full max-w-md flex-col ${
+        fixedWorkspace
+          ? 'h-[100dvh] max-h-[100dvh] min-h-0 overflow-hidden'
+          : 'min-h-[100dvh]'
+      } ${withWorkspaceGradient ? 'bg-[linear-gradient(180deg,var(--surface-soft)_0%,var(--page-bg)_28%)]' : ''}`}
       dir="rtl"
     >
       {children}

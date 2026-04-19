@@ -18,8 +18,21 @@ export function formatAppDateTime(iso: string, withSeconds = false): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return iso;
   const locale = getAppLocale();
-  const tag = locale === 'fa' ? 'fa-IR-u-ca-persian' : 'en-US';
-  return new Intl.DateTimeFormat(tag, {
+  if (locale === 'fa') {
+    const datePart = new Intl.DateTimeFormat('fa-IR-u-ca-persian', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+    }).format(d);
+    const timeOpts: Intl.DateTimeFormatOptions = {
+      hour: '2-digit',
+      minute: '2-digit',
+      ...(withSeconds ? { second: '2-digit' as const } : {}),
+    };
+    const timePart = new Intl.DateTimeFormat('fa-IR', timeOpts).format(d);
+    return `${datePart}، ساعت ${timePart}`;
+  }
+  return new Intl.DateTimeFormat('en-US', {
     year: 'numeric',
     month: 'short',
     day: 'numeric',

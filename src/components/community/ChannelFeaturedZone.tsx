@@ -97,6 +97,10 @@ type Props = {
   canPost: boolean;
   /** When the zone highlights the latest post (no link won), parent hides that id from the timeline */
   onTimelineExcludeId?: (messageId: string | null) => void;
+  /**
+   * `external`: pinned is shown as a fixed strip above this zone; do not render the large pinned card here.
+   */
+  pinnedPresentation?: 'default' | 'external';
 };
 
 /**
@@ -109,6 +113,7 @@ export function ChannelFeaturedZone({
   onOpenTools,
   canPost,
   onTimelineExcludeId,
+  pinnedPresentation = 'default',
 }: Props) {
   const [rows, setRows] = useState<LinkedCapabilityRow[] | null>(null);
 
@@ -149,7 +154,7 @@ export function ChannelFeaturedZone({
     );
   }
 
-  if (pinnedPost) {
+  if (pinnedPost && pinnedPresentation === 'default') {
     return (
       <section aria-label="پست سنجاق‌شده">
         <div className="mb-2 flex items-center justify-between px-0.5">

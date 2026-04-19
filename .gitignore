@@ -17,6 +17,7 @@ yarn-error.log*
 
 # misc
 .DS_Store
+*.tsbuildinfo
 
 # Capacitor / Android local build outputs (keep committed android/ sources after `cap add android`)
 android/.gradle/

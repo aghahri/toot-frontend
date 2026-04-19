@@ -1,27 +1,29 @@
 'use client';
 
-import { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { AuthGate } from '@/components/AuthGate';
 import { getAccessToken } from '@/lib/auth';
 import { apiFetch } from '@/lib/api';
 import { CommunityToolsSheet } from '@/components/capability/CommunityToolsSheet';
+import { ChannelActionStrip } from '@/components/community/ChannelActionStrip';
 import { ChannelRichComposer } from '@/components/community/ChannelRichComposer';
 import { ChannelFeaturedZone } from '@/components/community/ChannelFeaturedZone';
+import { ChannelPinnedStrip } from '@/components/community/ChannelPinnedStrip';
 import { ChannelPublicationCard } from '@/components/community/ChannelPublicationCard';
-import { ChannelReframeHero } from '@/components/community/ChannelReframeHero';
 import type { ChannelMsg } from '@/components/community/channelTypes';
 import {
   channelEmptyStateCopy,
+  channelHeroTagline,
   readOnlyHintForPostingMode,
   resolveChannelEmptyKind,
 } from '@/components/community/channelRichLabels';
 import {
+  CommunityAvatarInitial,
   CommunityBackButton,
   CommunityReadOnlyComposerBar,
   CommunityTimelineFrame,
-  CommunityToolsTrigger,
   CommunityWorkspaceHeaderBar,
   CommunityWorkspaceShell,
 } from '@/components/community/CommunityWorkspace';
@@ -50,21 +52,14 @@ type ChannelPayload = {
   openJobsCount?: number | null;
 };
 
-function fmtCount(n: number | undefined): string {
-  if (n === undefined || Number.isNaN(n)) return '—';
-  try {
-    return n.toLocaleString('fa-IR');
-  } catch {
-    return String(n);
-  }
-}
-
 function ChannelDetailInner() {
   const params = useParams();
   const router = useRouter();
   const searchParams = useSearchParams();
   const id = typeof params?.id === 'string' ? params.id : '';
   const fallbackNetworkId = searchParams.get('network')?.trim() || '';
+
+  const timelineScrollRef = useRef<HTMLDivElement>(null);
 
   const [channel, setChannel] = useState<ChannelPayload | null>(null);
   const [messages, setMessages] = useState<ChannelMsg[]>([]);
@@ -178,6 +173,10 @@ function ChannelDetailInner() {
     return messages.filter((m) => m.id !== excludeMessageId);
   }, [messages, excludeMessageId]);
 
+  const scrollTimelineToTop = useCallback(() => {
+    timelineScrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+  }, []);
+
   async function joinChannel() {
     const token = getAccessToken();
     if (!token || !id) return;
@@ -200,71 +199,13 @@ function ChannelDetailInner() {
     ? channelEmptyStateCopy(emptyKind, !!channel.isMember && !!canShowComposer)
     : { title: '', subtitle: '', cta: undefined };
 
-  const heroActions =
-    channel?.isMember && id ? (
-      <div className="-mx-1 flex max-w-full gap-2 overflow-x-auto overflow-y-hidden pb-1 [-webkit-overflow-scrolling:touch]">
-        <button
-          type="button"
-          onClick={() => setToolsOpen(true)}
-          className="flex shrink-0 items-center gap-1 rounded-full border border-slate-200/90 bg-white px-3 py-2 text-[11px] font-extrabold text-slate-800 shadow-sm transition hover:bg-slate-50"
-        >
-          <span aria-hidden>🧰</span>
-          ابزارها
-        </button>
-        <Link
-          href={`/networks/${channel.networkId}`}
-          className="flex shrink-0 items-center rounded-full border border-slate-200/90 bg-white px-3 py-2 text-[11px] font-extrabold text-slate-800 shadow-sm transition hover:bg-slate-50"
-        >
-          دربارهٔ شبکه
-        </Link>
-        <button
-          type="button"
-          onClick={() => document.getElementById('channel-feed-anchor')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
-          className="flex shrink-0 items-center rounded-full border border-slate-200/90 bg-white px-3 py-2 text-[11px] font-extrabold text-slate-800 shadow-sm transition hover:bg-slate-50"
-        >
-          فید انتشار
-        </button>
-        {canShowComposer ? (
-          <button
-            type="button"
-            onClick={() =>
-              document.getElementById('channel-composer-anchor')?.scrollIntoView({ behavior: 'smooth', block: 'center' })
-            }
-            className="flex shrink-0 items-center rounded-full border border-violet-300/90 bg-violet-600 px-3 py-2 text-[11px] font-extrabold text-white shadow-sm transition hover:bg-violet-700"
-          >
-            انتشار
-          </button>
-        ) : null}
-        <Link
-          href="/search"
-          className="flex shrink-0 items-center rounded-full border border-slate-200/90 bg-white px-3 py-2 text-[11px] font-extrabold text-slate-800 shadow-sm transition hover:bg-slate-50"
-        >
-          جستجو
-        </Link>
-        {canManageSchedule ? (
-          <>
-            <Link
-              href={`/channels/${encodeURIComponent(id)}/scheduled`}
-              className="flex shrink-0 items-center rounded-full border border-slate-200/90 bg-white px-3 py-2 text-[11px] font-extrabold text-slate-800 shadow-sm transition hover:bg-slate-50"
-            >
-              زمان‌بندی انتشار
-            </Link>
-            {canManagePins ? (
-              <Link
-                href={`/channels/${encodeURIComponent(id)}/analytics`}
-                className="flex shrink-0 items-center rounded-full border border-slate-200/90 bg-white px-3 py-2 text-[11px] font-extrabold text-slate-800 shadow-sm transition hover:bg-slate-50"
-              >
-                آمار کانال
-              </Link>
-            ) : null}
-          </>
-        ) : null}
-      </div>
-    ) : null;
+  const taglineGuest = channel ? channelHeroTagline(emptyKind, channel.network.name) : '';
+
+  const fixedMemberWorkspace = !loading && !!channel?.isMember;
 
   return (
     <AuthGate>
-      <CommunityWorkspaceShell withWorkspaceGradient>
+      <CommunityWorkspaceShell withWorkspaceGradient fixedWorkspace={fixedMemberWorkspace}>
         {loading && !channel ? (
           <CommunityWorkspaceHeaderBar>
             <CommunityBackButton onClick={() => router.back()} />
@@ -274,162 +215,225 @@ function ChannelDetailInner() {
 
         {!loading && channel ? (
           <>
-            {/* Minimal sticky bar — identity lives in hero (broadcast, not chat header) */}
-            <CommunityWorkspaceHeaderBar>
-              <CommunityBackButton onClick={() => router.back()} />
-              <Link
-                href="/spaces"
-                className="shrink-0 rounded-full px-1.5 py-1 text-[10px] font-extrabold text-[var(--accent-hover)] hover:underline"
-              >
-                فضاها
-              </Link>
-              <div className="min-w-0 flex-1 text-right">
-                <p className="theme-text-primary truncate text-[12px] font-black">کانال انتشار</p>
-                <p className="truncate text-[10px] text-stone-500">{channel.name}</p>
-              </div>
-              {channel.isMember && id ? (
-                <CommunityToolsTrigger onClick={() => setToolsOpen(true)} title="ابزارهای کانال" />
-              ) : null}
-            </CommunityWorkspaceHeaderBar>
+            {!channel.isMember ? (
+              <>
+                <CommunityWorkspaceHeaderBar>
+                  <CommunityBackButton onClick={() => router.back()} />
+                  <div className="min-w-0 flex-1 text-right">
+                    <p className="theme-text-primary truncate text-[12px] font-black">کانال</p>
+                    <p className="truncate text-[10px] text-stone-500">{channel.name}</p>
+                  </div>
+                  {id ? (
+                    <Link
+                      href={`/channels/${encodeURIComponent(id)}/info`}
+                      className="shrink-0 rounded-full px-2 py-1 text-[10px] font-extrabold text-[var(--accent-hover)] hover:underline"
+                    >
+                      اطلاعات
+                    </Link>
+                  ) : null}
+                </CommunityWorkspaceHeaderBar>
 
-            <div className="flex flex-1 flex-col px-2.5 pt-3 sm:px-3">
-              <ChannelReframeHero
-                titleInitial={titleInitial}
-                channelName={channel.name}
-                description={channel.description}
-                network={channel.network}
-                emptyKind={emptyKind}
-                memberCount={channel.memberCount !== undefined ? fmtCount(channel.memberCount) : undefined}
-                postCount={channel.postCount !== undefined ? fmtCount(channel.postCount) : undefined}
-                openJobsCount={channel.openJobsCount}
-                postingMode={channel.postingMode}
-                spaceCategory={channel.spaceCategory}
-                isMember={channel.isMember}
-                myRole={channel.myRole}
-                error={error ? <p className="text-xs font-semibold text-red-700">{error}</p> : null}
-                joinButton={
-                  !channel.isMember ? (
+                <div className="px-2.5 pb-10 pt-4 sm:px-3">
+                  <div className={`rounded-2xl border border-[var(--border-soft)] bg-[var(--card-bg)] p-4 shadow-sm`}>
+                    <div className="flex gap-3">
+                      <CommunityAvatarInitial letter={titleInitial} label={channel.name} size="lg" />
+                      <div className="min-w-0 flex-1 text-right">
+                        <h2 className="theme-text-primary text-[16px] font-black leading-tight">{channel.name}</h2>
+                        <p className="theme-text-secondary mt-1 line-clamp-3 text-[12px] leading-relaxed">{taglineGuest}</p>
+                        {id ? (
+                          <Link
+                            href={`/channels/${encodeURIComponent(id)}/info`}
+                            className="mt-2 inline-block text-[11px] font-extrabold text-[var(--accent-hover)] underline-offset-2 hover:underline"
+                          >
+                            مشاهدهٔ جزئیات و آمار کانال
+                          </Link>
+                        ) : null}
+                      </div>
+                    </div>
+                    {error ? <p className="mt-3 text-center text-[11px] font-semibold text-red-700">{error}</p> : null}
                     <button
                       type="button"
                       disabled={joining}
                       onClick={() => void joinChannel()}
-                      className="w-full rounded-xl bg-violet-700 px-4 py-3 text-sm font-bold text-white shadow-md transition hover:bg-violet-800 disabled:opacity-50"
+                      className="mt-4 w-full rounded-xl bg-violet-700 px-4 py-3 text-sm font-bold text-white shadow-md transition hover:bg-violet-800 disabled:opacity-50"
                     >
                       {joining ? '…' : 'پیوستن به کانال'}
                     </button>
-                  ) : null
-                }
-                actions={heroActions}
-              />
-
-              {channel.isMember && id ? (
-                <div className="mt-4">
-                  <ChannelFeaturedZone
-                    channelId={id}
-                    pinnedPost={pinnedMessage}
-                    newestPost={newestPost}
-                    onOpenTools={() => setToolsOpen(true)}
-                    canPost={!!canShowComposer}
-                    onTimelineExcludeId={onTimelineExclude}
-                  />
+                  </div>
                 </div>
-              ) : null}
-
-              {channel.isMember ? (
-                <div id="channel-feed-anchor" className="scroll-mt-28">
-                  <CommunityTimelineFrame
-                    title="انتشارات"
-                    subtitle="فید رسمی کانال — نه گفت‌وگوی گروهی"
-                    className="mt-4"
+              </>
+            ) : (
+              <>
+                <CommunityWorkspaceHeaderBar>
+                  <CommunityBackButton onClick={() => router.back()} />
+                  {id ? (
+                    <Link
+                      href={`/channels/${encodeURIComponent(id)}/info`}
+                      className="flex min-w-0 max-w-[46%] flex-1 items-center gap-2 rounded-xl px-1 py-0.5 text-right transition hover:bg-[var(--surface-soft)] sm:max-w-[55%]"
+                    >
+                      <CommunityAvatarInitial letter={titleInitial} label={channel.name} size="md" />
+                      <div className="min-w-0">
+                        <p className="truncate text-[13px] font-black text-[var(--text-primary)]">{channel.name}</p>
+                        <p className="text-[10px] text-[var(--text-secondary)]">کانال انتشار</p>
+                      </div>
+                    </Link>
+                  ) : (
+                    <div className="min-w-0 flex-1" />
+                  )}
+                  {id ? (
+                    <Link
+                      href={`/channels/${encodeURIComponent(id)}/info`}
+                      className="shrink-0 rounded-full px-2 py-1 text-[10px] font-extrabold text-[var(--accent-hover)] hover:underline"
+                    >
+                      اطلاعات
+                    </Link>
+                  ) : null}
+                  <Link
+                    href="/spaces"
+                    className="shrink-0 rounded-full px-1.5 py-1 text-[10px] font-extrabold text-[var(--accent-hover)] hover:underline"
                   >
-                    {loadingMsgs ? (
-                      <p className="theme-text-secondary mt-3 px-1 text-xs">بارگذاری فید…</p>
-                    ) : messages.length === 0 ? (
-                      <div className="mt-4 rounded-2xl border border-dashed border-[var(--border-soft)] bg-[var(--surface-soft)]/90 px-4 py-8 text-center">
-                        <p className="text-[15px] font-black text-[var(--text-primary)]">{emptyCopy.title}</p>
-                        <p className="theme-text-secondary mt-2 text-[13px] leading-relaxed">{emptyCopy.subtitle}</p>
-                        {!canShowComposer && channel.isMember ? (
-                          <p className="theme-text-secondary mt-4 text-[12px] font-medium">{emptyCopy.cta}</p>
-                        ) : null}
-                        {canShowComposer && emptyCopy.cta ? (
-                          <p className="mt-4 text-[12px] font-black text-[var(--accent-hover)]">{emptyCopy.cta}</p>
-                        ) : null}
-                        {!canShowComposer && channel.isMember && channel.postingMode !== 'ALL_MEMBERS' ? (
-                          <p className="theme-text-secondary mt-3 text-[11px]">
-                            فقط نقش‌های مجاز می‌توانند منتشر کنند؛ شما مخاطب فید هستید.
-                          </p>
-                        ) : null}
-                      </div>
-                    ) : (
-                      <div className="mt-4 pr-0.5">
-                        <ul className="space-y-4">
-                        {timelineMessages.map((m) => (
-                          <li key={m.id}>
-                            <ChannelPublicationCard
-                              message={m}
-                              variant="timeline"
-                              broadcastLabel="انتشار کانال"
-                              pinActionLabel={
-                                canManagePins ? (pinnedMessage?.id === m.id ? 'برداشتن سنجاق' : 'سنجاق کردن') : undefined
-                              }
-                              pinActionDisabled={pinBusyId === m.id}
-                              onPinAction={
-                                canManagePins
-                                  ? (msg) => {
-                                      const token = getAccessToken();
-                                      if (!token || !id) return;
-                                      const targetId = pinnedMessage?.id === msg.id ? null : msg.id;
-                                      setPinBusyId(msg.id);
-                                      void apiFetch<{ message: ChannelMsg | null }>(`channels/${encodeURIComponent(id)}/pin`, {
-                                        method: 'POST',
-                                        token,
-                                        headers: { 'Content-Type': 'application/json' },
-                                        body: JSON.stringify({ messageId: targetId }),
-                                      })
-                                        .then((res) => setPinnedMessage(res?.message ?? null))
-                                        .finally(() => setPinBusyId(null));
-                                    }
-                                  : undefined
-                              }
-                            />
-                          </li>
-                        ))}
-                        </ul>
-                      </div>
-                    )}
-                  </CommunityTimelineFrame>
-                </div>
-              ) : null}
+                    فضاها
+                  </Link>
+                </CommunityWorkspaceHeaderBar>
 
-              {channel.isMember && canShowComposer && id ? (
-                <div className="theme-panel-bg theme-border-soft sticky bottom-0 z-20 mt-4 border-t px-0 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2 shadow-[0_-1px_8px_rgba(0,0,0,0.05)] backdrop-blur-md [-webkit-backdrop-filter:blur(12px)]">
-                  <ChannelRichComposer
+                {error ? (
+                  <div className="shrink-0 border-b border-red-200/80 bg-red-50/90 px-3 py-2 text-center text-[11px] font-semibold text-red-800">
+                    {error}
+                  </div>
+                ) : null}
+
+                {id ? (
+                  <ChannelActionStrip
                     channelId={id}
-                    id="channel-composer-anchor"
-                    className="scroll-mt-24"
-                    sending={sending}
-                    setSending={setSending}
-                    onSent={(created) => {
-                      setSendErr(null);
-                      setMessages((prev) => {
-                        if (prev.some((m) => m.id === created.id)) return prev;
-                        return [...prev, created];
-                      });
-                      setChannel((c) => (c ? { ...c, postCount: (c.postCount ?? 0) + 1 } : c));
-                    }}
-                    onError={setSendErr}
+                    networkId={channel.networkId}
+                    canShowComposer={!!canShowComposer}
+                    canManageSchedule={canManageSchedule}
+                    canManagePins={canManagePins}
+                    onOpenTools={() => setToolsOpen(true)}
+                    scrollTimelineToTop={scrollTimelineToTop}
                   />
-                  {sendErr ? <p className="mt-2 text-center text-[11px] font-semibold text-red-700">{sendErr}</p> : null}
-                </div>
-              ) : null}
+                ) : null}
 
-              {channel.isMember && !canShowComposer ? (
-                <CommunityReadOnlyComposerBar>
-                  {readOnlyHintForPostingMode(channel.postingMode)}{' '}
-                  <span className="opacity-90">برای گفت‌وگوی آزاد، گروه مرتبط را باز کنید.</span>
-                </CommunityReadOnlyComposerBar>
-              ) : null}
-            </div>
+                {pinnedMessage ? (
+                  <ChannelPinnedStrip message={pinnedMessage} onOpenTools={() => setToolsOpen(true)} />
+                ) : null}
+
+                <div className="flex min-h-0 flex-1 flex-col overflow-hidden px-2 sm:px-2.5">
+                  <div
+                    ref={timelineScrollRef}
+                    id="channel-feed-anchor"
+                    className="channel-timeline-scroll min-h-0 flex-1 overflow-y-auto overscroll-contain px-0.5 [-webkit-overflow-scrolling:touch]"
+                  >
+                    {id ? (
+                      <div className="pt-2">
+                        <ChannelFeaturedZone
+                          channelId={id}
+                          pinnedPost={pinnedMessage}
+                          pinnedPresentation="external"
+                          newestPost={newestPost}
+                          onOpenTools={() => setToolsOpen(true)}
+                          canPost={!!canShowComposer}
+                          onTimelineExcludeId={onTimelineExclude}
+                        />
+                      </div>
+                    ) : null}
+
+                    <CommunityTimelineFrame
+                      title="انتشارات"
+                      subtitle="فید رسمی کانال"
+                      className="mt-3 border-0 bg-transparent p-0 shadow-none"
+                    >
+                      {loadingMsgs ? (
+                        <p className="theme-text-secondary mt-3 px-1 text-xs">بارگذاری فید…</p>
+                      ) : messages.length === 0 ? (
+                        <div className="mt-3 rounded-2xl border border-dashed border-[var(--border-soft)] bg-[var(--surface-soft)]/90 px-4 py-8 text-center">
+                          <p className="text-[15px] font-black text-[var(--text-primary)]">{emptyCopy.title}</p>
+                          <p className="theme-text-secondary mt-2 text-[13px] leading-relaxed">{emptyCopy.subtitle}</p>
+                          {!canShowComposer ? (
+                            <p className="theme-text-secondary mt-4 text-[12px] font-medium">{emptyCopy.cta}</p>
+                          ) : null}
+                          {canShowComposer && emptyCopy.cta ? (
+                            <p className="mt-4 text-[12px] font-black text-[var(--accent-hover)]">{emptyCopy.cta}</p>
+                          ) : null}
+                          {!canShowComposer && channel.postingMode !== 'ALL_MEMBERS' ? (
+                            <p className="theme-text-secondary mt-3 text-[11px]">
+                              فقط نقش‌های مجاز می‌توانند منتشر کنند؛ شما مخاطب فید هستید.
+                            </p>
+                          ) : null}
+                        </div>
+                      ) : (
+                        <div className="mt-3 pr-0.5">
+                          <ul className="space-y-4">
+                            {timelineMessages.map((m) => (
+                              <li key={m.id} id={`channel-msg-${m.id}`}>
+                                <ChannelPublicationCard
+                                  message={m}
+                                  variant="timeline"
+                                  broadcastLabel="انتشار کانال"
+                                  pinActionLabel={
+                                    canManagePins ? (pinnedMessage?.id === m.id ? 'برداشتن سنجاق' : 'سنجاق کردن') : undefined
+                                  }
+                                  pinActionDisabled={pinBusyId === m.id}
+                                  onPinAction={
+                                    canManagePins
+                                      ? (msg) => {
+                                          const token = getAccessToken();
+                                          if (!token || !id) return;
+                                          const targetId = pinnedMessage?.id === msg.id ? null : msg.id;
+                                          setPinBusyId(msg.id);
+                                          void apiFetch<{ message: ChannelMsg | null }>(`channels/${encodeURIComponent(id)}/pin`, {
+                                            method: 'POST',
+                                            token,
+                                            headers: { 'Content-Type': 'application/json' },
+                                            body: JSON.stringify({ messageId: targetId }),
+                                          })
+                                            .then((res) => setPinnedMessage(res?.message ?? null))
+                                            .finally(() => setPinBusyId(null));
+                                        }
+                                      : undefined
+                                  }
+                                />
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </CommunityTimelineFrame>
+                  </div>
+                </div>
+
+                {canShowComposer && id ? (
+                  <div className="theme-panel-bg shrink-0 border-t border-[var(--border-soft)] px-0 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2 shadow-[0_-4px_16px_rgba(0,0,0,0.06)]">
+                    <ChannelRichComposer
+                      channelId={id}
+                      id="channel-composer-anchor"
+                      className=""
+                      sending={sending}
+                      setSending={setSending}
+                      onSent={(created) => {
+                        setSendErr(null);
+                        setMessages((prev) => {
+                          if (prev.some((m) => m.id === created.id)) return prev;
+                          return [...prev, created];
+                        });
+                        setChannel((c) => (c ? { ...c, postCount: (c.postCount ?? 0) + 1 } : c));
+                      }}
+                      onError={setSendErr}
+                    />
+                    {sendErr ? <p className="mt-2 text-center text-[11px] font-semibold text-red-700">{sendErr}</p> : null}
+                  </div>
+                ) : null}
+
+                {!canShowComposer ? (
+                  <div className="shrink-0 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-1">
+                    <CommunityReadOnlyComposerBar>
+                      {readOnlyHintForPostingMode(channel.postingMode)}{' '}
+                      <span className="opacity-90">برای گفت‌وگوی آزاد، گروه مرتبط را باز کنید.</span>
+                    </CommunityReadOnlyComposerBar>
+                  </div>
+                ) : null}
+              </>
+            )}
 
             {channel.isMember && id ? (
               <CommunityToolsSheet
