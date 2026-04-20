@@ -32,6 +32,7 @@ export default function MeetingRoomPage() {
   const selfIdRef = useRef<string | null>(null);
   const [mediaReady, setMediaReady] = useState(false);
   const [remoteStreams, setRemoteStreams] = useState<Array<{ userId: string; stream: MediaStream }>>([]);
+  const [rtcStage, setRtcStage] = useState<'waiting' | 'connecting' | 'connected'>('waiting');
 
   const localVideoRef = useRef<HTMLVideoElement | null>(null);
   const localStreamRef = useRef<MediaStream | null>(null);
@@ -87,8 +88,17 @@ export default function MeetingRoomPage() {
       };
 
       pc.ontrack = (e) => {
-        const stream = e.streams[0] ?? new MediaStream([e.track]);
-        remoteStreamsRef.current.set(remoteUserId, stream);
+        const existing = remoteStreamsRef.current.get(remoteUserId);
+        if (existing) {
+          if (!existing.getTracks().some((t) => t.id === e.track.id)) {
+            existing.addTrack(e.track);
+          }
+          remoteStreamsRef.current.set(remoteUserId, existing);
+        } else {
+          const stream = e.streams[0] ?? new MediaStream([e.track]);
+          remoteStreamsRef.current.set(remoteUserId, stream);
+        }
+        setRtcStage('connected');
         setRemoteStreams(Array.from(remoteStreamsRef.current.entries()).map(([userId, s]) => ({ userId, stream: s })));
       };
 
@@ -113,6 +123,7 @@ export default function MeetingRoomPage() {
     async (remoteUserId: string) => {
       try {
         const pc = createPeerConnection(remoteUserId);
+        setRtcStage('connecting');
         const offer = await pc.createOffer();
         await pc.setLocalDescription(offer);
         if (!socket || !id) return;
@@ -161,6 +172,7 @@ export default function MeetingRoomPage() {
       setM(null);
       setJoin(null);
       setMediaReady(false);
+      setRtcStage('waiting');
       setParticipants([]);
       setSelfId(null);
       selfIdRef.current = null;
@@ -219,6 +231,7 @@ export default function MeetingRoomPage() {
         if (prev.some((x) => x.id === payload.participant.id)) return prev;
         return [...prev, payload.participant];
       });
+      setRtcStage((prev) => (prev === 'connected' ? prev : 'connecting'));
       const sid = selfIdRef.current ?? '';
       if (sid && sid < payload.participant.id) {
         await createOfferTo(payload.participant.id);
@@ -249,6 +262,7 @@ export default function MeetingRoomPage() {
       const sid = selfIdRef.current;
       if (sid && payload.targetUserId && payload.targetUserId !== sid) return;
       if (!sid || payload.fromUserId === sid) return;
+      setRtcStage((prev) => (prev === 'connected' ? prev : 'connecting'));
       const pc = createPeerConnection(payload.fromUserId);
       try {
         if (payload.type === 'offer' && payload.sdp) {
@@ -338,21 +352,34 @@ export default function MeetingRoomPage() {
     closeAllPeerConnections();
     stopAndClearMedia();
     setMediaReady(false);
+      setRtcStage('waiting');
     setParticipants([]);
     setSelfId(null);
     selfIdRef.current = null;
     router.push(id ? `/meetings/${id}` : '/spaces/education');
   }
 
+  const remoteParticipants = useMemo(
+    () => participants.filter((p) => p.id !== selfId),
+    [participants, selfId],
+  );
+
   useEffect(() => {
     if (permissionDenied) {
       setStatusText('اجازه دوربین/میکروفون داده نشد');
-    } else if (remoteStreams.length > 0) {
-      setStatusText('متصل');
-    } else if (join && localStreamRef.current) {
-      setStatusText('منتظر ورود شرکت‌کننده…');
+      return;
     }
-  }, [join, permissionDenied, remoteStreams.length]);
+    if (!join || !localStreamRef.current) return;
+    if (remoteStreams.length > 0 || rtcStage === 'connected') {
+      setStatusText('متصل به شرکت‌کننده');
+      return;
+    }
+    if (remoteParticipants.length > 0 || rtcStage === 'connecting') {
+      setStatusText('در حال اتصال به شرکت‌کننده…');
+      return;
+    }
+    setStatusText('منتظر ورود شرکت‌کننده…');
+  }, [join, permissionDenied, remoteStreams.length, remoteParticipants.length, rtcStage]);
 
   return (
     <AuthGate>
@@ -389,15 +416,26 @@ export default function MeetingRoomPage() {
           <div className="min-h-[120px] flex-1 rounded-2xl border border-dashed border-[var(--border-soft)] bg-[var(--card-bg)] p-2 ring-1 ring-[var(--border-soft)]">
             <p className="mb-2 text-[10px] font-bold uppercase tracking-wide text-[var(--text-secondary)]">سایر شرکت‌کنندگان</p>
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-              {remotes.length > 0 ? (
-                remotes.map((r) => (
-                  <RemoteTile key={r.userId} stream={r.stream} title={r.participant?.name ?? r.userId} />
-                ))
-              ) : (
-                <div className="col-span-2 flex aspect-video items-center justify-center rounded-xl bg-[var(--surface-soft)] text-[10px] text-[var(--text-secondary)] ring-1 ring-[var(--border-soft)] sm:col-span-3">
-                  هنوز شرکت‌کننده‌ای وصل نشده است
-                </div>
-              )}
+              {remoteParticipants.length > 0
+                ? remoteParticipants.map((p) => {
+                    const remote = remotes.find((r) => r.userId === p.id);
+                    if (remote) {
+                      return <RemoteTile key={p.id} stream={remote.stream} title={p.name} />;
+                    }
+                    return (
+                      <div
+                        key={p.id}
+                        className="flex aspect-video items-center justify-center rounded-xl bg-[var(--surface-soft)] text-[10px] text-[var(--text-secondary)] ring-1 ring-[var(--border-soft)]"
+                      >
+                        {`در حال اتصال به ${p.name}…`}
+                      </div>
+                    );
+                  })
+                : (
+                  <div className="col-span-2 flex aspect-video items-center justify-center rounded-xl bg-[var(--surface-soft)] text-[10px] text-[var(--text-secondary)] ring-1 ring-[var(--border-soft)] sm:col-span-3">
+                    هنوز شرکت‌کننده‌ای وصل نشده است
+                  </div>
+                )}
             </div>
           </div>
         </div>
