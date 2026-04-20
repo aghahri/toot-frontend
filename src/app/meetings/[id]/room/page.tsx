@@ -29,12 +29,15 @@ export default function MeetingRoomPage() {
   const [camOn, setCamOn] = useState(true);
   const [participants, setParticipants] = useState<RoomParticipant[]>([]);
   const [selfId, setSelfId] = useState<string | null>(null);
+  const selfIdRef = useRef<string | null>(null);
+  const [mediaReady, setMediaReady] = useState(false);
   const [remoteStreams, setRemoteStreams] = useState<Array<{ userId: string; stream: MediaStream }>>([]);
 
   const localVideoRef = useRef<HTMLVideoElement | null>(null);
   const localStreamRef = useRef<MediaStream | null>(null);
   const pcsRef = useRef<Map<string, RTCPeerConnection>>(new Map());
   const remoteStreamsRef = useRef<Map<string, MediaStream>>(new Map());
+  const pendingIceRef = useRef<Map<string, RTCIceCandidateInit[]>>(new Map());
 
   const participantCount = participants.length;
 
@@ -53,6 +56,7 @@ export default function MeetingRoomPage() {
       pc.close();
     }
     pcsRef.current.clear();
+    pendingIceRef.current.clear();
     remoteStreamsRef.current.clear();
     setRemoteStreams([]);
   }, []);
@@ -92,6 +96,7 @@ export default function MeetingRoomPage() {
         if (pc.connectionState === 'failed' || pc.connectionState === 'closed' || pc.connectionState === 'disconnected') {
           pc.close();
           pcsRef.current.delete(remoteUserId);
+          pendingIceRef.current.delete(remoteUserId);
           remoteStreamsRef.current.delete(remoteUserId);
           setRemoteStreams(Array.from(remoteStreamsRef.current.entries()).map(([userId, s]) => ({ userId, stream: s })));
         }
@@ -145,6 +150,7 @@ export default function MeetingRoomPage() {
       });
       setMicOn(true);
       setCamOn(true);
+      setMediaReady(true);
       setStatusText('اتصال به اتاق…');
     } catch (e) {
       const err = e instanceof Error ? e : null;
@@ -154,6 +160,10 @@ export default function MeetingRoomPage() {
       setError(e instanceof Error ? e.message : 'خطا');
       setM(null);
       setJoin(null);
+      setMediaReady(false);
+      setParticipants([]);
+      setSelfId(null);
+      selfIdRef.current = null;
       stopAndClearMedia();
       closeAllPeerConnections();
     }
@@ -165,11 +175,15 @@ export default function MeetingRoomPage() {
       if (socket && id) socket.emit('meeting_leave', { meetingId: id });
       closeAllPeerConnections();
       stopAndClearMedia();
+      setMediaReady(false);
+      setParticipants([]);
+      setSelfId(null);
+      selfIdRef.current = null;
     };
   }, [closeAllPeerConnections, id, load, socket, stopAndClearMedia]);
 
   useEffect(() => {
-    if (!socket || !connected || !id || !join?.token || !localStreamRef.current) return;
+    if (!socket || !connected || !id || !join?.token || !mediaReady || !localStreamRef.current) return;
 
     let mounted = true;
     setStatusText('در حال پیوستن به اتاق…');
@@ -185,6 +199,7 @@ export default function MeetingRoomPage() {
           return;
         }
         setSelfId(ack.self.id);
+        selfIdRef.current = ack.self.id;
         const list = Array.isArray(ack.participants) ? ack.participants : [ack.self];
         setParticipants(list);
         setStatusText('اتاق آماده است');
@@ -199,11 +214,12 @@ export default function MeetingRoomPage() {
 
     const onParticipantJoined = async (payload: { meetingId: string; participant: RoomParticipant }) => {
       if (payload.meetingId !== id) return;
+      if (payload.participant.id === selfIdRef.current) return;
       setParticipants((prev) => {
         if (prev.some((x) => x.id === payload.participant.id)) return prev;
         return [...prev, payload.participant];
       });
-      const sid = selfId ?? '';
+      const sid = selfIdRef.current ?? '';
       if (sid && sid < payload.participant.id) {
         await createOfferTo(payload.participant.id);
       }
@@ -230,12 +246,18 @@ export default function MeetingRoomPage() {
       candidate?: RTCIceCandidateInit;
     }) => {
       if (payload.meetingId !== id) return;
-      if (selfId && payload.targetUserId && payload.targetUserId !== selfId) return;
-      if (!selfId || payload.fromUserId === selfId) return;
+      const sid = selfIdRef.current;
+      if (sid && payload.targetUserId && payload.targetUserId !== sid) return;
+      if (!sid || payload.fromUserId === sid) return;
       const pc = createPeerConnection(payload.fromUserId);
       try {
         if (payload.type === 'offer' && payload.sdp) {
           await pc.setRemoteDescription({ type: 'offer', sdp: payload.sdp });
+          const pending = pendingIceRef.current.get(payload.fromUserId) ?? [];
+          for (const c of pending) {
+            await pc.addIceCandidate(c);
+          }
+          pendingIceRef.current.delete(payload.fromUserId);
           const answer = await pc.createAnswer();
           await pc.setLocalDescription(answer);
           socket.emit('meeting_signal', {
@@ -248,9 +270,20 @@ export default function MeetingRoomPage() {
         }
         if (payload.type === 'answer' && payload.sdp) {
           await pc.setRemoteDescription({ type: 'answer', sdp: payload.sdp });
+          const pending = pendingIceRef.current.get(payload.fromUserId) ?? [];
+          for (const c of pending) {
+            await pc.addIceCandidate(c);
+          }
+          pendingIceRef.current.delete(payload.fromUserId);
           return;
         }
         if (payload.type === 'ice-candidate' && payload.candidate) {
+          if (!pc.remoteDescription) {
+            const q = pendingIceRef.current.get(payload.fromUserId) ?? [];
+            q.push(payload.candidate);
+            pendingIceRef.current.set(payload.fromUserId, q);
+            return;
+          }
           await pc.addIceCandidate(payload.candidate);
         }
       } catch {
@@ -269,7 +302,7 @@ export default function MeetingRoomPage() {
       socket.off('meeting_participant_left', onParticipantLeft);
       socket.off('meeting_signal', onSignal);
     };
-  }, [connected, createOfferTo, createPeerConnection, id, join?.token, selfId, socket]);
+  }, [connected, createOfferTo, createPeerConnection, id, join?.token, mediaReady, socket]);
 
   const remotes = useMemo(
     () =>
@@ -304,6 +337,10 @@ export default function MeetingRoomPage() {
     if (socket && id) socket.emit('meeting_leave', { meetingId: id });
     closeAllPeerConnections();
     stopAndClearMedia();
+    setMediaReady(false);
+    setParticipants([]);
+    setSelfId(null);
+    selfIdRef.current = null;
     router.push(id ? `/meetings/${id}` : '/spaces/education');
   }
 

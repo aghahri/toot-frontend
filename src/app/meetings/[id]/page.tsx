@@ -48,6 +48,7 @@ export default function MeetingDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
+  const [shareMsg, setShareMsg] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -69,6 +70,33 @@ export default function MeetingDetailPage() {
   }, [load]);
 
   const isHost = m?._meta?.isHost;
+  const meetingLink =
+    typeof window !== 'undefined' && id ? `${window.location.origin}/meetings/${encodeURIComponent(id)}` : '';
+
+  async function copyLink() {
+    if (!meetingLink) return;
+    try {
+      await navigator.clipboard.writeText(meetingLink);
+      setShareMsg('لینک جلسه کپی شد.');
+    } catch {
+      setShareMsg('کپی لینک انجام نشد.');
+    }
+  }
+
+  async function shareLink() {
+    if (!meetingLink) return;
+    const title = m?.title ? `جلسه: ${m.title}` : 'جلسه توت';
+    if (typeof navigator !== 'undefined' && 'share' in navigator) {
+      try {
+        await navigator.share({ title, text: 'برای ورود به جلسه از این لینک استفاده کنید.', url: meetingLink });
+        setShareMsg('لینک جلسه ارسال شد.');
+        return;
+      } catch {
+        // fall through to copy
+      }
+    }
+    await copyLink();
+  }
 
   async function run(label: string, fn: () => Promise<unknown>) {
     setBusy(label);
@@ -131,6 +159,25 @@ export default function MeetingDetailPage() {
             </div>
 
             <div className="mt-4 flex flex-col gap-2">
+              {(m.status === 'SCHEDULED' || m.status === 'LIVE') && (
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => void copyLink()}
+                    className="rounded-2xl border border-[var(--border-soft)] bg-[var(--surface-soft)] py-2 text-xs font-extrabold text-[var(--text-primary)]"
+                  >
+                    کپی لینک جلسه
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void shareLink()}
+                    className="rounded-2xl border border-violet-500/50 bg-violet-500/10 py-2 text-xs font-extrabold text-violet-700 dark:text-violet-300"
+                  >
+                    اشتراک‌گذاری لینک
+                  </button>
+                </div>
+              )}
+              {shareMsg ? <p className="text-[11px] text-[var(--text-secondary)]">{shareMsg}</p> : null}
               {(m.status === 'SCHEDULED' || m.status === 'LIVE') && (
                 <button
                   type="button"
