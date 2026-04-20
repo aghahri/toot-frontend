@@ -121,6 +121,25 @@ export default function MeetingRoomPage() {
         });
       };
 
+      const logReceiversAndStream = (label: string, mediaStream: MediaStream) => {
+        if (!isDev) return;
+        logRtc(`receivers:${label}`, {
+          peer: remoteUserId,
+          receivers: pc.getReceivers().map((receiver) => ({
+            kind: receiver.track.kind,
+            readyState: receiver.track.readyState,
+            muted: receiver.track.muted,
+            enabled: receiver.track.enabled,
+          })),
+        });
+        logRtc(`remote_stream:${label}`, {
+          peer: remoteUserId,
+          tracks: mediaStream.getTracks().map((t) => ({ kind: t.kind, id: t.id, readyState: t.readyState, muted: t.muted, enabled: t.enabled })),
+          videoTracks: mediaStream.getVideoTracks().map((t) => ({ id: t.id, readyState: t.readyState, muted: t.muted, enabled: t.enabled })),
+          audioTracks: mediaStream.getAudioTracks().map((t) => ({ id: t.id, readyState: t.readyState, muted: t.muted, enabled: t.enabled })),
+        });
+      };
+
       pc.ontrack = (e) => {
         logRtc('ontrack', {
           from: remoteUserId,
@@ -134,15 +153,19 @@ export default function MeetingRoomPage() {
           ontrackVideo: d.ontrackVideo + (e.track.kind === 'video' ? 1 : 0),
         }));
         const existing = remoteStreamsRef.current.get(remoteUserId);
+        let mediaStream: MediaStream;
         if (existing) {
+          mediaStream = existing;
           if (!existing.getTracks().some((t) => t.id === e.track.id)) {
             existing.addTrack(e.track);
           }
-          remoteStreamsRef.current.set(remoteUserId, existing);
         } else {
-          const stream = e.streams[0] ?? new MediaStream([e.track]);
-          remoteStreamsRef.current.set(remoteUserId, stream);
+          // One persistent MediaStream per remote peer; never swap to e.streams[0].
+          mediaStream = new MediaStream();
+          mediaStream.addTrack(e.track);
+          remoteStreamsRef.current.set(remoteUserId, mediaStream);
         }
+        logReceiversAndStream('ontrack', mediaStream);
         setRtcStage('connected');
         setRemoteStreams(Array.from(remoteStreamsRef.current.entries()).map(([userId, s]) => ({ userId, stream: s })));
       };
@@ -177,7 +200,7 @@ export default function MeetingRoomPage() {
 
       return pc;
     },
-    [id, join?.iceServers, logRtc, socket],
+    [id, isDev, join?.iceServers, logRtc, socket],
   );
 
   const createOfferTo = useCallback(
@@ -471,7 +494,7 @@ export default function MeetingRoomPage() {
     closeAllPeerConnections();
     stopAndClearMedia();
     setMediaReady(false);
-      setRtcStage('waiting');
+    setRtcStage('waiting');
     setParticipants([]);
     setSelfId(null);
     selfIdRef.current = null;
@@ -552,7 +575,7 @@ export default function MeetingRoomPage() {
                 ? remoteParticipants.map((p) => {
                     const remote = remotes.find((r) => r.userId === p.id);
                     if (remote) {
-                      return <RemoteTile key={p.id} stream={remote.stream} title={p.name} />;
+                      return <RemoteTile key={p.id} stream={remote.stream} title={p.name} avatarUrl={p.avatar} />;
                     }
                     return (
                       <div
@@ -635,19 +658,46 @@ export default function MeetingRoomPage() {
   );
 }
 
-function RemoteTile({ stream, title }: { stream: MediaStream; title: string }) {
+function RemoteTile({
+  stream,
+  title,
+  avatarUrl,
+}: {
+  stream: MediaStream;
+  title: string;
+  avatarUrl: string | null;
+}) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [trackVersion, setTrackVersion] = useState(0);
   const [hasLiveVideo, setHasLiveVideo] = useState(false);
-  const [videoMutedState, setVideoMutedState] = useState(false);
+  const [remoteCameraMuted, setRemoteCameraMuted] = useState(false);
+
+  const pruneEndedTracks = useCallback(() => {
+    for (const t of [...stream.getTracks()]) {
+      if (t.readyState === 'ended') {
+        stream.removeTrack(t);
+      }
+    }
+  }, [stream]);
 
   const inspectVideo = useCallback(() => {
+    pruneEndedTracks();
     const tracks = stream.getVideoTracks();
     const live = tracks.find((t) => t.readyState === 'live');
     setHasLiveVideo(!!live);
-    setVideoMutedState(!!live && (!live.enabled || live.muted));
-  }, [stream]);
+    setRemoteCameraMuted(!!live && live.muted);
+  }, [pruneEndedTracks, stream]);
+
+  const tryPlayVideo = useCallback(async () => {
+    const el = videoRef.current;
+    if (!el || !hasLiveVideo) return;
+    try {
+      await el.play();
+    } catch {
+      /* autoplay policy / transient; handlers retry */
+    }
+  }, [hasLiveVideo]);
 
   useEffect(() => {
     const onTrackShapeChange = () => setTrackVersion((v) => v + 1);
@@ -661,7 +711,11 @@ function RemoteTile({ stream, title }: { stream: MediaStream; title: string }) {
 
   useEffect(() => {
     inspectVideo();
-    const onChange = () => inspectVideo();
+    const onChange = () => {
+      pruneEndedTracks();
+      inspectVideo();
+      setTrackVersion((v) => v + 1);
+    };
     const tracks = stream.getVideoTracks();
     for (const t of tracks) {
       t.addEventListener('mute', onChange);
@@ -675,23 +729,29 @@ function RemoteTile({ stream, title }: { stream: MediaStream; title: string }) {
         t.removeEventListener('ended', onChange);
       }
     };
-  }, [inspectVideo, stream, trackVersion]);
+  }, [inspectVideo, pruneEndedTracks, stream, trackVersion]);
 
   useEffect(() => {
-    if (!videoRef.current) return;
+    const el = videoRef.current;
+    if (!el || !hasLiveVideo) {
+      if (el) el.srcObject = null;
+      return;
+    }
     const videoTracks = stream.getVideoTracks().filter((t) => t.readyState === 'live');
     const videoOnly = new MediaStream(videoTracks);
-    videoRef.current.srcObject = videoOnly;
-    const p = videoRef.current.play();
-    if (p !== undefined) {
-      void p.catch(() => {
-        /* browser may delay autoplay; keeping srcObject allows retry when tab is active */
-      });
-    }
+    el.srcObject = null;
+    el.srcObject = videoOnly;
+    void (async () => {
+      try {
+        await el.play();
+      } catch {
+        /* see tryPlayVideo / event handlers */
+      }
+    })();
     return () => {
       if (videoRef.current) videoRef.current.srcObject = null;
     };
-  }, [stream, trackVersion]);
+  }, [hasLiveVideo, stream, trackVersion]);
 
   useEffect(() => {
     if (!audioRef.current) return;
@@ -709,19 +769,41 @@ function RemoteTile({ stream, title }: { stream: MediaStream; title: string }) {
     };
   }, [stream, trackVersion]);
 
+  const initial = title.trim().charAt(0) || '?';
+
   return (
     <div className="relative overflow-hidden rounded-xl bg-black ring-1 ring-[var(--border-soft)]">
       {hasLiveVideo ? (
-        <video ref={videoRef} className="aspect-video w-full object-cover" autoPlay playsInline muted />
+        <video
+          ref={videoRef}
+          className="aspect-video w-full object-cover"
+          autoPlay
+          playsInline
+          muted={false}
+          controls={false}
+          onLoadedMetadata={() => {
+            void tryPlayVideo();
+          }}
+          onCanPlay={() => {
+            void tryPlayVideo();
+          }}
+        />
       ) : (
-        <div className="flex aspect-video w-full items-center justify-center bg-[var(--surface-soft)] text-[10px] text-[var(--text-secondary)]">
-          دوربین خاموش است
+        <div className="relative flex aspect-video w-full flex-col items-center justify-center gap-2 bg-[var(--surface-soft)] text-[10px] text-[var(--text-secondary)]">
+          {avatarUrl ? (
+            <img src={avatarUrl} alt="" className="h-14 w-14 rounded-full object-cover ring-2 ring-[var(--border-soft)]" />
+          ) : (
+            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-zinc-600 text-lg font-bold text-white ring-2 ring-[var(--border-soft)]">
+              {initial}
+            </div>
+          )}
+          <span className="font-bold text-[var(--text-primary)]">Audio only</span>
         </div>
       )}
       <audio ref={audioRef} autoPlay playsInline className="hidden" />
-      {hasLiveVideo && videoMutedState ? (
+      {hasLiveVideo && remoteCameraMuted ? (
         <div className="pointer-events-none absolute left-1 top-1 rounded bg-black/55 px-1.5 py-0.5 text-[10px] font-bold text-white">
-          دوربین خاموش
+          remote camera muted
         </div>
       ) : null}
       <div className="pointer-events-none absolute bottom-1 right-1 rounded bg-black/55 px-1.5 py-0.5 text-[10px] font-bold text-white">
