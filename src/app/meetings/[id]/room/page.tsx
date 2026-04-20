@@ -289,12 +289,6 @@ export default function MeetingRoomPage() {
         if (list.some((p) => p.id !== self.id)) {
           setRtcStage('peer_joined');
         }
-        for (const p of list) {
-          if (p.id === self.id) continue;
-          if (self.id < p.id) {
-            await createOfferTo(p.id);
-          }
-        }
       },
     );
     setRtcDebug((d) => ({ ...d, joinEmitted: true }));
