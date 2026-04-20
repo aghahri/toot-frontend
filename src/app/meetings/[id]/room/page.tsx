@@ -14,6 +14,8 @@ type RoomParticipant = {
   username: string;
 };
 
+type RtcStage = 'waiting' | 'peer_joined' | 'negotiating' | 'ice_connecting' | 'connected' | 'failed';
+
 export default function MeetingRoomPage() {
   const params = useParams();
   const router = useRouter();
@@ -32,13 +34,26 @@ export default function MeetingRoomPage() {
   const selfIdRef = useRef<string | null>(null);
   const [mediaReady, setMediaReady] = useState(false);
   const [remoteStreams, setRemoteStreams] = useState<Array<{ userId: string; stream: MediaStream }>>([]);
-  const [rtcStage, setRtcStage] = useState<'waiting' | 'connecting' | 'connected'>('waiting');
+  const [rtcStage, setRtcStage] = useState<RtcStage>('waiting');
 
   const localVideoRef = useRef<HTMLVideoElement | null>(null);
   const localStreamRef = useRef<MediaStream | null>(null);
   const pcsRef = useRef<Map<string, RTCPeerConnection>>(new Map());
   const remoteStreamsRef = useRef<Map<string, MediaStream>>(new Map());
   const pendingIceRef = useRef<Map<string, RTCIceCandidateInit[]>>(new Map());
+  const makingOfferRef = useRef<Map<string, boolean>>(new Map());
+  const hasPendingOfferRef = useRef<Map<string, boolean>>(new Map());
+  const isSettingRemoteAnswerRef = useRef<Map<string, boolean>>(new Map());
+
+  const isDev = process.env.NODE_ENV !== 'production';
+  const logRtc = useCallback(
+    (event: string, data?: Record<string, unknown>) => {
+      if (!isDev) return;
+      const suffix = data ? ` ${JSON.stringify(data)}` : '';
+      console.debug(`[meeting-rtc:${id}] ${event}${suffix}`);
+    },
+    [id, isDev],
+  );
 
   const participantCount = participants.length;
 
@@ -58,6 +73,9 @@ export default function MeetingRoomPage() {
     }
     pcsRef.current.clear();
     pendingIceRef.current.clear();
+    makingOfferRef.current.clear();
+    hasPendingOfferRef.current.clear();
+    isSettingRemoteAnswerRef.current.clear();
     remoteStreamsRef.current.clear();
     setRemoteStreams([]);
   }, []);
@@ -79,6 +97,7 @@ export default function MeetingRoomPage() {
 
       pc.onicecandidate = (e) => {
         if (!e.candidate || !socket || !id) return;
+        logRtc('emit_ice', { to: remoteUserId });
         socket.emit('meeting_signal', {
           meetingId: id,
           targetUserId: remoteUserId,
@@ -88,6 +107,12 @@ export default function MeetingRoomPage() {
       };
 
       pc.ontrack = (e) => {
+        logRtc('ontrack', {
+          from: remoteUserId,
+          kind: e.track.kind,
+          trackState: e.track.readyState,
+          streamTracks: e.streams[0]?.getTracks().map((t) => `${t.kind}:${t.readyState}`) ?? [],
+        });
         const existing = remoteStreamsRef.current.get(remoteUserId);
         if (existing) {
           if (!existing.getTracks().some((t) => t.id === e.track.id)) {
@@ -107,23 +132,45 @@ export default function MeetingRoomPage() {
           pc.close();
           pcsRef.current.delete(remoteUserId);
           pendingIceRef.current.delete(remoteUserId);
+          makingOfferRef.current.delete(remoteUserId);
+          hasPendingOfferRef.current.delete(remoteUserId);
+          isSettingRemoteAnswerRef.current.delete(remoteUserId);
           remoteStreamsRef.current.delete(remoteUserId);
           setRemoteStreams(Array.from(remoteStreamsRef.current.entries()).map(([userId, s]) => ({ userId, stream: s })));
         }
       };
-      pc.onconnectionstatechange = handleDisconnect;
-      pc.oniceconnectionstatechange = handleDisconnect;
+      pc.onconnectionstatechange = () => {
+        const st = pc.connectionState;
+        logRtc('pc_connection_state', { peer: remoteUserId, state: st });
+        if (st === 'connecting') setRtcStage('ice_connecting');
+        if (st === 'connected') setRtcStage('connected');
+        if (st === 'failed' || st === 'disconnected') setRtcStage('failed');
+        handleDisconnect();
+      };
+      pc.oniceconnectionstatechange = () => {
+        const st = pc.iceConnectionState;
+        logRtc('pc_ice_state', { peer: remoteUserId, state: st });
+        if (st === 'checking') setRtcStage('ice_connecting');
+        if (st === 'connected' || st === 'completed') setRtcStage('connected');
+        if (st === 'failed' || st === 'disconnected') setRtcStage('failed');
+        handleDisconnect();
+      };
 
       return pc;
     },
-    [id, join?.iceServers, socket],
+    [id, join?.iceServers, logRtc, socket],
   );
 
   const createOfferTo = useCallback(
     async (remoteUserId: string) => {
       try {
         const pc = createPeerConnection(remoteUserId);
-        setRtcStage('connecting');
+        const makingOffer = makingOfferRef.current.get(remoteUserId) === true;
+        if (makingOffer) return;
+        if (pc.signalingState !== 'stable') return;
+        makingOfferRef.current.set(remoteUserId, true);
+        setRtcStage('negotiating');
+        logRtc('create_offer', { to: remoteUserId, signaling: pc.signalingState });
         const offer = await pc.createOffer();
         await pc.setLocalDescription(offer);
         if (!socket || !id) return;
@@ -133,11 +180,14 @@ export default function MeetingRoomPage() {
           type: 'offer',
           sdp: offer.sdp,
         });
+        logRtc('emit_offer', { to: remoteUserId });
       } catch {
         setError('ایجاد اتصال به شرکت‌کننده انجام نشد.');
+      } finally {
+        makingOfferRef.current.set(remoteUserId, false);
       }
     },
-    [createPeerConnection, id, socket],
+    [createPeerConnection, id, logRtc, socket],
   );
 
   const load = useCallback(async () => {
@@ -210,14 +260,18 @@ export default function MeetingRoomPage() {
           setStatusText('خطا در پیوستن');
           return;
         }
-        setSelfId(ack.self.id);
-        selfIdRef.current = ack.self.id;
-        const list = Array.isArray(ack.participants) ? ack.participants : [ack.self];
+        const self = ack.self;
+        setSelfId(self.id);
+        selfIdRef.current = self.id;
+        const list = Array.isArray(ack.participants) ? ack.participants : [self];
         setParticipants(list);
         setStatusText('اتاق آماده است');
+        if (list.some((p) => p.id !== self.id)) {
+          setRtcStage('peer_joined');
+        }
         for (const p of list) {
-          if (p.id === ack.self.id) continue;
-          if (ack.self.id < p.id) {
+          if (p.id === self.id) continue;
+          if (self.id < p.id) {
             await createOfferTo(p.id);
           }
         }
@@ -231,7 +285,7 @@ export default function MeetingRoomPage() {
         if (prev.some((x) => x.id === payload.participant.id)) return prev;
         return [...prev, payload.participant];
       });
-      setRtcStage((prev) => (prev === 'connected' ? prev : 'connecting'));
+      setRtcStage((prev) => (prev === 'connected' ? prev : 'peer_joined'));
       const sid = selfIdRef.current ?? '';
       if (sid && sid < payload.participant.id) {
         await createOfferTo(payload.participant.id);
@@ -262,11 +316,25 @@ export default function MeetingRoomPage() {
       const sid = selfIdRef.current;
       if (sid && payload.targetUserId && payload.targetUserId !== sid) return;
       if (!sid || payload.fromUserId === sid) return;
-      setRtcStage((prev) => (prev === 'connected' ? prev : 'connecting'));
+      setRtcStage((prev) => (prev === 'connected' ? prev : 'negotiating'));
       const pc = createPeerConnection(payload.fromUserId);
       try {
         if (payload.type === 'offer' && payload.sdp) {
-          await pc.setRemoteDescription({ type: 'offer', sdp: payload.sdp });
+          const makingOffer = makingOfferRef.current.get(payload.fromUserId) === true;
+          const settingRemote = isSettingRemoteAnswerRef.current.get(payload.fromUserId) === true;
+          const offerCollision = makingOffer || pc.signalingState !== 'stable' || settingRemote;
+          const polite = sid > payload.fromUserId;
+          if (offerCollision && !polite) {
+            logRtc('drop_offer_impolite_collision', { from: payload.fromUserId });
+            return;
+          }
+          if (offerCollision && polite) {
+            logRtc('rollback_on_collision', { from: payload.fromUserId });
+            await Promise.all([pc.setLocalDescription({ type: 'rollback' }), pc.setRemoteDescription({ type: 'offer', sdp: payload.sdp })]);
+          } else {
+            await pc.setRemoteDescription({ type: 'offer', sdp: payload.sdp });
+          }
+          logRtc('set_remote_offer', { from: payload.fromUserId });
           const pending = pendingIceRef.current.get(payload.fromUserId) ?? [];
           for (const c of pending) {
             await pc.addIceCandidate(c);
@@ -274,6 +342,7 @@ export default function MeetingRoomPage() {
           pendingIceRef.current.delete(payload.fromUserId);
           const answer = await pc.createAnswer();
           await pc.setLocalDescription(answer);
+          logRtc('emit_answer', { to: payload.fromUserId });
           socket.emit('meeting_signal', {
             meetingId: id,
             targetUserId: payload.fromUserId,
@@ -283,12 +352,15 @@ export default function MeetingRoomPage() {
           return;
         }
         if (payload.type === 'answer' && payload.sdp) {
+          isSettingRemoteAnswerRef.current.set(payload.fromUserId, true);
           await pc.setRemoteDescription({ type: 'answer', sdp: payload.sdp });
+          logRtc('set_remote_answer', { from: payload.fromUserId });
           const pending = pendingIceRef.current.get(payload.fromUserId) ?? [];
           for (const c of pending) {
             await pc.addIceCandidate(c);
           }
           pendingIceRef.current.delete(payload.fromUserId);
+          isSettingRemoteAnswerRef.current.set(payload.fromUserId, false);
           return;
         }
         if (payload.type === 'ice-candidate' && payload.candidate) {
@@ -296,12 +368,17 @@ export default function MeetingRoomPage() {
             const q = pendingIceRef.current.get(payload.fromUserId) ?? [];
             q.push(payload.candidate);
             pendingIceRef.current.set(payload.fromUserId, q);
+            logRtc('queue_ice', { from: payload.fromUserId, count: q.length });
             return;
           }
           await pc.addIceCandidate(payload.candidate);
+          logRtc('apply_ice', { from: payload.fromUserId });
         }
       } catch {
         setError('سیگنال WebRTC نامعتبر بود.');
+        setRtcStage('failed');
+      } finally {
+        isSettingRemoteAnswerRef.current.set(payload.fromUserId, false);
       }
     };
 
@@ -316,7 +393,7 @@ export default function MeetingRoomPage() {
       socket.off('meeting_participant_left', onParticipantLeft);
       socket.off('meeting_signal', onSignal);
     };
-  }, [connected, createOfferTo, createPeerConnection, id, join?.token, mediaReady, socket]);
+  }, [connected, createOfferTo, createPeerConnection, id, join?.token, logRtc, mediaReady, socket]);
 
   const remotes = useMemo(
     () =>
@@ -374,8 +451,12 @@ export default function MeetingRoomPage() {
       setStatusText('متصل به شرکت‌کننده');
       return;
     }
-    if (remoteParticipants.length > 0 || rtcStage === 'connecting') {
+    if (remoteParticipants.length > 0 || rtcStage === 'peer_joined' || rtcStage === 'negotiating' || rtcStage === 'ice_connecting') {
       setStatusText('در حال اتصال به شرکت‌کننده…');
+      return;
+    }
+    if (rtcStage === 'failed') {
+      setStatusText('اتصال پایدار نشد');
       return;
     }
     setStatusText('منتظر ورود شرکت‌کننده…');
@@ -485,6 +566,7 @@ export default function MeetingRoomPage() {
 function RemoteTile({ stream, title }: { stream: MediaStream; title: string }) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [trackVersion, setTrackVersion] = useState(0);
   const [hasLiveVideo, setHasLiveVideo] = useState(false);
   const [videoMutedState, setVideoMutedState] = useState(false);
 
@@ -493,6 +575,16 @@ function RemoteTile({ stream, title }: { stream: MediaStream; title: string }) {
     const live = tracks.find((t) => t.readyState === 'live');
     setHasLiveVideo(!!live);
     setVideoMutedState(!!live && (!live.enabled || live.muted));
+  }, [stream]);
+
+  useEffect(() => {
+    const onTrackShapeChange = () => setTrackVersion((v) => v + 1);
+    stream.addEventListener('addtrack', onTrackShapeChange);
+    stream.addEventListener('removetrack', onTrackShapeChange);
+    return () => {
+      stream.removeEventListener('addtrack', onTrackShapeChange);
+      stream.removeEventListener('removetrack', onTrackShapeChange);
+    };
   }, [stream]);
 
   useEffect(() => {
@@ -511,7 +603,7 @@ function RemoteTile({ stream, title }: { stream: MediaStream; title: string }) {
         t.removeEventListener('ended', onChange);
       }
     };
-  }, [inspectVideo, stream]);
+  }, [inspectVideo, stream, trackVersion]);
 
   useEffect(() => {
     if (!videoRef.current) return;
@@ -527,7 +619,7 @@ function RemoteTile({ stream, title }: { stream: MediaStream; title: string }) {
     return () => {
       if (videoRef.current) videoRef.current.srcObject = null;
     };
-  }, [stream]);
+  }, [stream, trackVersion]);
 
   useEffect(() => {
     if (!audioRef.current) return;
@@ -543,7 +635,7 @@ function RemoteTile({ stream, title }: { stream: MediaStream; title: string }) {
     return () => {
       if (audioRef.current) audioRef.current.srcObject = null;
     };
-  }, [stream]);
+  }, [stream, trackVersion]);
 
   return (
     <div className="relative overflow-hidden rounded-xl bg-black ring-1 ring-[var(--border-soft)]">
