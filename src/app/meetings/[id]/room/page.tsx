@@ -483,16 +483,83 @@ export default function MeetingRoomPage() {
 }
 
 function RemoteTile({ stream, title }: { stream: MediaStream; title: string }) {
-  const ref = useRef<HTMLVideoElement | null>(null);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [hasLiveVideo, setHasLiveVideo] = useState(false);
+  const [videoMutedState, setVideoMutedState] = useState(false);
+
+  const inspectVideo = useCallback(() => {
+    const tracks = stream.getVideoTracks();
+    const live = tracks.find((t) => t.readyState === 'live');
+    setHasLiveVideo(!!live);
+    setVideoMutedState(!!live && (!live.enabled || live.muted));
+  }, [stream]);
 
   useEffect(() => {
-    if (!ref.current) return;
-    ref.current.srcObject = stream;
+    inspectVideo();
+    const onChange = () => inspectVideo();
+    const tracks = stream.getVideoTracks();
+    for (const t of tracks) {
+      t.addEventListener('mute', onChange);
+      t.addEventListener('unmute', onChange);
+      t.addEventListener('ended', onChange);
+    }
+    return () => {
+      for (const t of tracks) {
+        t.removeEventListener('mute', onChange);
+        t.removeEventListener('unmute', onChange);
+        t.removeEventListener('ended', onChange);
+      }
+    };
+  }, [inspectVideo, stream]);
+
+  useEffect(() => {
+    if (!videoRef.current) return;
+    const videoTracks = stream.getVideoTracks().filter((t) => t.readyState === 'live');
+    const videoOnly = new MediaStream(videoTracks);
+    videoRef.current.srcObject = videoOnly;
+    const p = videoRef.current.play();
+    if (p !== undefined) {
+      void p.catch(() => {
+        /* browser may delay autoplay; keeping srcObject allows retry when tab is active */
+      });
+    }
+    return () => {
+      if (videoRef.current) videoRef.current.srcObject = null;
+    };
+  }, [stream]);
+
+  useEffect(() => {
+    if (!audioRef.current) return;
+    const audioTracks = stream.getAudioTracks().filter((t) => t.readyState === 'live');
+    const audioOnly = new MediaStream(audioTracks);
+    audioRef.current.srcObject = audioOnly;
+    const p = audioRef.current.play();
+    if (p !== undefined) {
+      void p.catch(() => {
+        /* autoplay restrictions can block; user interactions (toggles/leave) typically unlock */
+      });
+    }
+    return () => {
+      if (audioRef.current) audioRef.current.srcObject = null;
+    };
   }, [stream]);
 
   return (
     <div className="relative overflow-hidden rounded-xl bg-black ring-1 ring-[var(--border-soft)]">
-      <video ref={ref} className="aspect-video w-full object-cover" autoPlay playsInline />
+      {hasLiveVideo ? (
+        <video ref={videoRef} className="aspect-video w-full object-cover" autoPlay playsInline muted />
+      ) : (
+        <div className="flex aspect-video w-full items-center justify-center bg-[var(--surface-soft)] text-[10px] text-[var(--text-secondary)]">
+          دوربین خاموش است
+        </div>
+      )}
+      <audio ref={audioRef} autoPlay playsInline className="hidden" />
+      {hasLiveVideo && videoMutedState ? (
+        <div className="pointer-events-none absolute left-1 top-1 rounded bg-black/55 px-1.5 py-0.5 text-[10px] font-bold text-white">
+          دوربین خاموش
+        </div>
+      ) : null}
       <div className="pointer-events-none absolute bottom-1 right-1 rounded bg-black/55 px-1.5 py-0.5 text-[10px] font-bold text-white">
         {title}
       </div>
