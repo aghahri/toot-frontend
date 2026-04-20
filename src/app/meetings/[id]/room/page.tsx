@@ -7,6 +7,59 @@ import { AuthGate } from '@/components/AuthGate';
 import { useAppRealtime } from '@/context/AppRealtimeSocketContext';
 import { fetchJoinToken, fetchMeeting, type JoinTokenResponse, type MeetingDetail } from '@/lib/meetings';
 
+const MEETING_FULL_FA = 'در نسخه فعلی جلسات تا ۲ نفر پشتیبانی می‌شود';
+const WAITING_PEER_FA = 'در انتظار ورود شرکت‌کننده دیگر';
+const CONNECTING_FA = 'در حال اتصال…';
+const REMOTE_VIDEO_UNAVAILABLE_FA = 'تصویر طرف مقابل در دسترس نیست';
+const REMOTE_CAMERA_OFF_FA = 'دوربین طرف مقابل خاموش است';
+
+function getMeetingBrowserDiagnostics() {
+  if (typeof navigator === 'undefined') {
+    return {
+      userAgent: '',
+      isIos: false,
+      isSafari: false,
+      needsUserGestureForGetUserMedia: false,
+    };
+  }
+  const ua = navigator.userAgent;
+  const isIos =
+    /iPad|iPhone|iPod/.test(ua) ||
+    (navigator.platform === 'MacIntel' && (navigator as Navigator & { maxTouchPoints?: number }).maxTouchPoints > 1);
+  const isSafari = /Safari/.test(ua) && !/Chrome|CriOS|FxiOS|EdgiOS|OPR|OPT|Android|wv/.test(ua);
+  return {
+    userAgent: ua,
+    isIos,
+    isSafari,
+    needsUserGestureForGetUserMedia: isIos,
+  };
+}
+
+async function acquireLocalMedia(): Promise<{
+  stream: MediaStream;
+  videoUnavailable: boolean;
+  audioUnavailable: boolean;
+}> {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
+    return { stream, videoUnavailable: false, audioUnavailable: false };
+  } catch {
+    /* try partial */
+  }
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+    return { stream, videoUnavailable: true, audioUnavailable: false };
+  } catch {
+    /* try video only */
+  }
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: false, video: true });
+    return { stream, videoUnavailable: false, audioUnavailable: true };
+  } catch (e) {
+    throw e;
+  }
+}
+
 type RoomParticipant = {
   id: string;
   name: string;
@@ -33,6 +86,9 @@ export default function MeetingRoomPage() {
   const [error, setError] = useState<string | null>(null);
   const [statusText, setStatusText] = useState('در حال آماده‌سازی اتاق…');
   const [permissionDenied, setPermissionDenied] = useState(false);
+  /** full | audio_only | video_only — partial permissions */
+  const [mediaProfile, setMediaProfile] = useState<'full' | 'audio_only' | 'video_only'>('full');
+  const [awaitingIosMediaTap, setAwaitingIosMediaTap] = useState(false);
   const [micOn, setMicOn] = useState(true);
   const [camOn, setCamOn] = useState(true);
   const [participants, setParticipants] = useState<RoomParticipant[]>([]);
@@ -70,6 +126,12 @@ export default function MeetingRoomPage() {
     },
     [id, isDev],
   );
+
+  useEffect(() => {
+    if (!isDev || typeof window === 'undefined') return;
+    const d = getMeetingBrowserDiagnostics();
+    logRtc('browser_diagnostics', d);
+  }, [isDev, logRtc]);
 
   const participantCount = participants.length;
 
@@ -233,27 +295,43 @@ export default function MeetingRoomPage() {
     [createPeerConnection, id, logRtc, socket],
   );
 
-  const load = useCallback(async () => {
-    if (!id) return;
-    setError(null);
-    setPermissionDenied(false);
+  const attachLocalMedia = useCallback(async () => {
+    setStatusText('در حال دریافت دسترسی میکروفون/دوربین…');
     try {
-      const [detail, tok] = await Promise.all([fetchMeeting(id), fetchJoinToken(id)]);
-      setM(detail);
-      setJoin(tok);
-      setStatusText('در حال دریافت دسترسی میکروفون/دوربین…');
-
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
+      const { stream, videoUnavailable, audioUnavailable } = await acquireLocalMedia();
       localStreamRef.current = stream;
       if (localVideoRef.current) localVideoRef.current.srcObject = stream;
-      stream.getAudioTracks().forEach((t) => {
-        t.enabled = true;
-      });
-      stream.getVideoTracks().forEach((t) => {
-        t.enabled = true;
-      });
-      setMicOn(true);
-      setCamOn(true);
+
+      if (videoUnavailable && !audioUnavailable) {
+        setMediaProfile('audio_only');
+        setCamOn(false);
+        setMicOn(true);
+        stream.getAudioTracks().forEach((t) => {
+          t.enabled = true;
+        });
+        stream.getVideoTracks().forEach((t) => {
+          t.enabled = false;
+        });
+      } else if (audioUnavailable && !videoUnavailable) {
+        setMediaProfile('video_only');
+        setMicOn(false);
+        setCamOn(true);
+        stream.getVideoTracks().forEach((t) => {
+          t.enabled = true;
+        });
+      } else {
+        setMediaProfile('full');
+        setMicOn(true);
+        setCamOn(true);
+        stream.getAudioTracks().forEach((t) => {
+          t.enabled = true;
+        });
+        stream.getVideoTracks().forEach((t) => {
+          t.enabled = true;
+        });
+      }
+
+      setAwaitingIosMediaTap(false);
       setMediaReady(true);
       setStatusText('اتصال به اتاق…');
     } catch (e) {
@@ -261,7 +339,39 @@ export default function MeetingRoomPage() {
       if (err?.name === 'NotAllowedError' || err?.name === 'PermissionDeniedError') {
         setPermissionDenied(true);
       }
-      setError(e instanceof Error ? e.message : 'خطا');
+      setError(err?.message ?? 'خطا');
+      setM(null);
+      setJoin(null);
+      setMediaReady(false);
+      setAwaitingIosMediaTap(false);
+      setRtcStage('waiting');
+      setParticipants([]);
+      setSelfId(null);
+      selfIdRef.current = null;
+      stopAndClearMedia();
+      closeAllPeerConnections();
+    }
+  }, [closeAllPeerConnections, stopAndClearMedia]);
+
+  const fetchRoomAndMaybeMedia = useCallback(async () => {
+    if (!id) return;
+    setError(null);
+    setPermissionDenied(false);
+    setMediaProfile('full');
+    try {
+      const [detail, tok] = await Promise.all([fetchMeeting(id), fetchJoinToken(id)]);
+      setM(detail);
+      setJoin(tok);
+      const { needsUserGestureForGetUserMedia } = getMeetingBrowserDiagnostics();
+      if (needsUserGestureForGetUserMedia) {
+        setAwaitingIosMediaTap(true);
+        setStatusText('برای فعال‌سازی دوربین و میکروفون، «شروع جلسه» را بزنید');
+        return;
+      }
+      await attachLocalMedia();
+    } catch (e) {
+      const err = e instanceof Error ? e : null;
+      setError(err?.message ?? 'خطا');
       setM(null);
       setJoin(null);
       setMediaReady(false);
@@ -272,10 +382,10 @@ export default function MeetingRoomPage() {
       stopAndClearMedia();
       closeAllPeerConnections();
     }
-  }, [closeAllPeerConnections, id, stopAndClearMedia]);
+  }, [attachLocalMedia, closeAllPeerConnections, id, stopAndClearMedia]);
 
   useEffect(() => {
-    void load();
+    void fetchRoomAndMaybeMedia();
     return () => {
       if (socket && id) socket.emit('meeting_leave', { meetingId: id });
       closeAllPeerConnections();
@@ -285,22 +395,30 @@ export default function MeetingRoomPage() {
       setSelfId(null);
       selfIdRef.current = null;
     };
-  }, [closeAllPeerConnections, id, load, socket, stopAndClearMedia]);
+  }, [closeAllPeerConnections, fetchRoomAndMaybeMedia, id, socket, stopAndClearMedia]);
 
   useEffect(() => {
     if (!socket || !connected || !id || !join?.token || !mediaReady || !localStreamRef.current) return;
 
     let mounted = true;
-    setStatusText('در حال پیوستن به اتاق…');
+    setStatusText(CONNECTING_FA);
 
     socket.emit(
       'meeting_join',
       { meetingId: id, joinToken: join.token },
-      async (ack: { ok?: boolean; self?: RoomParticipant; participants?: RoomParticipant[] }) => {
+      async (ack: {
+        ok?: boolean;
+        code?: string;
+        message?: string;
+        self?: RoomParticipant;
+        participants?: RoomParticipant[];
+      }) => {
         if (!mounted) return;
         if (!ack?.ok || !ack.self) {
-          setError('پیوستن به اتاق انجام نشد.');
-          setStatusText('خطا در پیوستن');
+          const msg =
+            ack?.code === 'MEETING_FULL' ? (ack.message ?? MEETING_FULL_FA) : 'پیوستن به اتاق انجام نشد.';
+          setError(msg);
+          setStatusText(ack?.code === 'MEETING_FULL' ? MEETING_FULL_FA : 'خطا در پیوستن');
           return;
         }
         const self = ack.self;
@@ -517,24 +635,27 @@ export default function MeetingRoomPage() {
 
   useEffect(() => {
     if (permissionDenied) {
-      setStatusText('اجازه دوربین/میکروفون داده نشد');
+      setStatusText(
+        'اجازهٔ میکروفون و دوربین داده نشد. در تنظیمات مرورگر (آیکون قفل کنار نوار آدرس) برای این سایت هر دو را مجاز کنید.',
+      );
       return;
     }
     if (!join || !localStreamRef.current) return;
     if (remoteStreams.length > 0 || rtcStage === 'connected') {
-      setStatusText('متصل به شرکت‌کننده');
+      const names = remoteParticipants.map((p) => p.name).filter(Boolean);
+      setStatusText(names.length ? `متصل: ${names.join('، ')}` : 'متصل');
       return;
     }
     if (remoteParticipants.length > 0 || rtcStage === 'peer_joined' || rtcStage === 'negotiating' || rtcStage === 'ice_connecting') {
-      setStatusText('در حال اتصال به شرکت‌کننده…');
+      setStatusText(CONNECTING_FA);
       return;
     }
     if (rtcStage === 'failed') {
       setStatusText('اتصال پایدار نشد');
       return;
     }
-    setStatusText('منتظر ورود شرکت‌کننده…');
-  }, [join, permissionDenied, remoteStreams.length, remoteParticipants.length, rtcStage]);
+    setStatusText(WAITING_PEER_FA);
+  }, [join, permissionDenied, remoteParticipants, remoteStreams.length, rtcStage]);
 
   return (
     <AuthGate>
@@ -557,15 +678,49 @@ export default function MeetingRoomPage() {
           </div>
         ) : null}
 
+        {awaitingIosMediaTap && join && !mediaReady ? (
+          <div className="mx-3 mt-3 flex flex-col items-center gap-2 rounded-2xl border border-[var(--border-soft)] bg-[var(--card-bg)] p-4 ring-1 ring-[var(--border-soft)]">
+            <p className="text-center text-sm text-[var(--text-primary)]">
+              در iOS برای دسترسی به دوربین و میکروفون باید یک بار ضربه بزنید.
+            </p>
+            <button
+              type="button"
+              onClick={() => void attachLocalMedia()}
+              className="rounded-full bg-emerald-600 px-6 py-3 text-sm font-extrabold text-white shadow-md active:scale-[0.98]"
+            >
+              شروع جلسه
+            </button>
+          </div>
+        ) : null}
+
         {permissionDenied ? (
           <div className="mx-3 mt-3 rounded-2xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-700 dark:text-amber-200">
-            برای ورود به جلسه اجازه میکروفون و دوربین لازم است.
+            دسترسی به میکروفون و دوربین داده نشد. در تنظیمات Safari، بخش حریم خصوصی، میکروفون و دوربین را بررسی کنید یا از نوار آدرس مجوز سایت را بدهید.
+          </div>
+        ) : null}
+
+        {!permissionDenied && mediaProfile === 'audio_only' ? (
+          <div className="mx-3 mt-3 rounded-2xl border border-sky-500/30 bg-sky-500/10 px-3 py-2 text-sm text-sky-800 dark:text-sky-200">
+            دوربین فعال نشد؛ جلسه فقط با صدا ادامه دارد. برای تصویر، در تنظیمات مرورگر اجازهٔ دوربین را برای این سایت بدهید.
+          </div>
+        ) : null}
+
+        {!permissionDenied && mediaProfile === 'video_only' ? (
+          <div className="mx-3 mt-3 rounded-2xl border border-sky-500/30 bg-sky-500/10 px-3 py-2 text-sm text-sky-800 dark:text-sky-200">
+            میکروفون فعال نشد؛ جلسه فقط با تصویر ادامه دارد. برای صدا، در تنظیمات مرورگر اجازهٔ میکروفون را برای این سایت بدهید.
           </div>
         ) : null}
 
         <div className="flex flex-1 flex-col gap-3 p-3 pb-28">
           <div className="aspect-video w-full overflow-hidden rounded-2xl border border-[var(--border-soft)] bg-zinc-900 shadow-inner ring-1 ring-black/20">
-            <video ref={localVideoRef} className="h-full w-full object-cover" autoPlay muted playsInline />
+            <video
+              ref={localVideoRef}
+              className="h-full w-full object-cover"
+              autoPlay
+              muted
+              playsInline
+              controls={false}
+            />
           </div>
 
           <div className="min-h-[120px] flex-1 rounded-2xl border border-dashed border-[var(--border-soft)] bg-[var(--card-bg)] p-2 ring-1 ring-[var(--border-soft)]">
@@ -582,13 +737,13 @@ export default function MeetingRoomPage() {
                         key={p.id}
                         className="flex aspect-video items-center justify-center rounded-xl bg-[var(--surface-soft)] text-[10px] text-[var(--text-secondary)] ring-1 ring-[var(--border-soft)]"
                       >
-                        {`در حال اتصال به ${p.name}…`}
+                        {`${CONNECTING_FA} (${p.name})`}
                       </div>
                     );
                   })
                 : (
                   <div className="col-span-2 flex aspect-video items-center justify-center rounded-xl bg-[var(--surface-soft)] text-[10px] text-[var(--text-secondary)] ring-1 ring-[var(--border-soft)] sm:col-span-3">
-                    هنوز شرکت‌کننده‌ای وصل نشده است
+                    {WAITING_PEER_FA}
                   </div>
                 )}
             </div>
@@ -614,6 +769,8 @@ export default function MeetingRoomPage() {
                   ontrackAudio: rtcDebug.ontrackAudio,
                   ontrackVideo: rtcDebug.ontrackVideo,
                   remoteMediaSummary,
+                  browser:
+                    typeof navigator !== 'undefined' ? getMeetingBrowserDiagnostics() : null,
                 },
                 null,
                 2,
@@ -672,6 +829,13 @@ function RemoteTile({
   const [trackVersion, setTrackVersion] = useState(0);
   const [hasLiveVideo, setHasLiveVideo] = useState(false);
   const [remoteCameraMuted, setRemoteCameraMuted] = useState(false);
+  const [videoFrameReady, setVideoFrameReady] = useState(false);
+  const [noFramesOverlay, setNoFramesOverlay] = useState(false);
+
+  const hasLiveAudio = useMemo(
+    () => stream.getAudioTracks().some((t) => t.readyState === 'live'),
+    [stream, trackVersion],
+  );
 
   const pruneEndedTracks = useCallback(() => {
     for (const t of [...stream.getTracks()]) {
@@ -698,6 +862,19 @@ function RemoteTile({
       /* autoplay policy / transient; handlers retry */
     }
   }, [hasLiveVideo]);
+
+  useEffect(() => {
+    const onVis = () => {
+      if (document.visibilityState === 'visible') void tryPlayVideo();
+    };
+    const onPageShow = () => void tryPlayVideo();
+    document.addEventListener('visibilitychange', onVis);
+    window.addEventListener('pageshow', onPageShow);
+    return () => {
+      document.removeEventListener('visibilitychange', onVis);
+      window.removeEventListener('pageshow', onPageShow);
+    };
+  }, [tryPlayVideo]);
 
   useEffect(() => {
     const onTrackShapeChange = () => setTrackVersion((v) => v + 1);
@@ -735,12 +912,15 @@ function RemoteTile({
     const el = videoRef.current;
     if (!el || !hasLiveVideo) {
       if (el) el.srcObject = null;
+      setVideoFrameReady(false);
+      setNoFramesOverlay(false);
       return;
     }
     const videoTracks = stream.getVideoTracks().filter((t) => t.readyState === 'live');
     const videoOnly = new MediaStream(videoTracks);
     el.srcObject = null;
     el.srcObject = videoOnly;
+    setVideoFrameReady(false);
     void (async () => {
       try {
         await el.play();
@@ -752,6 +932,18 @@ function RemoteTile({
       if (videoRef.current) videoRef.current.srcObject = null;
     };
   }, [hasLiveVideo, stream, trackVersion]);
+
+  useEffect(() => {
+    if (!hasLiveVideo || !hasLiveAudio || videoFrameReady) {
+      setNoFramesOverlay(false);
+      return;
+    }
+    const t = window.setTimeout(() => {
+      const v = videoRef.current;
+      if (v && v.videoWidth === 0 && v.videoHeight === 0) setNoFramesOverlay(true);
+    }, 2800);
+    return () => window.clearTimeout(t);
+  }, [hasLiveAudio, hasLiveVideo, trackVersion, videoFrameReady]);
 
   useEffect(() => {
     if (!audioRef.current) return;
@@ -771,23 +963,54 @@ function RemoteTile({
 
   const initial = title.trim().charAt(0) || '?';
 
+  const showAudioOnlyPlaceholder = !hasLiveVideo && hasLiveAudio;
+
   return (
     <div className="relative overflow-hidden rounded-xl bg-black ring-1 ring-[var(--border-soft)]">
       {hasLiveVideo ? (
-        <video
-          ref={videoRef}
-          className="aspect-video w-full object-cover"
-          autoPlay
-          playsInline
-          muted={false}
-          controls={false}
-          onLoadedMetadata={() => {
-            void tryPlayVideo();
-          }}
-          onCanPlay={() => {
-            void tryPlayVideo();
-          }}
-        />
+        <>
+          <video
+            ref={videoRef}
+            className="aspect-video w-full object-cover"
+            autoPlay
+            playsInline
+            muted={false}
+            controls={false}
+            onLoadedMetadata={(e) => {
+              const v = e.currentTarget;
+              setVideoFrameReady(v.videoWidth > 0 && v.videoHeight > 0);
+              void tryPlayVideo();
+            }}
+            onCanPlay={() => void tryPlayVideo()}
+            onPlaying={(e) => {
+              const v = e.currentTarget;
+              if (v.videoWidth > 0 && v.videoHeight > 0) setVideoFrameReady(true);
+            }}
+          />
+          {noFramesOverlay && hasLiveAudio ? (
+            <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/70 px-2 text-center">
+              {avatarUrl ? (
+                <img src={avatarUrl} alt="" className="h-14 w-14 rounded-full object-cover ring-2 ring-white/30" />
+              ) : (
+                <div className="flex h-14 w-14 items-center justify-center rounded-full bg-zinc-600 text-lg font-bold text-white ring-2 ring-white/30">
+                  {initial}
+                </div>
+              )}
+              <span className="text-[11px] font-bold text-white">{REMOTE_VIDEO_UNAVAILABLE_FA}</span>
+            </div>
+          ) : null}
+        </>
+      ) : showAudioOnlyPlaceholder ? (
+        <div className="relative flex aspect-video w-full flex-col items-center justify-center gap-2 bg-[var(--surface-soft)] px-2 text-center text-[10px] text-[var(--text-secondary)]">
+          {avatarUrl ? (
+            <img src={avatarUrl} alt="" className="h-14 w-14 rounded-full object-cover ring-2 ring-[var(--border-soft)]" />
+          ) : (
+            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-zinc-600 text-lg font-bold text-white ring-2 ring-[var(--border-soft)]">
+              {initial}
+            </div>
+          )}
+          <span className="font-bold text-[var(--text-primary)]">{REMOTE_VIDEO_UNAVAILABLE_FA}</span>
+        </div>
       ) : (
         <div className="relative flex aspect-video w-full flex-col items-center justify-center gap-2 bg-[var(--surface-soft)] text-[10px] text-[var(--text-secondary)]">
           {avatarUrl ? (
@@ -797,13 +1020,13 @@ function RemoteTile({
               {initial}
             </div>
           )}
-          <span className="font-bold text-[var(--text-primary)]">Audio only</span>
+          <span className="text-center font-bold text-[var(--text-primary)]">{CONNECTING_FA}</span>
         </div>
       )}
       <audio ref={audioRef} autoPlay playsInline className="hidden" />
       {hasLiveVideo && remoteCameraMuted ? (
         <div className="pointer-events-none absolute left-1 top-1 rounded bg-black/55 px-1.5 py-0.5 text-[10px] font-bold text-white">
-          remote camera muted
+          {REMOTE_CAMERA_OFF_FA}
         </div>
       ) : null}
       <div className="pointer-events-none absolute bottom-1 right-1 rounded bg-black/55 px-1.5 py-0.5 text-[10px] font-bold text-white">
