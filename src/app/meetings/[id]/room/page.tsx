@@ -15,6 +15,12 @@ type RoomParticipant = {
 };
 
 type RtcStage = 'waiting' | 'peer_joined' | 'negotiating' | 'ice_connecting' | 'connected' | 'failed';
+type RosterPayload = {
+  meetingId: string;
+  reason: 'join' | 'leave' | 'disconnect';
+  participants: RoomParticipant[];
+  offererUserId: string | null;
+};
 
 export default function MeetingRoomPage() {
   const params = useParams();
@@ -35,6 +41,17 @@ export default function MeetingRoomPage() {
   const [mediaReady, setMediaReady] = useState(false);
   const [remoteStreams, setRemoteStreams] = useState<Array<{ userId: string; stream: MediaStream }>>([]);
   const [rtcStage, setRtcStage] = useState<RtcStage>('waiting');
+  const [offererUserId, setOffererUserId] = useState<string | null>(null);
+  const [rtcDebug, setRtcDebug] = useState({
+    joinEmitted: false,
+    offersCreated: 0,
+    answersReceived: 0,
+    remoteDescSet: 0,
+    iceQueued: 0,
+    iceApplied: 0,
+    ontrackAudio: 0,
+    ontrackVideo: 0,
+  });
 
   const localVideoRef = useRef<HTMLVideoElement | null>(null);
   const localStreamRef = useRef<MediaStream | null>(null);
@@ -42,7 +59,6 @@ export default function MeetingRoomPage() {
   const remoteStreamsRef = useRef<Map<string, MediaStream>>(new Map());
   const pendingIceRef = useRef<Map<string, RTCIceCandidateInit[]>>(new Map());
   const makingOfferRef = useRef<Map<string, boolean>>(new Map());
-  const hasPendingOfferRef = useRef<Map<string, boolean>>(new Map());
   const isSettingRemoteAnswerRef = useRef<Map<string, boolean>>(new Map());
 
   const isDev = process.env.NODE_ENV !== 'production';
@@ -74,7 +90,6 @@ export default function MeetingRoomPage() {
     pcsRef.current.clear();
     pendingIceRef.current.clear();
     makingOfferRef.current.clear();
-    hasPendingOfferRef.current.clear();
     isSettingRemoteAnswerRef.current.clear();
     remoteStreamsRef.current.clear();
     setRemoteStreams([]);
@@ -113,6 +128,11 @@ export default function MeetingRoomPage() {
           trackState: e.track.readyState,
           streamTracks: e.streams[0]?.getTracks().map((t) => `${t.kind}:${t.readyState}`) ?? [],
         });
+        setRtcDebug((d) => ({
+          ...d,
+          ontrackAudio: d.ontrackAudio + (e.track.kind === 'audio' ? 1 : 0),
+          ontrackVideo: d.ontrackVideo + (e.track.kind === 'video' ? 1 : 0),
+        }));
         const existing = remoteStreamsRef.current.get(remoteUserId);
         if (existing) {
           if (!existing.getTracks().some((t) => t.id === e.track.id)) {
@@ -133,7 +153,6 @@ export default function MeetingRoomPage() {
           pcsRef.current.delete(remoteUserId);
           pendingIceRef.current.delete(remoteUserId);
           makingOfferRef.current.delete(remoteUserId);
-          hasPendingOfferRef.current.delete(remoteUserId);
           isSettingRemoteAnswerRef.current.delete(remoteUserId);
           remoteStreamsRef.current.delete(remoteUserId);
           setRemoteStreams(Array.from(remoteStreamsRef.current.entries()).map(([userId, s]) => ({ userId, stream: s })));
@@ -171,6 +190,7 @@ export default function MeetingRoomPage() {
         makingOfferRef.current.set(remoteUserId, true);
         setRtcStage('negotiating');
         logRtc('create_offer', { to: remoteUserId, signaling: pc.signalingState });
+        setRtcDebug((d) => ({ ...d, offersCreated: d.offersCreated + 1 }));
         const offer = await pc.createOffer();
         await pc.setLocalDescription(offer);
         if (!socket || !id) return;
@@ -277,6 +297,7 @@ export default function MeetingRoomPage() {
         }
       },
     );
+    setRtcDebug((d) => ({ ...d, joinEmitted: true }));
 
     const onParticipantJoined = async (payload: { meetingId: string; participant: RoomParticipant }) => {
       if (payload.meetingId !== id) return;
@@ -286,10 +307,6 @@ export default function MeetingRoomPage() {
         return [...prev, payload.participant];
       });
       setRtcStage((prev) => (prev === 'connected' ? prev : 'peer_joined'));
-      const sid = selfIdRef.current ?? '';
-      if (sid && sid < payload.participant.id) {
-        await createOfferTo(payload.participant.id);
-      }
     };
 
     const onParticipantLeft = (payload: { meetingId: string; userId: string }) => {
@@ -335,9 +352,11 @@ export default function MeetingRoomPage() {
             await pc.setRemoteDescription({ type: 'offer', sdp: payload.sdp });
           }
           logRtc('set_remote_offer', { from: payload.fromUserId });
+          setRtcDebug((d) => ({ ...d, remoteDescSet: d.remoteDescSet + 1 }));
           const pending = pendingIceRef.current.get(payload.fromUserId) ?? [];
           for (const c of pending) {
             await pc.addIceCandidate(c);
+            setRtcDebug((d) => ({ ...d, iceApplied: d.iceApplied + 1 }));
           }
           pendingIceRef.current.delete(payload.fromUserId);
           const answer = await pc.createAnswer();
@@ -355,9 +374,15 @@ export default function MeetingRoomPage() {
           isSettingRemoteAnswerRef.current.set(payload.fromUserId, true);
           await pc.setRemoteDescription({ type: 'answer', sdp: payload.sdp });
           logRtc('set_remote_answer', { from: payload.fromUserId });
+          setRtcDebug((d) => ({
+            ...d,
+            answersReceived: d.answersReceived + 1,
+            remoteDescSet: d.remoteDescSet + 1,
+          }));
           const pending = pendingIceRef.current.get(payload.fromUserId) ?? [];
           for (const c of pending) {
             await pc.addIceCandidate(c);
+            setRtcDebug((d) => ({ ...d, iceApplied: d.iceApplied + 1 }));
           }
           pendingIceRef.current.delete(payload.fromUserId);
           isSettingRemoteAnswerRef.current.set(payload.fromUserId, false);
@@ -369,10 +394,12 @@ export default function MeetingRoomPage() {
             q.push(payload.candidate);
             pendingIceRef.current.set(payload.fromUserId, q);
             logRtc('queue_ice', { from: payload.fromUserId, count: q.length });
+            setRtcDebug((d) => ({ ...d, iceQueued: d.iceQueued + 1 }));
             return;
           }
           await pc.addIceCandidate(payload.candidate);
           logRtc('apply_ice', { from: payload.fromUserId });
+          setRtcDebug((d) => ({ ...d, iceApplied: d.iceApplied + 1 }));
         }
       } catch {
         setError('سیگنال WebRTC نامعتبر بود.');
@@ -382,9 +409,29 @@ export default function MeetingRoomPage() {
       }
     };
 
+    const onRoster = async (payload: RosterPayload) => {
+      if (payload.meetingId !== id) return;
+      const sid = selfIdRef.current;
+      if (!sid) return;
+      setParticipants(payload.participants ?? []);
+      setOffererUserId(payload.offererUserId ?? null);
+      const remotes = (payload.participants ?? []).filter((p) => p.id !== sid);
+      if (remotes.length === 0) {
+        setRtcStage('waiting');
+        return;
+      }
+      setRtcStage((prev) => (prev === 'connected' ? prev : 'peer_joined'));
+      if (payload.offererUserId === sid) {
+        for (const p of remotes) {
+          await createOfferTo(p.id);
+        }
+      }
+    };
+
     socket.on('meeting_participant_joined', onParticipantJoined);
     socket.on('meeting_participant_left', onParticipantLeft);
     socket.on('meeting_signal', onSignal);
+    socket.on('meeting_roster', onRoster);
 
     return () => {
       mounted = false;
@@ -392,6 +439,7 @@ export default function MeetingRoomPage() {
       socket.off('meeting_participant_joined', onParticipantJoined);
       socket.off('meeting_participant_left', onParticipantLeft);
       socket.off('meeting_signal', onSignal);
+      socket.off('meeting_roster', onRoster);
     };
   }, [connected, createOfferTo, createPeerConnection, id, join?.token, logRtc, mediaReady, socket]);
 
@@ -439,6 +487,15 @@ export default function MeetingRoomPage() {
   const remoteParticipants = useMemo(
     () => participants.filter((p) => p.id !== selfId),
     [participants, selfId],
+  );
+  const remoteMediaSummary = useMemo(
+    () =>
+      remoteStreams.map((r) => ({
+        userId: r.userId,
+        audio: r.stream.getAudioTracks().filter((t) => t.readyState === 'live').length,
+        video: r.stream.getVideoTracks().filter((t) => t.readyState === 'live').length,
+      })),
+    [remoteStreams],
   );
 
   useEffect(() => {
@@ -522,9 +579,30 @@ export default function MeetingRoomPage() {
         </div>
 
         {join && process.env.NODE_ENV === 'development' ? (
-          <p className="px-3 pb-1 text-[9px] font-mono text-[var(--text-secondary)] opacity-70">
-            dev: iceServers={join.iceServers.length} token len={join.token.length}
-          </p>
+          <div className="space-y-1 px-3 pb-2">
+            <p className="text-[9px] font-mono text-[var(--text-secondary)] opacity-70">
+              {`dev: iceServers=${join.iceServers.length} token=${join.token.length} stage=${rtcStage} self=${selfId ?? '-'} offerer=${offererUserId ?? '-'}`}
+            </p>
+            <pre className="max-h-36 overflow-auto rounded border border-[var(--border-soft)] bg-[var(--surface-soft)] p-2 text-[9px] font-mono text-[var(--text-secondary)]">
+              {JSON.stringify(
+                {
+                  joinEmitted: rtcDebug.joinEmitted,
+                  participants: participants.length,
+                  remoteParticipants: remoteParticipants.length,
+                  offersCreated: rtcDebug.offersCreated,
+                  answersReceived: rtcDebug.answersReceived,
+                  remoteDescSet: rtcDebug.remoteDescSet,
+                  iceQueued: rtcDebug.iceQueued,
+                  iceApplied: rtcDebug.iceApplied,
+                  ontrackAudio: rtcDebug.ontrackAudio,
+                  ontrackVideo: rtcDebug.ontrackVideo,
+                  remoteMediaSummary,
+                },
+                null,
+                2,
+              )}
+            </pre>
+          </div>
         ) : null}
 
         <footer className="sticky bottom-0 z-10 border-t border-[var(--border-soft)] bg-[var(--card-bg)]/95 px-3 py-3 backdrop-blur">
