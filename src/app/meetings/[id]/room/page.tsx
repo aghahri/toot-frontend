@@ -826,6 +826,9 @@ function RemoteTile({
 }) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const isDev = process.env.NODE_ENV !== 'production';
+  const browser = useMemo(() => getMeetingBrowserDiagnostics(), []);
+  const isIosSafari = browser.isIos && browser.isSafari;
   const [trackVersion, setTrackVersion] = useState(0);
   const [hasLiveVideo, setHasLiveVideo] = useState(false);
   const [remoteCameraMuted, setRemoteCameraMuted] = useState(false);
@@ -851,28 +854,62 @@ function RemoteTile({
     const live = tracks.find((t) => t.readyState === 'live');
     setHasLiveVideo(!!live);
     setRemoteCameraMuted(!!live && live.muted);
-  }, [pruneEndedTracks, stream]);
+    if (isDev) {
+      console.debug('[meeting-remote] track_inspect', {
+        title,
+        isIosSafari,
+        tracks: tracks.map((t) => ({
+          id: t.id,
+          readyState: t.readyState,
+          muted: t.muted,
+          enabled: t.enabled,
+        })),
+      });
+    }
+  }, [isDev, isIosSafari, pruneEndedTracks, stream, title]);
 
   const tryPlayVideo = useCallback(async () => {
     const el = videoRef.current;
     if (!el || !hasLiveVideo) return;
     try {
       await el.play();
+      if (isDev) {
+        console.debug('[meeting-remote] play_ok', {
+          title,
+          isIosSafari,
+          readyState: el.readyState,
+          paused: el.paused,
+          videoWidth: el.videoWidth,
+          videoHeight: el.videoHeight,
+        });
+      }
     } catch {
-      /* autoplay policy / transient; handlers retry */
+      if (isDev) {
+        console.debug('[meeting-remote] play_failed', {
+          title,
+          isIosSafari,
+          readyState: el.readyState,
+          paused: el.paused,
+          videoWidth: el.videoWidth,
+          videoHeight: el.videoHeight,
+        });
+      }
     }
-  }, [hasLiveVideo]);
+  }, [hasLiveVideo, isDev, isIosSafari, title]);
 
   useEffect(() => {
     const onVis = () => {
       if (document.visibilityState === 'visible') void tryPlayVideo();
     };
     const onPageShow = () => void tryPlayVideo();
+    const onFocus = () => void tryPlayVideo();
     document.addEventListener('visibilitychange', onVis);
     window.addEventListener('pageshow', onPageShow);
+    window.addEventListener('focus', onFocus);
     return () => {
       document.removeEventListener('visibilitychange', onVis);
       window.removeEventListener('pageshow', onPageShow);
+      window.removeEventListener('focus', onFocus);
     };
   }, [tryPlayVideo]);
 
@@ -918,6 +955,10 @@ function RemoteTile({
     }
     const videoTracks = stream.getVideoTracks().filter((t) => t.readyState === 'live');
     const videoOnly = new MediaStream(videoTracks);
+    el.setAttribute('playsinline', 'true');
+    el.setAttribute('webkit-playsinline', 'true');
+    // Safari/WebKit can be strict about inline playback properties.
+    (el as HTMLVideoElement & { webkitPlaysInline?: boolean }).webkitPlaysInline = true;
     el.srcObject = null;
     el.srcObject = videoOnly;
     setVideoFrameReady(false);
@@ -932,6 +973,40 @@ function RemoteTile({
       if (videoRef.current) videoRef.current.srcObject = null;
     };
   }, [hasLiveVideo, stream, trackVersion]);
+
+  useEffect(() => {
+    if (!hasLiveVideo || videoFrameReady) return;
+    let attempts = 0;
+    const maxAttempts = isIosSafari ? 10 : 4;
+    const timer = window.setInterval(() => {
+      attempts += 1;
+      const el = videoRef.current;
+      if (!el) return;
+      if (isDev) {
+        console.debug('[meeting-remote] frame_watchdog', {
+          title,
+          attempt: attempts,
+          isIosSafari,
+          hasLiveVideo,
+          hasLiveAudio,
+          readyState: el.readyState,
+          paused: el.paused,
+          videoWidth: el.videoWidth,
+          videoHeight: el.videoHeight,
+        });
+      }
+      if (el.videoWidth > 0 && el.videoHeight > 0) {
+        setVideoFrameReady(true);
+        window.clearInterval(timer);
+        return;
+      }
+      void tryPlayVideo();
+      if (attempts >= maxAttempts) {
+        window.clearInterval(timer);
+      }
+    }, isIosSafari ? 1200 : 1800);
+    return () => window.clearInterval(timer);
+  }, [hasLiveAudio, hasLiveVideo, isDev, isIosSafari, title, trackVersion, tryPlayVideo, videoFrameReady]);
 
   useEffect(() => {
     if (!hasLiveVideo || !hasLiveAudio || videoFrameReady) {
@@ -978,12 +1053,42 @@ function RemoteTile({
             controls={false}
             onLoadedMetadata={(e) => {
               const v = e.currentTarget;
+              if (isDev) {
+                console.debug('[meeting-remote] loadedmetadata', {
+                  title,
+                  isIosSafari,
+                  readyState: v.readyState,
+                  videoWidth: v.videoWidth,
+                  videoHeight: v.videoHeight,
+                });
+              }
               setVideoFrameReady(v.videoWidth > 0 && v.videoHeight > 0);
               void tryPlayVideo();
             }}
-            onCanPlay={() => void tryPlayVideo()}
+            onCanPlay={(e) => {
+              const v = e.currentTarget;
+              if (isDev) {
+                console.debug('[meeting-remote] canplay', {
+                  title,
+                  isIosSafari,
+                  readyState: v.readyState,
+                  videoWidth: v.videoWidth,
+                  videoHeight: v.videoHeight,
+                });
+              }
+              void tryPlayVideo();
+            }}
             onPlaying={(e) => {
               const v = e.currentTarget;
+              if (isDev) {
+                console.debug('[meeting-remote] playing', {
+                  title,
+                  isIosSafari,
+                  readyState: v.readyState,
+                  videoWidth: v.videoWidth,
+                  videoHeight: v.videoHeight,
+                });
+              }
               if (v.videoWidth > 0 && v.videoHeight > 0) setVideoFrameReady(true);
             }}
           />
