@@ -12,6 +12,7 @@ const WAITING_PEER_FA = 'در انتظار ورود شرکت‌کننده دیگ
 const CONNECTING_FA = 'در حال اتصال…';
 const REMOTE_VIDEO_UNAVAILABLE_FA = 'تصویر طرف مقابل در دسترس نیست';
 const REMOTE_CAMERA_OFF_FA = 'دوربین طرف مقابل خاموش است';
+const REMOTE_PREPARING_VIDEO_FA = 'در حال آماده‌سازی ویدیو…';
 
 function getMeetingBrowserDiagnostics() {
   if (typeof navigator === 'undefined') {
@@ -933,6 +934,8 @@ function RemoteTile({
   const [hasAnyVideoTrack, setHasAnyVideoTrack] = useState(false);
   const [videoFrameReady, setVideoFrameReady] = useState(false);
   const [noFramesOverlay, setNoFramesOverlay] = useState(false);
+  const [streamConnectedAt, setStreamConnectedAt] = useState<number | null>(null);
+  const [clockTick, setClockTick] = useState(0);
 
   const hasLiveAudio = useMemo(
     () => stream.getAudioTracks().some((t) => t.readyState === 'live'),
@@ -1045,6 +1048,19 @@ function RemoteTile({
   }, [inspectVideo, pruneEndedTracks, stream, trackVersion]);
 
   useEffect(() => {
+    if (streamConnectedAt != null) return;
+    if (stream.getTracks().length > 0) {
+      setStreamConnectedAt(Date.now());
+    }
+  }, [stream, streamConnectedAt, trackVersion]);
+
+  useEffect(() => {
+    if (hasLiveVideo) return;
+    const t = window.setInterval(() => setClockTick((v) => v + 1), 1000);
+    return () => window.clearInterval(t);
+  }, [hasLiveVideo]);
+
+  useEffect(() => {
     const el = videoRef.current;
     if (!el || !hasLiveVideo) {
       if (el) el.srcObject = null;
@@ -1137,8 +1153,57 @@ function RemoteTile({
 
   const initial = title.trim().charAt(0) || '?';
 
+  const msSinceConnected = streamConnectedAt == null ? 0 : Date.now() - streamConnectedAt;
+  const cameraOffEvidenceReady = msSinceConnected > 8000;
   const showAudioOnlyPlaceholder = !hasLiveVideo && hasLiveAudio;
-  const showCameraOffState = !hasLiveVideo && hasLiveAudio && hasAnyVideoTrack;
+  const showCameraOffState = showAudioOnlyPlaceholder && cameraOffEvidenceReady;
+  const uiState = hasLiveVideo
+    ? 'live_video'
+    : showCameraOffState
+      ? 'camera_off'
+      : showAudioOnlyPlaceholder
+        ? 'preparing_video'
+        : 'connecting_media';
+
+  useEffect(() => {
+    if (!isDev) return;
+    const v = videoRef.current;
+    console.debug('[meeting-remote] ui_state', {
+      title,
+      state: uiState,
+      hasLiveAudio,
+      hasAnyVideoTrack,
+      hasLiveVideo,
+      videoFrameReady,
+      noFramesOverlay,
+      streamTracks: stream.getTracks().map((t) => ({
+        kind: t.kind,
+        readyState: t.readyState,
+        enabled: t.enabled,
+        muted: t.muted,
+      })),
+      videoTracks: stream.getVideoTracks().map((t) => ({
+        readyState: t.readyState,
+        enabled: t.enabled,
+        muted: t.muted,
+      })),
+      videoWidth: v?.videoWidth ?? 0,
+      videoHeight: v?.videoHeight ?? 0,
+      msSinceConnected,
+    });
+  }, [
+    hasAnyVideoTrack,
+    hasLiveAudio,
+    hasLiveVideo,
+    clockTick,
+    isDev,
+    msSinceConnected,
+    noFramesOverlay,
+    stream,
+    title,
+    uiState,
+    videoFrameReady,
+  ]);
 
   return (
     <div className="relative overflow-hidden rounded-xl bg-black ring-1 ring-[var(--border-soft)]">
@@ -1215,7 +1280,7 @@ function RemoteTile({
             </div>
           )}
           <span className="font-bold text-[var(--text-primary)]">
-            {showCameraOffState ? REMOTE_CAMERA_OFF_FA : REMOTE_VIDEO_UNAVAILABLE_FA}
+            {showCameraOffState ? REMOTE_CAMERA_OFF_FA : REMOTE_PREPARING_VIDEO_FA}
           </span>
         </div>
       ) : (
@@ -1227,7 +1292,7 @@ function RemoteTile({
               {initial}
             </div>
           )}
-          <span className="text-center font-bold text-[var(--text-primary)]">{CONNECTING_FA}</span>
+          <span className="text-center font-bold text-[var(--text-primary)]">{REMOTE_PREPARING_VIDEO_FA}</span>
         </div>
       )}
       <audio ref={audioRef} autoPlay playsInline className="hidden" />
