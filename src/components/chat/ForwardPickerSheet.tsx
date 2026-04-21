@@ -113,7 +113,7 @@ export function ForwardPickerSheet({
               }
               return (
                 <button
-                  key={`g-${t.id}`}
+                  key={`${t.kind}-${t.id}`}
                   type="button"
                   onClick={() => onPick(t)}
                   className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-right transition hover:bg-white active:bg-stone-100"
@@ -126,7 +126,7 @@ export function ForwardPickerSheet({
                   <div className="min-w-0 flex-1">
                     <div className="truncate font-semibold text-stone-900">{t.name}</div>
                     <div className="mt-0.5 truncate text-[11px] text-slate-500">
-                      گروه · {t.memberCount} عضو
+                      {t.kind === 'group' ? 'گروه' : 'کانال'} · {t.memberCount} عضو
                     </div>
                   </div>
                   <span className="shrink-0 text-slate-400" aria-hidden>

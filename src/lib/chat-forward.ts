@@ -25,7 +25,8 @@ export type ForwardPickTarget =
         phoneMasked?: string;
       };
     }
-  | { kind: 'group'; id: string; name: string; memberCount: number };
+  | { kind: 'group'; id: string; name: string; memberCount: number }
+  | { kind: 'channel'; id: string; name: string; memberCount: number };
 
 export function forwardPickLabel(t: ForwardPickTarget): string {
   return t.kind === 'direct' ? t.peer.name : t.name;
@@ -37,7 +38,7 @@ export async function loadForwardPickTargets(
   excludeDirectConversationId?: string | null,
   excludeGroupId?: string | null,
 ): Promise<ForwardPickTarget[]> {
-  const [convRows, groupRows] = await Promise.all([
+  const [convRows, groupRows, channelRows] = await Promise.all([
     apiFetch<ForwardPickConversation[]>('direct/conversations', {
       method: 'GET',
       token,
@@ -46,6 +47,13 @@ export async function loadForwardPickTargets(
       method: 'GET',
       token,
     }).catch(() => []),
+    apiFetch<Array<{ id: string; name: string; memberCount?: number; canPost?: boolean }>>(
+      'channels/conversations',
+      {
+        method: 'GET',
+        token,
+      },
+    ).catch(() => []),
   ]);
 
   const targets: ForwardPickTarget[] = [];
@@ -73,6 +81,16 @@ export async function loadForwardPickTargets(
       id: g.id,
       name: g.name?.trim() || 'گروه',
       memberCount: typeof g.memberCount === 'number' ? g.memberCount : 0,
+    });
+  }
+
+  for (const c of Array.isArray(channelRows) ? channelRows : []) {
+    if (!c?.canPost) continue;
+    targets.push({
+      kind: 'channel',
+      id: c.id,
+      name: c.name?.trim() || 'کانال',
+      memberCount: typeof c.memberCount === 'number' ? c.memberCount : 0,
     });
   }
 

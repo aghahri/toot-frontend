@@ -930,7 +930,7 @@ function RemoteTile({
   const isIosSafari = browser.isIos && browser.isSafari;
   const [trackVersion, setTrackVersion] = useState(0);
   const [hasLiveVideo, setHasLiveVideo] = useState(false);
-  const [remoteCameraMuted, setRemoteCameraMuted] = useState(false);
+  const [hasAnyVideoTrack, setHasAnyVideoTrack] = useState(false);
   const [videoFrameReady, setVideoFrameReady] = useState(false);
   const [noFramesOverlay, setNoFramesOverlay] = useState(false);
 
@@ -951,8 +951,8 @@ function RemoteTile({
     pruneEndedTracks();
     const tracks = stream.getVideoTracks();
     const live = tracks.find((t) => t.readyState === 'live');
+    setHasAnyVideoTrack(tracks.length > 0);
     setHasLiveVideo(!!live);
-    setRemoteCameraMuted(!!live && live.muted);
     if (isDev) {
       console.debug('[meeting-remote] track_inspect', {
         title,
@@ -1138,6 +1138,7 @@ function RemoteTile({
   const initial = title.trim().charAt(0) || '?';
 
   const showAudioOnlyPlaceholder = !hasLiveVideo && hasLiveAudio;
+  const showCameraOffState = !hasLiveVideo && hasLiveAudio && hasAnyVideoTrack;
 
   return (
     <div className="relative overflow-hidden rounded-xl bg-black ring-1 ring-[var(--border-soft)]">
@@ -1213,7 +1214,9 @@ function RemoteTile({
               {initial}
             </div>
           )}
-          <span className="font-bold text-[var(--text-primary)]">{REMOTE_VIDEO_UNAVAILABLE_FA}</span>
+          <span className="font-bold text-[var(--text-primary)]">
+            {showCameraOffState ? REMOTE_CAMERA_OFF_FA : REMOTE_VIDEO_UNAVAILABLE_FA}
+          </span>
         </div>
       ) : (
         <div className="relative flex aspect-video w-full flex-col items-center justify-center gap-2 bg-[var(--surface-soft)] text-[10px] text-[var(--text-secondary)]">
@@ -1228,11 +1231,6 @@ function RemoteTile({
         </div>
       )}
       <audio ref={audioRef} autoPlay playsInline className="hidden" />
-      {hasLiveVideo && remoteCameraMuted ? (
-        <div className="pointer-events-none absolute left-1 top-1 rounded bg-black/55 px-1.5 py-0.5 text-[10px] font-bold text-white">
-          {REMOTE_CAMERA_OFF_FA}
-        </div>
-      ) : null}
       <div className="pointer-events-none absolute bottom-1 right-1 rounded bg-black/55 px-1.5 py-0.5 text-[10px] font-bold text-white">
         {title}
       </div>

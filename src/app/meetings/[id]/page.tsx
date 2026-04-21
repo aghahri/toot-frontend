@@ -4,6 +4,10 @@ import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 import { AuthGate } from '@/components/AuthGate';
+import { ForwardPickerSheet } from '@/components/chat/ForwardPickerSheet';
+import { getAccessToken } from '@/lib/auth';
+import { apiFetch } from '@/lib/api';
+import { loadForwardPickTargets, type ForwardPickTarget } from '@/lib/chat-forward';
 import { formatAppDateTime } from '@/lib/locale-date';
 import {
   cancelMeeting,
@@ -49,6 +53,11 @@ export default function MeetingDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [shareMsg, setShareMsg] = useState<string | null>(null);
+  const [shareTootOpen, setShareTootOpen] = useState(false);
+  const [shareTargets, setShareTargets] = useState<ForwardPickTarget[]>([]);
+  const [shareTargetsLoading, setShareTargetsLoading] = useState(false);
+  const [shareTargetsError, setShareTargetsError] = useState<string | null>(null);
+  const [shareSubmitting, setShareSubmitting] = useState(false);
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -96,6 +105,65 @@ export default function MeetingDetailPage() {
       }
     }
     await copyLink();
+  }
+
+  async function openShareInToot() {
+    const token = getAccessToken();
+    if (!token) {
+      setShareMsg('برای اشتراک در توت، دوباره وارد شوید.');
+      return;
+    }
+    setShareTootOpen(true);
+    setShareTargetsLoading(true);
+    setShareTargetsError(null);
+    try {
+      const myUserId = m?.host?.id ?? null;
+      const targets = await loadForwardPickTargets(token, myUserId);
+      setShareTargets(targets);
+    } catch (e) {
+      setShareTargetsError(e instanceof Error ? e.message : 'خطا در دریافت مقصدها');
+      setShareTargets([]);
+    } finally {
+      setShareTargetsLoading(false);
+    }
+  }
+
+  async function onPickShareTarget(target: ForwardPickTarget) {
+    const token = getAccessToken();
+    if (!token || !meetingLink) return;
+    setShareSubmitting(true);
+    setShareTargetsError(null);
+    const text = `${m?.title ? `جلسه: ${m.title}\n` : ''}${meetingLink}`;
+    try {
+      if (target.kind === 'direct') {
+        await apiFetch(`direct/conversations/${target.id}/messages`, {
+          method: 'POST',
+          token,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text }),
+        });
+      } else if (target.kind === 'group') {
+        await apiFetch(`groups/${target.id}/messages`, {
+          method: 'POST',
+          token,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ content: text }),
+        });
+      } else {
+        await apiFetch(`channels/${target.id}/messages`, {
+          method: 'POST',
+          token,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ content: text }),
+        });
+      }
+      setShareTootOpen(false);
+      setShareMsg('لینک جلسه در توت ارسال شد.');
+    } catch (e) {
+      setShareTargetsError(e instanceof Error ? e.message : 'ارسال انجام نشد');
+    } finally {
+      setShareSubmitting(false);
+    }
   }
 
   async function run(label: string, fn: () => Promise<unknown>) {
@@ -160,7 +228,14 @@ export default function MeetingDetailPage() {
 
             <div className="mt-4 flex flex-col gap-2">
               {(m.status === 'SCHEDULED' || m.status === 'LIVE') && (
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                  <button
+                    type="button"
+                    onClick={() => void openShareInToot()}
+                    className="rounded-2xl border border-violet-500/50 bg-violet-500/10 py-2 text-xs font-extrabold text-violet-700 dark:text-violet-300"
+                  >
+                    اشتراک در توت
+                  </button>
                   <button
                     type="button"
                     onClick={() => void copyLink()}
@@ -171,9 +246,9 @@ export default function MeetingDetailPage() {
                   <button
                     type="button"
                     onClick={() => void shareLink()}
-                    className="rounded-2xl border border-violet-500/50 bg-violet-500/10 py-2 text-xs font-extrabold text-violet-700 dark:text-violet-300"
+                    className="rounded-2xl border border-[var(--border-soft)] bg-[var(--surface-soft)] py-2 text-xs font-extrabold text-[var(--text-primary)]"
                   >
-                    اشتراک‌گذاری لینک
+                    اشتراک‌گذاری بیرونی
                   </button>
                 </div>
               )}
@@ -225,6 +300,20 @@ export default function MeetingDetailPage() {
           </>
         ) : null}
       </div>
+      <ForwardPickerSheet
+        open={shareTootOpen}
+        loading={shareTargetsLoading}
+        error={shareTargetsError}
+        submitting={shareSubmitting}
+        items={shareTargets}
+        onDismiss={() => {
+          if (shareSubmitting) return;
+          setShareTootOpen(false);
+        }}
+        onPick={(t) => {
+          void onPickShareTarget(t);
+        }}
+      />
     </AuthGate>
   );
 }
