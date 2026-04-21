@@ -671,7 +671,6 @@ function RemoteTile({
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [trackVersion, setTrackVersion] = useState(0);
   const [hasLiveVideo, setHasLiveVideo] = useState(false);
-  const [remoteCameraMuted, setRemoteCameraMuted] = useState(false);
 
   const pruneEndedTracks = useCallback(() => {
     for (const t of [...stream.getTracks()]) {
@@ -686,7 +685,6 @@ function RemoteTile({
     const tracks = stream.getVideoTracks();
     const live = tracks.find((t) => t.readyState === 'live');
     setHasLiveVideo(!!live);
-    setRemoteCameraMuted(!!live && live.muted);
   }, [pruneEndedTracks, stream]);
 
   const tryPlayVideo = useCallback(async () => {
@@ -801,11 +799,6 @@ function RemoteTile({
         </div>
       )}
       <audio ref={audioRef} autoPlay playsInline className="hidden" />
-      {hasLiveVideo && remoteCameraMuted ? (
-        <div className="pointer-events-none absolute left-1 top-1 rounded bg-black/55 px-1.5 py-0.5 text-[10px] font-bold text-white">
-          remote camera muted
-        </div>
-      ) : null}
       <div className="pointer-events-none absolute bottom-1 right-1 rounded bg-black/55 px-1.5 py-0.5 text-[10px] font-bold text-white">
         {title}
       </div>
