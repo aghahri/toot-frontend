@@ -75,6 +75,16 @@ type RosterPayload = {
   offererUserId: string | null;
 };
 
+function summarizeTracks(stream: MediaStream) {
+  return stream.getTracks().map((t) => ({
+    id: t.id,
+    kind: t.kind,
+    readyState: t.readyState,
+    enabled: t.enabled,
+    muted: t.muted,
+  }));
+}
+
 export default function MeetingRoomPage() {
   const params = useParams();
   const router = useRouter();
@@ -169,7 +179,34 @@ export default function MeetingRoomPage() {
 
       const local = localStreamRef.current;
       if (local) {
-        local.getTracks().forEach((track) => pc.addTrack(track, local));
+        logRtc('pc_add_local_tracks_start', {
+          peer: remoteUserId,
+          streamId: local.id,
+          tracks: summarizeTracks(local),
+        });
+        local.getTracks().forEach((track) => {
+          pc.addTrack(track, local);
+          logRtc('pc_add_local_track', {
+            peer: remoteUserId,
+            trackId: track.id,
+            kind: track.kind,
+            readyState: track.readyState,
+            enabled: track.enabled,
+            muted: track.muted,
+          });
+        });
+        logRtc('pc_senders_after_add', {
+          peer: remoteUserId,
+          senders: pc.getSenders().map((s) => ({
+            kind: s.track?.kind ?? null,
+            trackId: s.track?.id ?? null,
+            readyState: s.track?.readyState ?? null,
+            enabled: s.track?.enabled ?? null,
+            muted: s.track?.muted ?? null,
+          })),
+        });
+      } else {
+        logRtc('pc_no_local_stream_for_addtrack', { peer: remoteUserId });
       }
 
       pc.onicecandidate = (e) => {
@@ -297,10 +334,43 @@ export default function MeetingRoomPage() {
 
   const attachLocalMedia = useCallback(async () => {
     setStatusText('در حال دریافت دسترسی میکروفون/دوربین…');
+    const browser = getMeetingBrowserDiagnostics();
     try {
       const { stream, videoUnavailable, audioUnavailable } = await acquireLocalMedia();
+      logRtc('gum_success', {
+        ...browser,
+        streamId: stream.id,
+        audioCount: stream.getAudioTracks().length,
+        videoCount: stream.getVideoTracks().length,
+        tracks: summarizeTracks(stream),
+      });
+      if (stream.getTracks().length === 0) {
+        setError('دوربین/میکروفون در آیفون فعال نشد. دوباره تلاش کنید.');
+        setStatusText('خطا در راه‌اندازی دوربین/میکروفون');
+        return;
+      }
       localStreamRef.current = stream;
-      if (localVideoRef.current) localVideoRef.current.srcObject = stream;
+      if (localVideoRef.current) {
+        localVideoRef.current.srcObject = stream;
+        const p = localVideoRef.current.play();
+        if (p !== undefined) {
+          void p
+            .then(() => {
+              logRtc('local_preview_play_ok', {
+                streamId: stream.id,
+                readyState: localVideoRef.current?.readyState ?? null,
+                videoWidth: localVideoRef.current?.videoWidth ?? null,
+                videoHeight: localVideoRef.current?.videoHeight ?? null,
+              });
+            })
+            .catch(() => {
+              logRtc('local_preview_play_failed', {
+                streamId: stream.id,
+                readyState: localVideoRef.current?.readyState ?? null,
+              });
+            });
+        }
+      }
 
       if (videoUnavailable && !audioUnavailable) {
         setMediaProfile('audio_only');
@@ -336,10 +406,15 @@ export default function MeetingRoomPage() {
       setStatusText('اتصال به اتاق…');
     } catch (e) {
       const err = e instanceof Error ? e : null;
+      logRtc('gum_failed', {
+        ...browser,
+        errorName: err?.name ?? 'unknown',
+        errorMessage: err?.message ?? 'unknown',
+      });
       if (err?.name === 'NotAllowedError' || err?.name === 'PermissionDeniedError') {
         setPermissionDenied(true);
       }
-      setError(err?.message ?? 'خطا');
+      setError('فعال‌سازی دوربین/میکروفون انجام نشد. دسترسی‌ها را بررسی کنید و دوباره «شروع جلسه» را بزنید.');
       setM(null);
       setJoin(null);
       setMediaReady(false);
@@ -362,10 +437,12 @@ export default function MeetingRoomPage() {
       const [detail, tok] = await Promise.all([fetchMeeting(id), fetchJoinToken(id)]);
       setM(detail);
       setJoin(tok);
-      const { needsUserGestureForGetUserMedia } = getMeetingBrowserDiagnostics();
+      const browser = getMeetingBrowserDiagnostics();
+      const { needsUserGestureForGetUserMedia } = browser;
       if (needsUserGestureForGetUserMedia) {
         setAwaitingIosMediaTap(true);
         setStatusText('برای فعال‌سازی دوربین و میکروفون، «شروع جلسه» را بزنید');
+        logRtc('ios_waiting_for_media_tap', browser);
         return;
       }
       await attachLocalMedia();
@@ -720,6 +797,28 @@ export default function MeetingRoomPage() {
               muted
               playsInline
               controls={false}
+              onLoadedMetadata={(e) => {
+                const v = e.currentTarget;
+                logRtc('local_preview_loadedmetadata', {
+                  readyState: v.readyState,
+                  videoWidth: v.videoWidth,
+                  videoHeight: v.videoHeight,
+                  hasSrcObject: !!v.srcObject,
+                });
+                void v.play().catch(() => {
+                  logRtc('local_preview_loadedmetadata_play_failed', {
+                    readyState: v.readyState,
+                  });
+                });
+              }}
+              onCanPlay={(e) => {
+                const v = e.currentTarget;
+                logRtc('local_preview_canplay', {
+                  readyState: v.readyState,
+                  videoWidth: v.videoWidth,
+                  videoHeight: v.videoHeight,
+                });
+              }}
             />
           </div>
 
