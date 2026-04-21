@@ -69,6 +69,11 @@ export function fetchMeeting(id: string) {
   return apiFetch<MeetingDetail>(`meetings/${encodeURIComponent(id)}`, { method: 'GET' });
 }
 
+export function fetchMyMeetings(limit = 40) {
+  const q = Number.isFinite(limit) ? `?limit=${Math.max(1, Math.min(100, Math.floor(limit)))}` : '';
+  return apiFetch<MeetingRow[]>(`meetings/my${q}`, { method: 'GET' });
+}
+
 export function createMeeting(body: Record<string, unknown>) {
   return apiFetch<MeetingRow>('meetings', {
     method: 'POST',
