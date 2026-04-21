@@ -6,6 +6,7 @@ export type { ChannelMsg } from './channelTypes';
 
 import { isVoiceMedia } from '@/lib/chat-media';
 import { formatAppDateTime } from '@/lib/locale-date';
+import { MessageText } from '@/components/chat/MessageText';
 
 function isImageMedia(m: ChannelMsg['media']): boolean {
   if (!m) return false;
@@ -129,7 +130,10 @@ export function ChannelPublicationCard({
         ) : null}
 
         {m.content?.trim() ? (
-          <p className="theme-text-primary mt-3 whitespace-pre-wrap text-[15px] leading-[1.7]">{m.content}</p>
+          <MessageText
+            text={m.content}
+            className="theme-text-primary mt-3 whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-[15px] leading-[1.7]"
+          />
         ) : null}
 
         {!loc && !contact && !m.content?.trim() && !media?.url ? (

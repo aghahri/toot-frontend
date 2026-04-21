@@ -22,6 +22,7 @@ import { clearGroupDraft, getGroupDraft, setGroupDraft } from '@/lib/group-draft
 import { ReplyQuoteBlock, groupReplyToModel } from '@/components/chat/ReplyQuoteBlock';
 import { VoiceMessageBubble } from '@/components/chat/VoiceMessageBubble';
 import { ForwardPickerSheet } from '@/components/chat/ForwardPickerSheet';
+import { MessageText } from '@/components/chat/MessageText';
 import { loadForwardPickTargets, type ForwardPickTarget } from '@/lib/chat-forward';
 import { isVoiceMedia, formatVoiceClock } from '@/lib/chat-media';
 import { calendarDayKey, dayDividerLabelFa } from '@/lib/chat-dates';
@@ -1645,7 +1646,10 @@ export default function GroupThreadPage() {
                       {deleted ? (
                         <div className="text-sm font-medium italic opacity-80">این پیام حذف شده است</div>
                       ) : m.content ? (
-                        <div className="whitespace-pre-wrap text-[15px] leading-relaxed">{m.content}</div>
+                        <MessageText
+                          text={m.content}
+                          className="whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-[15px] leading-relaxed"
+                        />
                       ) : null}
 
                       <div

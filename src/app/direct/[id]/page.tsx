@@ -17,6 +17,7 @@ import {
   type ReplyToSummary,
 } from '@/components/chat/ReplyQuoteBlock';
 import { ForwardPickerSheet } from '@/components/chat/ForwardPickerSheet';
+import { MessageText } from '@/components/chat/MessageText';
 import { loadForwardPickTargets, type ForwardPickTarget } from '@/lib/chat-forward';
 import { isVoiceMedia, formatVoiceClock } from '@/lib/chat-media';
 import { calendarDayKey, dayDividerLabelFa } from '@/lib/chat-dates';
@@ -2644,7 +2645,10 @@ async function uploadSelectedFile(token: string): Promise<string | null> {
                           </div>
                         </div>
                       ) : msg.text ? (
-                        <div className="whitespace-pre-wrap text-[15px] leading-relaxed">{msg.text}</div>
+                        <MessageText
+                          text={msg.text}
+                          className="whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-[15px] leading-relaxed"
+                        />
                       ) : null}
 
                       <div
