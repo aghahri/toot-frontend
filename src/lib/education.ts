@@ -41,8 +41,41 @@ export type EducationHub = {
   studyGroups: Array<{ id: string; name: string; description: string | null; networkId: string | null }>;
 };
 
+export type EducationMyCourse = Pick<
+  EducationCourse,
+  | 'id'
+  | 'title'
+  | 'slug'
+  | 'description'
+  | 'coverImageUrl'
+  | 'channel'
+  | 'group'
+  | 'nextMeeting'
+  | 'owner'
+>;
+
+export type EducationMyUpcomingMeeting = {
+  id: string;
+  title: string;
+  startsAt: string;
+  status: string;
+  course: {
+    id: string;
+    title: string;
+  };
+};
+
+export type EducationMyDashboard = {
+  enrolledCourses: EducationMyCourse[];
+  upcomingMeetings: EducationMyUpcomingMeeting[];
+};
+
 export function fetchEducationHub() {
   return apiFetch<EducationHub>('education/hub', { method: 'GET' });
+}
+
+export function fetchMyEducationDashboard() {
+  return apiFetch<EducationMyDashboard>('education/my', { method: 'GET' });
 }
 
 export function fetchEducationCourses(query?: { mine?: boolean; public?: boolean; upcoming?: boolean }) {
