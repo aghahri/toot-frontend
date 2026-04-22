@@ -698,6 +698,14 @@ function RemoteTile({
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [trackVersion, setTrackVersion] = useState(0);
   const [hasLiveVideo, setHasLiveVideo] = useState(false);
+  const isSafariWebKit = useMemo(() => {
+    if (typeof navigator === 'undefined') return false;
+    const ua = navigator.userAgent;
+    const isAppleWebKit = /AppleWebKit/i.test(ua);
+    const isSafari = /Safari/i.test(ua);
+    const isOtherEngine = /Chrome|CriOS|Chromium|Edg|EdgiOS|FxiOS|OPiOS|SamsungBrowser|Android/i.test(ua);
+    return isAppleWebKit && isSafari && !isOtherEngine;
+  }, []);
 
   const pruneEndedTracks = useCallback(() => {
     for (const t of [...stream.getTracks()]) {
@@ -773,10 +781,40 @@ function RemoteTile({
         /* see tryPlayVideo / event handlers */
       }
     })();
+    let retryTimerA: ReturnType<typeof setTimeout> | null = null;
+    let retryTimerB: ReturnType<typeof setTimeout> | null = null;
+    if (isSafariWebKit) {
+      retryTimerA = setTimeout(() => {
+        void tryPlayVideo();
+      }, 120);
+      retryTimerB = setTimeout(() => {
+        void tryPlayVideo();
+      }, 450);
+    }
     return () => {
+      if (retryTimerA) clearTimeout(retryTimerA);
+      if (retryTimerB) clearTimeout(retryTimerB);
       if (videoRef.current) videoRef.current.srcObject = null;
     };
-  }, [hasLiveVideo, stream, trackVersion]);
+  }, [hasLiveVideo, isSafariWebKit, stream, trackVersion, tryPlayVideo]);
+
+  useEffect(() => {
+    if (!isSafariWebKit || !hasLiveVideo) return;
+    const retry = () => {
+      void tryPlayVideo();
+    };
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') retry();
+    };
+    window.addEventListener('focus', retry);
+    window.addEventListener('pageshow', retry);
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    return () => {
+      window.removeEventListener('focus', retry);
+      window.removeEventListener('pageshow', retry);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+    };
+  }, [hasLiveVideo, isSafariWebKit, tryPlayVideo]);
 
   useEffect(() => {
     if (!audioRef.current) return;
