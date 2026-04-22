@@ -582,7 +582,9 @@ export default function MeetingRoomPage() {
                         key={p.id}
                         className="flex aspect-video items-center justify-center rounded-xl bg-[var(--surface-soft)] text-[10px] text-[var(--text-secondary)] ring-1 ring-[var(--border-soft)]"
                       >
-                        {`در حال اتصال به ${p.name}…`}
+                        {rtcStage === 'connected'
+                          ? `اتصال ${p.name} برقرار است؛ در حال آماده‌سازی تصویر…`
+                          : `در حال اتصال به ${p.name}…`}
                       </div>
                     );
                   })
