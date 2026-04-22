@@ -817,6 +817,33 @@ function RemoteTile({
   }, [hasLiveVideo, isSafariWebKit, tryPlayVideo]);
 
   useEffect(() => {
+    if (!isSafariWebKit || !hasLiveVideo) return;
+    const el = videoRef.current;
+    if (!el) return;
+    const stepsMs = [150, 400, 900, 1600, 2600];
+    const timers: Array<ReturnType<typeof setTimeout>> = [];
+    const shouldRetry = () => {
+      const e = videoRef.current;
+      if (!e) return false;
+      if (e.paused) return true;
+      if (e.readyState < 2) return true;
+      return e.currentTime === 0 && e.videoWidth === 0;
+    };
+    for (const delay of stepsMs) {
+      timers.push(
+        setTimeout(() => {
+          if (shouldRetry()) {
+            void tryPlayVideo();
+          }
+        }, delay),
+      );
+    }
+    return () => {
+      for (const t of timers) clearTimeout(t);
+    };
+  }, [hasLiveVideo, isSafariWebKit, trackVersion, tryPlayVideo]);
+
+  useEffect(() => {
     if (!audioRef.current) return;
     const audioTracks = stream.getAudioTracks().filter((t) => t.readyState === 'live');
     const audioOnly = new MediaStream(audioTracks);
