@@ -514,6 +514,20 @@ export default function MeetingRoomPage() {
       })),
     [remoteStreams],
   );
+  const hasRemoteSessionEvidence = useMemo(
+    () =>
+      remoteParticipants.some((p) => {
+        const hasStream = remoteStreamsRef.current.has(p.id);
+        const pc = pcsRef.current.get(p.id);
+        const hasReceiverTrack =
+          !!pc &&
+          pc
+            .getReceivers()
+            .some((r) => !!r.track && (r.track.kind === 'audio' || r.track.kind === 'video') && r.track.readyState === 'live');
+        return hasStream || hasReceiverTrack;
+      }),
+    [remoteParticipants, remoteStreams, rtcStage],
+  );
 
   useEffect(() => {
     if (permissionDenied) {
@@ -526,6 +540,10 @@ export default function MeetingRoomPage() {
       return;
     }
     if (remoteParticipants.length > 0 || rtcStage === 'peer_joined' || rtcStage === 'negotiating' || rtcStage === 'ice_connecting') {
+      if (hasRemoteSessionEvidence) {
+        setStatusText('اتصال برقرار است؛ در حال آماده‌سازی رسانه…');
+        return;
+      }
       setStatusText('در حال اتصال به شرکت‌کننده…');
       return;
     }
@@ -534,7 +552,7 @@ export default function MeetingRoomPage() {
       return;
     }
     setStatusText('منتظر ورود شرکت‌کننده…');
-  }, [join, permissionDenied, remoteStreams.length, remoteParticipants.length, rtcStage]);
+  }, [hasRemoteSessionEvidence, join, permissionDenied, remoteStreams.length, remoteParticipants.length, rtcStage]);
 
   return (
     <AuthGate>
@@ -577,12 +595,19 @@ export default function MeetingRoomPage() {
                     if (remote) {
                       return <RemoteTile key={p.id} stream={remote.stream} title={p.name} avatarUrl={p.avatar} />;
                     }
+                    const pc = pcsRef.current.get(p.id);
+                    const hasReceiverTrack =
+                      !!pc &&
+                      pc
+                        .getReceivers()
+                        .some((r) => !!r.track && (r.track.kind === 'audio' || r.track.kind === 'video') && r.track.readyState === 'live');
+                    const showPreparingState = hasReceiverTrack || remoteStreamsRef.current.has(p.id) || rtcStage === 'connected';
                     return (
                       <div
                         key={p.id}
                         className="flex aspect-video items-center justify-center rounded-xl bg-[var(--surface-soft)] text-[10px] text-[var(--text-secondary)] ring-1 ring-[var(--border-soft)]"
                       >
-                        {rtcStage === 'connected'
+                        {showPreparingState
                           ? `اتصال ${p.name} برقرار است؛ در حال آماده‌سازی تصویر…`
                           : `در حال اتصال به ${p.name}…`}
                       </div>
