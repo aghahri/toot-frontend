@@ -43,6 +43,9 @@ export type EducationHub = {
   publicCourses: EducationCourse[];
   teacherChannels: Array<{ id: string; name: string; description: string | null; networkId: string }>;
   studyGroups: Array<{ id: string; name: string; description: string | null; networkId: string | null }>;
+  educationNetworks?: Array<{ id: string; name: string; description: string | null; membersCount: number }>;
+  canCreateEducationNetwork?: boolean;
+  createEducationNetworkPolicy?: 'ANY_AUTHENTICATED_USER' | string;
 };
 
 export type EducationMyCourse = Pick<

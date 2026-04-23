@@ -121,6 +121,12 @@ export default function EducationSpacePage() {
 
   const myCourses = useMemo(() => data?.myCourses ?? [], [data]);
   const publicCourses = useMemo(() => data?.publicCourses ?? [], [data]);
+  const educationNetworks = useMemo(() => data?.educationNetworks ?? [], [data]);
+  const canCreateEducationNetwork = !!data?.canCreateEducationNetwork;
+  const createPolicyText =
+    data?.createEducationNetworkPolicy === 'ANY_AUTHENTICATED_USER'
+      ? 'همه کاربران واردشده می‌توانند شبکه آموزشی بسازند.'
+      : 'ایجاد شبکه آموزشی محدود به کاربران مجاز است';
 
   return (
     <AuthGate>
@@ -169,6 +175,52 @@ export default function EducationSpacePage() {
             <Link href="/education/manage" className={`${BTN_CARD} col-span-2 sm:col-span-1`}>
               مدیریت آموزش
             </Link>
+          </div>
+          <div className="mt-3 rounded-xl border border-[var(--border-soft)] bg-[var(--surface-soft)] px-3 py-2">
+            <p className="text-[11px] font-extrabold text-[var(--text-primary)]">
+              چه کسانی می‌توانند شبکه آموزشی بسازند؟
+            </p>
+            <p className="mt-1 text-[11px] text-[var(--text-secondary)]">{createPolicyText}</p>
+          </div>
+        </section>
+
+        <section className={`${SECTION} mb-4`}>
+          <h2 className="mb-3 text-sm font-extrabold text-[var(--text-primary)]">شبکه‌های آموزشی</h2>
+          {loading ? (
+            <p className="text-sm text-[var(--text-secondary)]">…</p>
+          ) : educationNetworks.length ? (
+            <ul className="space-y-2">
+              {educationNetworks.map((n) => (
+                <li key={n.id}>
+                  <Link
+                    href={`/networks/${n.id}`}
+                    className="block rounded-2xl border border-[var(--border-soft)] bg-[var(--surface-soft)] px-3 py-2 ring-1 ring-[var(--border-soft)] hover:border-violet-400/40"
+                  >
+                    <p className="font-extrabold text-[var(--text-primary)]">{n.name}</p>
+                    {n.description ? (
+                      <p className="mt-1 line-clamp-2 text-[11px] text-[var(--text-secondary)]">{n.description}</p>
+                    ) : null}
+                    <p className="mt-1 text-[10px] text-[var(--text-secondary)]">{n.membersCount} عضو</p>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-sm text-[var(--text-secondary)]">هنوز شبکه آموزشی فعالی ثبت نشده است</p>
+          )}
+          <div className="mt-3">
+            {canCreateEducationNetwork ? (
+              <Link
+                href="/spaces/EDUCATION"
+                className="inline-flex rounded-xl bg-violet-700 px-3 py-2 text-xs font-extrabold text-white"
+              >
+                ایجاد شبکه آموزشی
+              </Link>
+            ) : (
+              <p className="text-[11px] text-[var(--text-secondary)]">
+                ایجاد شبکه آموزشی محدود به کاربران مجاز است
+              </p>
+            )}
           </div>
         </section>
 
