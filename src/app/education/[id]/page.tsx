@@ -38,11 +38,11 @@ export default function EducationCourseDetailPage() {
     void load();
   }, [load]);
 
-  const isOwner = !!course?._meta?.isOwner;
+  const canManage = !!course?._meta?.canManage;
   const isEnrolled = !!course?.me || !!course?.enrollments?.length;
 
   async function toggleEnroll() {
-    if (!course || busy || isOwner) return;
+    if (!course || busy || canManage) return;
     setBusy(true);
     const prev = course;
     setCourse({
@@ -96,7 +96,7 @@ export default function EducationCourseDetailPage() {
                 <h1 className="text-lg font-black text-[var(--text-primary)]">{course.title}</h1>
                 <p className="mt-1 text-xs text-[var(--text-secondary)]">مدرس: {course.owner.name}</p>
                 <p className="mt-1 text-xs text-[var(--text-secondary)]">{course._count.enrollments} عضو</p>
-                {!isOwner ? (
+                {!canManage ? (
                   <button
                     type="button"
                     onClick={() => void toggleEnroll()}

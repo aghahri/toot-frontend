@@ -30,7 +30,7 @@ export default function EditEducationCoursePage() {
     setError(null);
     try {
       const c = await fetchEducationCourse(id);
-      if (!c._meta?.isOwner) throw new Error('فقط سازنده دوره امکان ویرایش دارد.');
+      if (!c._meta?.canManage) throw new Error('فقط صاحب دوره یا ادمین امکان ویرایش دارد.');
       setCourse(c);
       setTitle(c.title);
       setDescription(c.description ?? '');

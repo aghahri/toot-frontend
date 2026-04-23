@@ -35,7 +35,7 @@ export default function EducationSessionsPage() {
     setError(null);
     try {
       const [course, rows] = await Promise.all([fetchEducationCourse(id), fetchCourseSessions(id)]);
-      if (!course._meta?.isOwner) throw new Error('فقط سازنده دوره امکان مدیریت جلسات دارد.');
+      if (!course._meta?.canManage) throw new Error('فقط صاحب دوره یا ادمین امکان مدیریت جلسات دارد.');
       setCourseTitle(course.title);
       setSessions(rows);
     } catch (e) {

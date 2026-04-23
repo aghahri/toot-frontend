@@ -30,7 +30,7 @@ export type EducationCourse = {
   _count: { enrollments: number };
   me?: { id: string; role: 'STUDENT' | 'ASSISTANT' } | null;
   enrollments?: Array<{ id: string; role: 'STUDENT' | 'ASSISTANT' }>;
-  _meta?: { isOwner: boolean };
+  _meta?: { isOwner: boolean; canManage?: boolean };
 };
 
 export type EducationHub = {
