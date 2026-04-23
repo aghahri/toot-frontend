@@ -50,6 +50,7 @@ type FeedPostCardProps = {
   /** Brief visual emphasis (e.g. deep-link from search). */
   emphasize?: boolean;
   viewerUserId?: string | null;
+  scope?: 'for-you' | 'following' | 'local' | 'networks';
 };
 
 export function FeedPostCard({
@@ -61,6 +62,7 @@ export function FeedPostCard({
   linkAuthorProfile = true,
   emphasize = false,
   viewerUserId = null,
+  scope = 'for-you',
 }: FeedPostCardProps) {
   const p = post;
   const handle = p.user?.username?.trim() || `@user_${p.userId.slice(0, 6)}`;
@@ -536,15 +538,31 @@ export function FeedPostCard({
           {p.educationCourse ? (
             <div className="mt-2 rounded-xl border border-violet-200 bg-violet-50/40 px-3 py-2">
               <div className="flex items-center gap-1.5 text-[10px]">
-                <span className="rounded-full bg-violet-500/15 px-2 py-0.5 font-extrabold text-violet-700">
-                  دوره آموزشی
-                </span>
+                {scope === 'networks' ? (
+                  <span className="rounded-full bg-violet-500/15 px-2 py-0.5 font-extrabold text-violet-700">
+                    دوره جدید
+                  </span>
+                ) : (
+                  <span className="rounded-full bg-violet-500/15 px-2 py-0.5 font-extrabold text-violet-700">
+                    دوره آموزشی
+                  </span>
+                )}
                 <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 font-extrabold text-emerald-700">
                   مدرس معتبر
                 </span>
                 {p.educationCourse.nextMeeting?.status === 'LIVE' ? (
                   <span className="rounded-full bg-red-500/15 px-2 py-0.5 font-extrabold text-red-700">
-                    LIVE
+                    کلاس زنده
+                  </span>
+                ) : null}
+                {scope === 'networks' && !p.educationCourse.isEnrolled ? (
+                  <span className="rounded-full bg-amber-500/15 px-2 py-0.5 font-extrabold text-amber-700">
+                    ثبت‌نام باز
+                  </span>
+                ) : null}
+                {scope === 'local' ? (
+                  <span className="rounded-full bg-sky-500/15 px-2 py-0.5 font-extrabold text-sky-700">
+                    نزدیک شما
                   </span>
                 ) : null}
               </div>

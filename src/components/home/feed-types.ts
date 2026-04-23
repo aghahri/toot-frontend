@@ -37,6 +37,8 @@ export type FeedPost = {
     title: string;
     owner: { id: string; name: string; username?: string | null; avatar: string | null };
     nextMeeting: { id: string; startsAt: string; status: string } | null;
+    channel?: { id: string; networkId: string | null; spaceCategory: string | null } | null;
+    group?: { id: string; networkId: string | null; spaceCategory: string | null } | null;
     enrollmentsCount: number;
     isEnrolled: boolean;
   } | null;

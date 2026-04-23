@@ -471,6 +471,8 @@ function HomePageInner() {
     return tokenScore(text, NEIGHBORHOOD_HINT_TOKENS) > 0;
   });
   const joinedCommunityNetworks = joinedNetworks.filter((n) => !joinedNeighborhoodNetworks.some((h) => h.id === n.id));
+  const joinedNeighborhoodNetworkIds = new Set(joinedNeighborhoodNetworks.map((n) => n.id));
+  const joinedCommunityNetworkIds = new Set(joinedCommunityNetworks.map((n) => n.id));
 
   const scoreMembershipMatch = useCallback(
     (text: string, memberships: NetworkMembership[], mode: 'local' | 'networks') => {
@@ -522,18 +524,27 @@ function HomePageInner() {
       const membershipScore = scoreMembershipMatch(text, joinedNeighborhoodNetworks, 'local');
       const generalLocalScore = tokenScore(text, LOCAL_TOKENS);
       const explicitLocalSignal = tokenScore(text, LOCAL_EXPLICIT_TOKENS);
+      const courseNetworkIds = [
+        post.educationCourse?.channel?.networkId ?? null,
+        post.educationCourse?.group?.networkId ?? null,
+      ].filter((v): v is string => !!v);
+      const courseLocalMatch =
+        courseNetworkIds.some((id) => joinedNeighborhoodNetworkIds.has(id)) ||
+        post.educationCourse?.channel?.spaceCategory === 'NEIGHBORHOOD' ||
+        post.educationCourse?.group?.spaceCategory === 'NEIGHBORHOOD';
       const score =
         membershipScore * 3 +
         explicitLocalSignal * 5 +
         generalLocalScore * 2 +
+        (courseLocalMatch ? 8 : 0) +
         freshnessScore(post.createdAt) +
         engagementScore(post);
-      return { post, score, membershipScore, explicitLocalSignal, generalLocalScore };
+      return { post, score, membershipScore, explicitLocalSignal, generalLocalScore, courseLocalMatch };
     })
-    .filter(({ membershipScore, explicitLocalSignal, generalLocalScore }) => {
+    .filter(({ membershipScore, explicitLocalSignal, generalLocalScore, courseLocalMatch }) => {
       const hasMembershipEligibility = membershipScore >= 2;
       const hasLocalSignal = explicitLocalSignal >= 1 || generalLocalScore >= 2;
-      return hasMembershipEligibility || hasLocalSignal;
+      return hasMembershipEligibility || hasLocalSignal || courseLocalMatch;
     })
       .sort((a, b) => {
         if (a.score !== b.score) return b.score - a.score;
@@ -552,10 +563,23 @@ function HomePageInner() {
         const membershipScore = scoreMembershipMatch(text, joinedCommunityNetworks, 'networks');
         const generalNetworkScore = tokenScore(text, NETWORK_TOKENS);
         const explicitMembershipSignal = hasExplicitMembershipSignal(text, joinedCommunityNetworks);
+        const courseNetworkIds = [
+          post.educationCourse?.channel?.networkId ?? null,
+          post.educationCourse?.group?.networkId ?? null,
+        ].filter((v): v is string => !!v);
+        const courseNetworkMatch = courseNetworkIds.some((id) => joinedCommunityNetworkIds.has(id));
         const score = membershipScore * 5 + generalNetworkScore * 2 + freshnessScore(post.createdAt) + engagementScore(post);
-        return { post, score, membershipScore, generalNetworkScore, explicitMembershipSignal };
+        return {
+          post,
+          score: score + (courseNetworkMatch ? 7 : 0),
+          membershipScore,
+          generalNetworkScore,
+          explicitMembershipSignal,
+          courseNetworkMatch,
+        };
       })
-      .filter(({ membershipScore, generalNetworkScore, explicitMembershipSignal }) => {
+      .filter(({ membershipScore, generalNetworkScore, explicitMembershipSignal, courseNetworkMatch }) => {
+        if (courseNetworkMatch) return true;
         // Networks is strict: membership-only is not enough.
         if (explicitMembershipSignal && membershipScore >= 2) return true;
         return membershipScore >= 3 && generalNetworkScore >= 1;
@@ -775,6 +799,7 @@ function HomePageInner() {
                       onRepostChanged={() => void loadFeed({ silent: true })}
                       emphasize={emphasizePostId === p.id}
                       viewerUserId={viewerUserId}
+                      scope="for-you"
                     />
                   ))}
                 </div>
@@ -852,6 +877,7 @@ function HomePageInner() {
                       onRepostChanged={() => void loadFollowingFeed({ silent: true })}
                       emphasize={emphasizePostId === p.id}
                       viewerUserId={viewerUserId}
+                      scope="following"
                     />
                   ))}
                 </div>
@@ -893,6 +919,7 @@ function HomePageInner() {
                           onRepostChanged={() => void loadFeed({ silent: true })}
                           emphasize={emphasizePostId === item.post.id}
                           viewerUserId={viewerUserId}
+                          scope="local"
                         />
                       );
                     }
@@ -931,6 +958,7 @@ function HomePageInner() {
                           onRepostChanged={() => void loadFeed({ silent: true })}
                           emphasize={emphasizePostId === item.post.id}
                           viewerUserId={viewerUserId}
+                          scope="networks"
                         />
                       );
                     }
