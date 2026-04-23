@@ -76,6 +76,9 @@ export type EducationMyUpcomingMeeting = {
 export type EducationMyDashboard = {
   enrolledCourses: EducationMyCourse[];
   upcomingMeetings: EducationMyUpcomingMeeting[];
+  attendedCount?: number;
+  lastAttendanceAt?: string | null;
+  nextAction?: 'join_next' | 'browse_courses' | 'continue';
 };
 
 export type CreatorCourseRow = {
@@ -85,6 +88,8 @@ export type CreatorCourseRow = {
   published: boolean;
   enrolledCount: number;
   upcomingMeetingsCount: number;
+  todaySessionsCount?: number;
+  recentAttendanceCount?: number;
 };
 
 export type CourseSessionRow = {
@@ -97,6 +102,7 @@ export type CourseSessionRow = {
   isLive?: boolean;
   hasEnded?: boolean;
   checkedIn?: boolean;
+  checkedInCount?: number;
 };
 
 export type CourseAttendanceRow = {

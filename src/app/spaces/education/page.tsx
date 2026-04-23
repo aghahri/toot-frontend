@@ -54,6 +54,11 @@ function MeetingCard({ m, dense }: { m: EducationMeetingMini; dense?: boolean })
 }
 
 function CourseCard({ c }: { c: EducationCourse }) {
+  const isMember = !!c.me || !!c.enrollments?.length;
+  const isNearSession =
+    !!c.nextMeeting &&
+    new Date(c.nextMeeting.startsAt).getTime() - Date.now() <= 24 * 60 * 60 * 1000 &&
+    new Date(c.nextMeeting.startsAt).getTime() >= Date.now();
   return (
     <Link
       href={`/education/${c.id}`}
@@ -70,6 +75,16 @@ function CourseCard({ c }: { c: EducationCourse }) {
         <p className="mt-1 line-clamp-2 text-[11px] text-[var(--text-secondary)]">{c.description}</p>
       ) : null}
       <div className="mt-1 flex flex-wrap gap-1 text-[10px] text-[var(--text-secondary)]">
+        {isMember ? (
+          <span className="rounded-lg bg-violet-500/15 px-1.5 py-0.5 font-extrabold text-violet-700 dark:text-violet-300">
+            عضو هستید
+          </span>
+        ) : null}
+        {isNearSession ? (
+          <span className="rounded-lg bg-amber-500/15 px-1.5 py-0.5 font-extrabold text-amber-700 dark:text-amber-300">
+            جلسه نزدیک
+          </span>
+        ) : null}
         <span className="rounded-lg border border-[var(--border-soft)] px-1.5 py-0.5">
           {c._count.enrollments} دانشجو
         </span>

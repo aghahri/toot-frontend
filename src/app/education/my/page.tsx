@@ -87,6 +87,9 @@ export default function MyLearningPage() {
   );
 
   const isEmpty = !loading && courses.length === 0;
+  const attendedCount = data?.attendedCount ?? 0;
+  const nextAction = data?.nextAction ?? (upcoming.length ? 'join_next' : courses.length ? 'continue' : 'browse_courses');
+  const nextMeetingForAction = liveNow[0] ?? startsSoon[0] ?? upcoming[0] ?? null;
 
   async function onCheckIn(meetingId: string) {
     if (checkingMeetingId) return;
@@ -152,7 +155,7 @@ export default function MyLearningPage() {
 
         {isEmpty ? (
           <section className="rounded-3xl border border-dashed border-[var(--border-soft)] bg-[var(--surface-soft)] px-4 py-10 text-center ring-1 ring-[var(--border-soft)]">
-            <p className="text-sm font-extrabold text-[var(--text-primary)]">هنوز در دوره‌ای ثبت‌نام نکرده‌اید</p>
+            <p className="text-sm font-extrabold text-[var(--text-primary)]">هنوز دوره‌ای نگرفته‌اید</p>
             <p className="mt-1 text-xs text-[var(--text-secondary)]">
               برای شروع، دوره‌ها را در فضای آموزش ببینید
             </p>
@@ -165,6 +168,66 @@ export default function MyLearningPage() {
           </section>
         ) : (
           <div className="space-y-4">
+            <section className={SECTION}>
+              <h2 className="mb-3 text-sm font-extrabold text-[var(--text-primary)]">گام بعدی شما</h2>
+              {nextAction === 'join_next' && nextMeetingForAction ? (
+                <div className="rounded-2xl border border-[var(--border-soft)] bg-[var(--surface-soft)] p-3">
+                  <p className="line-clamp-1 text-sm font-extrabold text-[var(--text-primary)]">
+                    {nextMeetingForAction.title}
+                  </p>
+                  <p className="mt-1 text-[11px] text-[var(--text-secondary)]">
+                    {formatAppDateTime(nextMeetingForAction.startsAt)}
+                  </p>
+                  <Link
+                    href={`/meetings/${nextMeetingForAction.id}`}
+                    className="mt-2 inline-flex rounded-lg bg-violet-700 px-3 py-1.5 text-xs font-extrabold text-white"
+                  >
+                    ورود به کلاس بعدی
+                  </Link>
+                </div>
+              ) : nextAction === 'continue' && continueLearning[0] ? (
+                <div className="rounded-2xl border border-[var(--border-soft)] bg-[var(--surface-soft)] p-3">
+                  <p className="line-clamp-1 text-sm font-extrabold text-[var(--text-primary)]">
+                    {continueLearning[0].title}
+                  </p>
+                  <Link
+                    href={`/education/${continueLearning[0].id}`}
+                    className="mt-2 inline-flex rounded-lg bg-violet-700 px-3 py-1.5 text-xs font-extrabold text-white"
+                  >
+                    ادامه یادگیری
+                  </Link>
+                </div>
+              ) : (
+                <div className="rounded-2xl border border-[var(--border-soft)] bg-[var(--surface-soft)] p-3">
+                  <p className="text-sm text-[var(--text-secondary)]">
+                    برای شروع مسیر یادگیری، دوره‌های آموزشی را مرور کنید.
+                  </p>
+                  <Link
+                    href="/spaces/education"
+                    className="mt-2 inline-flex rounded-lg bg-violet-700 px-3 py-1.5 text-xs font-extrabold text-white"
+                  >
+                    مشاهده دوره‌ها
+                  </Link>
+                </div>
+              )}
+            </section>
+
+            <section className={SECTION}>
+              <h2 className="mb-3 text-sm font-extrabold text-[var(--text-primary)]">حضورهای ثبت‌شده</h2>
+              <div className="grid grid-cols-2 gap-2">
+                <div className="rounded-xl border border-[var(--border-soft)] bg-[var(--surface-soft)] p-3">
+                  <p className="text-[11px] font-bold text-[var(--text-secondary)]">تعداد کلاس‌های حضور یافته</p>
+                  <p className="mt-1 text-lg font-black text-[var(--text-primary)]">{attendedCount}</p>
+                </div>
+                <div className="rounded-xl border border-[var(--border-soft)] bg-[var(--surface-soft)] p-3">
+                  <p className="text-[11px] font-bold text-[var(--text-secondary)]">آخرین حضور</p>
+                  <p className="mt-1 text-[12px] font-bold text-[var(--text-primary)]">
+                    {data?.lastAttendanceAt ? formatAppDateTime(data.lastAttendanceAt) : 'ثبت نشده'}
+                  </p>
+                </div>
+              </div>
+            </section>
+
             <section className={SECTION}>
               <h2 className="mb-3 text-sm font-extrabold text-[var(--text-primary)]">کلاس زنده اکنون</h2>
               {loading ? (
@@ -201,7 +264,7 @@ export default function MyLearningPage() {
                   ))}
                 </ul>
               ) : (
-                <p className="text-xs text-[var(--text-secondary)]">در حال حاضر کلاس زنده‌ای ندارید.</p>
+                <p className="text-xs text-[var(--text-secondary)]">فعلا جلسه‌ای پیش‌رو ندارید</p>
               )}
             </section>
 

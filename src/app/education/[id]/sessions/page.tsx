@@ -70,10 +70,18 @@ export default function EducationSessionsPage() {
   }
 
   const upcoming = useMemo(
-    () =>
-      [...sessions].sort(
-        (a, b) => new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime(),
-      ),
+    () => {
+      const rank = (s: CourseSessionRow) => {
+        if (s.isLive) return 0;
+        if (!s.hasEnded) return 1;
+        return 2;
+      };
+      return [...sessions].sort((a, b) => {
+        const rankDiff = rank(a) - rank(b);
+        if (rankDiff !== 0) return rankDiff;
+        return new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime();
+      });
+    },
     [sessions],
   );
 
@@ -193,12 +201,27 @@ export default function EducationSessionsPage() {
                     </span>
                   </div>
                   <p className="mt-1 text-[11px] text-[var(--text-secondary)]">{formatAppDateTime(s.startsAt)}</p>
+                  <div className="mt-1 flex flex-wrap gap-1">
+                    {s.isLive ? (
+                      <span className="rounded-lg bg-red-500/15 px-2 py-0.5 text-[10px] font-extrabold text-red-700 dark:text-red-300">
+                        زنده
+                      </span>
+                    ) : null}
+                    {s.startsSoon ? (
+                      <span className="rounded-lg bg-amber-500/15 px-2 py-0.5 text-[10px] font-extrabold text-amber-700 dark:text-amber-300">
+                        شروع به‌زودی
+                      </span>
+                    ) : null}
+                    <span className="rounded-lg bg-[var(--card-bg)] px-2 py-0.5 text-[10px] font-bold text-[var(--text-secondary)]">
+                      حضور ثبت‌شده: {s.checkedInCount ?? 0}
+                    </span>
+                  </div>
                   <div className="mt-2 flex flex-wrap gap-2">
                     <Link
                       href={`/meetings/${s.id}`}
-                      className="rounded-lg border border-[var(--border-soft)] px-2.5 py-1 text-[11px] font-bold text-[var(--text-primary)]"
+                      className="rounded-lg bg-violet-700 px-2.5 py-1 text-[11px] font-extrabold text-white"
                     >
-                      مشاهده جلسه
+                      ورود به کلاس
                     </Link>
                     <Link
                       href={id ? `/education/${id}` : '/education/manage'}

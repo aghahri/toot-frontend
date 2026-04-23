@@ -32,6 +32,8 @@ export default function EducationManagePage() {
 
   const totalStudents = rows.reduce((sum, row) => sum + row.enrolledCount, 0);
   const totalUpcomingSessions = rows.reduce((sum, row) => sum + row.upcomingMeetingsCount, 0);
+  const totalTodaySessions = rows.reduce((sum, row) => sum + (row.todaySessionsCount ?? 0), 0);
+  const totalRecentAttendances = rows.reduce((sum, row) => sum + (row.recentAttendanceCount ?? 0), 0);
 
   return (
     <AuthGate>
@@ -77,18 +79,26 @@ export default function EducationManagePage() {
 
         <section className={SECTION}>
           {!loading ? (
-            <div className="mb-3 grid grid-cols-3 gap-2">
+            <div className="mb-3 grid grid-cols-2 gap-2">
               <div className="rounded-xl border border-[var(--border-soft)] bg-[var(--surface-soft)] p-2 text-center">
-                <p className="text-[10px] font-bold text-[var(--text-secondary)]">تعداد دوره‌ها</p>
-                <p className="mt-1 text-sm font-black text-[var(--text-primary)]">{rows.length}</p>
+                <p className="text-[10px] font-bold text-[var(--text-secondary)]">جلسات امروز</p>
+                <p className="mt-1 text-sm font-black text-[var(--text-primary)]">{totalTodaySessions}</p>
               </div>
               <div className="rounded-xl border border-[var(--border-soft)] bg-[var(--surface-soft)] p-2 text-center">
-                <p className="text-[10px] font-bold text-[var(--text-secondary)]">مجموع دانشجو</p>
+                <p className="text-[10px] font-bold text-[var(--text-secondary)]">جلسات آینده</p>
+                <p className="mt-1 text-sm font-black text-[var(--text-primary)]">{totalUpcomingSessions}</p>
+              </div>
+              <div className="rounded-xl border border-[var(--border-soft)] bg-[var(--surface-soft)] p-2 text-center">
+                <p className="text-[10px] font-bold text-[var(--text-secondary)]">دانشجویان فعال</p>
                 <p className="mt-1 text-sm font-black text-[var(--text-primary)]">{totalStudents}</p>
               </div>
               <div className="rounded-xl border border-[var(--border-soft)] bg-[var(--surface-soft)] p-2 text-center">
-                <p className="text-[10px] font-bold text-[var(--text-secondary)]">جلسات پیش‌رو</p>
-                <p className="mt-1 text-sm font-black text-[var(--text-primary)]">{totalUpcomingSessions}</p>
+                <p className="text-[10px] font-bold text-[var(--text-secondary)]">آخرین حضورها</p>
+                <p className="mt-1 text-sm font-black text-[var(--text-primary)]">{totalRecentAttendances}</p>
+              </div>
+              <div className="rounded-xl border border-[var(--border-soft)] bg-[var(--surface-soft)] p-2 text-center col-span-2">
+                <p className="text-[10px] font-bold text-[var(--text-secondary)]">تعداد دوره‌ها</p>
+                <p className="mt-1 text-sm font-black text-[var(--text-primary)]">{rows.length}</p>
               </div>
             </div>
           ) : null}

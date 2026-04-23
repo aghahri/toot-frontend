@@ -61,6 +61,7 @@ export default function EducationCourseDetailPage() {
     return upcomingSessions[0] ?? null;
   }, [course?.nextMeeting, upcomingSessions]);
   const nextSessionId = nextSession?.id ?? null;
+  const hasAttendanceHistory = useMemo(() => sessions.some((s) => !!s.checkedIn), [sessions]);
   const courseStateLabel = useMemo(() => {
     if (nextSession?.isLive) return 'فعال';
     if (nextSession?.startsSoon) return 'شروع به‌زودی';
@@ -160,6 +161,11 @@ export default function EducationCourseDetailPage() {
                 <p className="mt-1 text-sm leading-relaxed text-[var(--text-secondary)] break-words">
                   {course.description || 'درباره این دوره توضیح کوتاهی ثبت نشده است.'}
                 </p>
+                {isEnrolled && hasAttendanceHistory ? (
+                  <p className="mt-2 rounded-lg bg-emerald-500/10 px-2 py-1 text-[11px] font-bold text-emerald-700 dark:text-emerald-300">
+                    شما در این دوره فعال هستید
+                  </p>
+                ) : null}
                 <div className="mt-3 grid grid-cols-3 gap-2 text-center">
                   <div className="rounded-xl border border-[var(--border-soft)] bg-[var(--surface-soft)] px-2 py-2">
                     <p className="text-[10px] font-bold text-[var(--text-secondary)]">دانشجو</p>
