@@ -72,6 +72,16 @@ type ApiTrendItem = {
   authorCount: number;
 };
 
+type SuggestedFollowUser = {
+  id: string;
+  name: string;
+  username: string;
+  avatar: string | null;
+  mutualCount: number;
+  followerCount: number;
+  postCount: number;
+};
+
 type TrendsBundleResponse = {
   general: { items: ApiTrendItem[] };
   local: { items: ApiTrendItem[] };
@@ -210,6 +220,8 @@ function HomePageInner() {
   const [storyItems, setStoryItems] = useState<StoryItem[]>([]);
   const [joinedNetworks, setJoinedNetworks] = useState<NetworkMembership[]>([]);
   const [trendsBundle, setTrendsBundle] = useState<TrendsBundleResponse | null>(null);
+  const [suggestedFollows, setSuggestedFollows] = useState<SuggestedFollowUser[]>([]);
+  const [followingBusyUserId, setFollowingBusyUserId] = useState<string | null>(null);
   const viewerUserId = getCurrentUserIdFromAccessToken();
   const abortRef = useRef<AbortController | null>(null);
   const deepLinkFetchAttempted = useRef<Set<string>>(new Set());
@@ -307,6 +319,43 @@ function HomePageInner() {
       })
       .catch(() => setJoinedNetworks([]));
   }, []);
+
+  const loadSuggestedFollows = useCallback(async () => {
+    const token = getAccessToken();
+    if (!token) return;
+    try {
+      const rows = await apiFetch<SuggestedFollowUser[]>('users/suggested-follows?limit=8', {
+        method: 'GET',
+        token,
+      });
+      setSuggestedFollows(rows);
+    } catch {
+      setSuggestedFollows([]);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadSuggestedFollows();
+  }, [loadSuggestedFollows]);
+
+  const followSuggestedUser = useCallback(async (userId: string) => {
+    if (followingBusyUserId) return;
+    const token = getAccessToken();
+    if (!token) return;
+    setFollowingBusyUserId(userId);
+    try {
+      await apiFetch(`users/${encodeURIComponent(userId)}/follow`, {
+        method: 'POST',
+        token,
+      });
+      setSuggestedFollows((prev) => prev.filter((u) => u.id !== userId));
+      void loadFollowingFeed({ silent: true });
+    } catch {
+      // no-op
+    } finally {
+      setFollowingBusyUserId(null);
+    }
+  }, [followingBusyUserId, loadFollowingFeed]);
 
   useEffect(() => {
     const token = getAccessToken();
@@ -657,6 +706,31 @@ function HomePageInner() {
           ) : null}
           {tab === 'for-you' ? (
             <>
+              {suggestedFollows.length ? (
+                <section className="mx-2 mt-2 rounded-2xl border border-slate-200 bg-white p-3">
+                  <h3 className="text-sm font-extrabold text-slate-900">پیشنهاد برای دنبال کردن</h3>
+                  <ul className="mt-2 space-y-2">
+                    {suggestedFollows.slice(0, 4).map((u) => (
+                      <li key={u.id} className="flex items-center justify-between gap-2">
+                        <Link href={`/profile/${u.id}`} className="min-w-0">
+                          <p className="truncate text-sm font-bold text-slate-900">{u.name}</p>
+                          <p className="truncate text-[11px] text-slate-500" dir="ltr">
+                            @{u.username}
+                          </p>
+                        </Link>
+                        <button
+                          type="button"
+                          onClick={() => void followSuggestedUser(u.id)}
+                          disabled={followingBusyUserId === u.id}
+                          className="rounded-full bg-slate-900 px-3 py-1 text-[11px] font-bold text-white disabled:opacity-60"
+                        >
+                          دنبال کردن
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              ) : null}
               {trendsBundle?.general.items.length ? (
                 <TrendingTopicsRow
                   title="ترندها"
@@ -733,11 +807,38 @@ function HomePageInner() {
                   </button>
                 </div>
               ) : followingPosts.length === 0 ? (
-                <FeedEmptyState
-                  title="دنبال‌شده‌ها"
-                  description="هنوز پستی از دنبال‌شده‌ها ندارید. افراد بیشتری را دنبال کنید تا این فید فعال‌تر شود."
-                  icon="◎"
-                />
+                <div>
+                  <FeedEmptyState
+                    title="دنبال‌شده‌ها"
+                    description="هنوز پستی از دنبال‌شده‌ها ندارید. افراد بیشتری را دنبال کنید تا این فید فعال‌تر شود."
+                    icon="◎"
+                  />
+                  {suggestedFollows.length ? (
+                    <section className="mx-2 mt-2 rounded-2xl border border-slate-200 bg-white p-3">
+                      <h3 className="text-sm font-extrabold text-slate-900">کاربران پیشنهادی</h3>
+                      <ul className="mt-2 space-y-2">
+                        {suggestedFollows.slice(0, 5).map((u) => (
+                          <li key={u.id} className="flex items-center justify-between gap-2">
+                            <Link href={`/profile/${u.id}`} className="min-w-0">
+                              <p className="truncate text-sm font-bold text-slate-900">{u.name}</p>
+                              <p className="truncate text-[11px] text-slate-500" dir="ltr">
+                                @{u.username}
+                              </p>
+                            </Link>
+                            <button
+                              type="button"
+                              onClick={() => void followSuggestedUser(u.id)}
+                              disabled={followingBusyUserId === u.id}
+                              className="rounded-full bg-slate-900 px-3 py-1 text-[11px] font-bold text-white disabled:opacity-60"
+                            >
+                              دنبال کردن
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    </section>
+                  ) : null}
+                </div>
               ) : (
                 <div className="theme-card-bg mx-2 mt-2 overflow-hidden rounded-xl">
                   {followingPosts.map((p) => (

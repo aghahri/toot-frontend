@@ -9,6 +9,7 @@ export function normalizeFeedPost(p: FeedPost): FeedPost {
     liked: p.liked ?? false,
     reposted: p.reposted ?? false,
     bookmarked: p.bookmarked ?? false,
+    quotedPost: p.quotedPost ?? null,
     feedEntry: p.feedEntry === 'viewer_repost' ? 'viewer_repost' : (p.feedEntry ?? 'post'),
     viewerRepostedAt: p.viewerRepostedAt ?? undefined,
   };

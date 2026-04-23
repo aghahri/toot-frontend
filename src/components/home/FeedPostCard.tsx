@@ -76,6 +76,7 @@ export function FeedPostCard({
   const [likeBusy, setLikeBusy] = useState(false);
   const [repostBusy, setRepostBusy] = useState(false);
   const [bookmarkBusy, setBookmarkBusy] = useState(false);
+  const [quoteBusy, setQuoteBusy] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [editText, setEditText] = useState(post.text ?? '');
@@ -249,6 +250,35 @@ export function FeedPostCard({
     reposted,
     replyCount,
   ]);
+
+  const createQuoteRepost = useCallback(async () => {
+    if (quoteBusy) return;
+    const t = getAccessToken();
+    if (!t) return;
+    const text = window.prompt('متن نقل‌قول را بنویسید (اختیاری):', '') ?? '';
+    setQuoteBusy(true);
+    try {
+      await apiFetch<FeedPost>(`posts/${encodeURIComponent(p.id)}/quote`, {
+        method: 'POST',
+        token: t,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text }),
+      });
+      setRepostFeedback('نقل‌قول منتشر شد');
+      if (repostFeedbackTimerRef.current != null) {
+        window.clearTimeout(repostFeedbackTimerRef.current);
+      }
+      repostFeedbackTimerRef.current = window.setTimeout(() => {
+        setRepostFeedback(null);
+        repostFeedbackTimerRef.current = null;
+      }, 2800);
+      onRepostChanged?.();
+    } catch {
+      setRepostFeedback('انتشار نقل‌قول ناموفق بود');
+    } finally {
+      setQuoteBusy(false);
+    }
+  }, [onRepostChanged, p.id, quoteBusy]);
 
   const isViewerRepostRow = p.feedEntry === 'viewer_repost';
   const authorProfileHref =
@@ -489,6 +519,20 @@ export function FeedPostCard({
             </div>
           ) : null}
 
+          {p.quotedPost ? (
+            <Link
+              href={`/home?postId=${encodeURIComponent(p.quotedPost.id)}`}
+              className="mt-2 block rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 transition hover:bg-slate-100"
+            >
+              <p className="text-[11px] font-bold text-slate-500" dir="ltr">
+                @{p.quotedPost.user?.username ?? 'user'}
+              </p>
+              <p className="mt-1 line-clamp-3 text-[13px] text-slate-700">
+                {p.quotedPost.text || 'بدون متن'}
+              </p>
+            </Link>
+          ) : null}
+
           {p.media && p.media.length > 0 ? (
             <div className="mt-3 overflow-hidden rounded-2xl border border-slate-200/80 bg-slate-50 shadow-sm">
               {p.media.map((m) =>
@@ -564,6 +608,18 @@ export function FeedPostCard({
               >
                 {formatCount(repostCount)}
               </span>
+            </button>
+            <button
+              type="button"
+              onClick={() => void createQuoteRepost()}
+              disabled={quoteBusy}
+              className="flex min-h-[44px] min-w-0 flex-1 items-center justify-center gap-1 rounded-xl text-sm font-semibold text-slate-500 transition hover:bg-violet-50 hover:text-violet-700 disabled:opacity-60"
+              aria-label="نقل‌قول"
+            >
+              <span className="text-base" aria-hidden>
+                ❝
+              </span>
+              <span className="text-[11px] font-bold leading-none">نقل‌قول</span>
             </button>
             <button
               type="button"

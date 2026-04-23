@@ -24,6 +24,13 @@ export type FeedPost = {
   liked: boolean;
   reposted: boolean;
   bookmarked: boolean;
+  quotedPost?: {
+    id: string;
+    userId: string;
+    text: string;
+    createdAt: string;
+    user: { id: string; name: string; avatar: string | null; username?: string | null };
+  } | null;
   /** Row is the viewer’s repost surfaced at the top of the home feed (from API). */
   feedEntry?: FeedEntryKind;
   viewerRepostedAt?: string | null;
