@@ -7,6 +7,10 @@ export type EducationMeetingMini = {
   status: string;
   durationMinutes?: number;
   educationLabel?: string | null;
+  startsSoon?: boolean;
+  isLive?: boolean;
+  hasEnded?: boolean;
+  checkedIn?: boolean;
 };
 
 export type EducationCourse = {
@@ -59,6 +63,10 @@ export type EducationMyUpcomingMeeting = {
   title: string;
   startsAt: string;
   status: string;
+  startsSoon?: boolean;
+  isLive?: boolean;
+  hasEnded?: boolean;
+  checkedIn?: boolean;
   course: {
     id: string;
     title: string;
@@ -85,6 +93,17 @@ export type CourseSessionRow = {
   startsAt: string;
   durationMinutes: number;
   status: string;
+  startsSoon?: boolean;
+  isLive?: boolean;
+  hasEnded?: boolean;
+  checkedIn?: boolean;
+};
+
+export type CourseAttendanceRow = {
+  meetingId: string;
+  sessionTitle: string;
+  startsAt: string;
+  attendeesCount: number;
 };
 
 export function fetchEducationHub() {
@@ -158,6 +177,21 @@ export function createCourseSession(
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
+  });
+}
+
+export function checkInEducationSession(meetingId: string) {
+  return apiFetch<{ ok: boolean; alreadyCheckedIn: boolean; checkedInAt: string }>(
+    `education/sessions/${encodeURIComponent(meetingId)}/check-in`,
+    {
+      method: 'POST',
+    },
+  );
+}
+
+export function fetchCourseAttendance(courseId: string) {
+  return apiFetch<CourseAttendanceRow[]>(`education/courses/${encodeURIComponent(courseId)}/attendance`, {
+    method: 'GET',
   });
 }
 

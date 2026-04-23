@@ -65,13 +65,18 @@ function CourseCard({ c }: { c: EducationCourse }) {
       <h3 className="mt-0.5 line-clamp-1 text-sm font-extrabold text-[var(--text-primary)]">
         {c.title}
       </h3>
+      <p className="mt-1 text-[11px] text-[var(--text-secondary)]">مدرس: {c.owner.name}</p>
       {c.description ? (
         <p className="mt-1 line-clamp-2 text-[11px] text-[var(--text-secondary)]">{c.description}</p>
       ) : null}
-      <p className="mt-1 text-[10px] text-[var(--text-secondary)]">
-        {c._count.enrollments} عضو
-        {c.nextMeeting ? ` · جلسه بعدی: ${formatAppDateTime(c.nextMeeting.startsAt)}` : ''}
-      </p>
+      <div className="mt-1 flex flex-wrap gap-1 text-[10px] text-[var(--text-secondary)]">
+        <span className="rounded-lg border border-[var(--border-soft)] px-1.5 py-0.5">
+          {c._count.enrollments} دانشجو
+        </span>
+        <span className="rounded-lg border border-[var(--border-soft)] px-1.5 py-0.5">
+          {c.nextMeeting ? `جلسه بعدی: ${formatAppDateTime(c.nextMeeting.startsAt)}` : 'جلسه آینده ثبت نشده'}
+        </span>
+      </div>
     </Link>
   );
 }

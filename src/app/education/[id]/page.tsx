@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 import { AuthGate } from '@/components/AuthGate';
 import {
+  checkInEducationSession,
   enrollCourse,
   fetchEducationCourse,
   type EducationCourse,
@@ -19,6 +20,8 @@ export default function EducationCourseDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [checkingIn, setCheckingIn] = useState(false);
+  const [checkInMessage, setCheckInMessage] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -64,6 +67,23 @@ export default function EducationCourseDetailPage() {
     }
   }
 
+  async function onCheckIn() {
+    if (!course?.nextMeeting || checkingIn) return;
+    setCheckingIn(true);
+    setCheckInMessage(null);
+    try {
+      const res = await checkInEducationSession(course.nextMeeting.id);
+      setCourse((prev) =>
+        prev && prev.nextMeeting ? { ...prev, nextMeeting: { ...prev.nextMeeting, checkedIn: true } } : prev,
+      );
+      setCheckInMessage(res.alreadyCheckedIn ? 'حضور شما قبلا ثبت شده است' : 'حضور شما ثبت شد');
+    } catch (e) {
+      setCheckInMessage(e instanceof Error ? e.message : 'خطا در ثبت حضور');
+    } finally {
+      setCheckingIn(false);
+    }
+  }
+
   return (
     <AuthGate>
       <div className="mx-auto max-w-md px-4 pb-8 pt-3">
@@ -75,6 +95,11 @@ export default function EducationCourseDetailPage() {
         {error ? (
           <div className="mb-3 rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-700 dark:text-red-200">
             {error}
+          </div>
+        ) : null}
+        {checkInMessage ? (
+          <div className="mb-3 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-700 dark:text-emerald-200">
+            {checkInMessage}
           </div>
         ) : null}
         {loading ? (
@@ -94,7 +119,6 @@ export default function EducationCourseDetailPage() {
               )}
               <div className="p-4">
                 <h1 className="text-lg font-black text-[var(--text-primary)]">{course.title}</h1>
-                <p className="mt-1 text-xs text-[var(--text-secondary)]">مدرس: {course.owner.name}</p>
                 <p className="mt-1 text-xs text-[var(--text-secondary)]">{course._count.enrollments} عضو</p>
                 {!canManage ? (
                   <button
@@ -125,19 +149,74 @@ export default function EducationCourseDetailPage() {
             </section>
 
             <section className="rounded-2xl border border-[var(--border-soft)] bg-[var(--card-bg)] p-4 ring-1 ring-[var(--border-soft)]">
+              <h2 className="text-sm font-extrabold text-[var(--text-primary)]">مدرس</h2>
+              <div className="mt-2 flex items-center gap-3">
+                {course.owner.avatar ? (
+                  <img
+                    src={course.owner.avatar}
+                    alt={course.owner.name}
+                    className="h-11 w-11 rounded-full border border-[var(--border-soft)] object-cover"
+                  />
+                ) : (
+                  <div className="flex h-11 w-11 items-center justify-center rounded-full border border-[var(--border-soft)] bg-[var(--surface-soft)] text-xs font-extrabold text-[var(--text-secondary)]">
+                    {course.owner.name.slice(0, 1)}
+                  </div>
+                )}
+                <div className="min-w-0">
+                  <p className="line-clamp-1 text-sm font-extrabold text-[var(--text-primary)]">{course.owner.name}</p>
+                  <p className="line-clamp-1 text-[11px] text-[var(--text-secondary)]">@{course.owner.username}</p>
+                </div>
+                <span className="mr-auto rounded-lg bg-violet-500/15 px-2 py-1 text-[10px] font-extrabold text-violet-700 dark:text-violet-300">
+                  مدرس
+                </span>
+              </div>
+            </section>
+
+            <section className="rounded-2xl border border-[var(--border-soft)] bg-[var(--card-bg)] p-4 ring-1 ring-[var(--border-soft)]">
               <h2 className="text-sm font-extrabold text-[var(--text-primary)]">جلسه بعدی</h2>
               {course.nextMeeting ? (
                 <div className="mt-2 space-y-1">
                   <p className="text-sm font-bold text-[var(--text-primary)]">{course.nextMeeting.title}</p>
-                  <p className="text-xs text-[var(--text-secondary)]">
-                    {formatAppDateTime(course.nextMeeting.startsAt)}
-                  </p>
-                  <Link
-                    href={`/meetings/${course.nextMeeting.id}`}
-                    className="inline-block rounded-lg bg-violet-700 px-3 py-1.5 text-xs font-extrabold text-white"
-                  >
-                    ورود به جلسه
-                  </Link>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="text-xs text-[var(--text-secondary)]">
+                      {formatAppDateTime(course.nextMeeting.startsAt)}
+                    </p>
+                    {course.nextMeeting.isLive ? (
+                      <span className="rounded-lg bg-red-500/15 px-2 py-0.5 text-[10px] font-extrabold text-red-700 dark:text-red-300">
+                        زنده
+                      </span>
+                    ) : null}
+                    {course.nextMeeting.startsSoon ? (
+                      <span className="rounded-lg bg-amber-500/15 px-2 py-0.5 text-[10px] font-extrabold text-amber-700 dark:text-amber-300">
+                        تا ۱ ساعت دیگر
+                      </span>
+                    ) : null}
+                    {course.nextMeeting.hasEnded ? (
+                      <span className="rounded-lg bg-zinc-500/20 px-2 py-0.5 text-[10px] font-extrabold text-zinc-700 dark:text-zinc-300">
+                        پایان یافته
+                      </span>
+                    ) : null}
+                  </div>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    <Link
+                      href={`/meetings/${course.nextMeeting.id}`}
+                      className="inline-block rounded-lg bg-violet-700 px-3 py-1.5 text-xs font-extrabold text-white"
+                    >
+                      ورود به جلسه
+                    </Link>
+                    <button
+                      type="button"
+                      onClick={() => void onCheckIn()}
+                      disabled={checkingIn || !!course.nextMeeting.checkedIn}
+                      className="rounded-lg border border-[var(--border-soft)] px-3 py-1.5 text-xs font-bold text-[var(--text-primary)] disabled:opacity-50"
+                    >
+                      {course.nextMeeting.checkedIn
+                        ? 'حضور شما ثبت شد'
+                        : checkingIn
+                          ? 'در حال ثبت…'
+                          : 'حضور در کلاس'}
+                    </button>
+                  </div>
                 </div>
               ) : (
                 <p className="mt-2 text-xs text-[var(--text-secondary)]">جلسه‌ای لینک نشده است.</p>

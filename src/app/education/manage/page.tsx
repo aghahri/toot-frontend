@@ -30,6 +30,9 @@ export default function EducationManagePage() {
     void load();
   }, [load]);
 
+  const totalStudents = rows.reduce((sum, row) => sum + row.enrolledCount, 0);
+  const totalUpcomingSessions = rows.reduce((sum, row) => sum + row.upcomingMeetingsCount, 0);
+
   return (
     <AuthGate>
       <div className="mx-auto max-w-md px-4 pb-8 pt-2">
@@ -73,6 +76,22 @@ export default function EducationManagePage() {
         ) : null}
 
         <section className={SECTION}>
+          {!loading ? (
+            <div className="mb-3 grid grid-cols-3 gap-2">
+              <div className="rounded-xl border border-[var(--border-soft)] bg-[var(--surface-soft)] p-2 text-center">
+                <p className="text-[10px] font-bold text-[var(--text-secondary)]">تعداد دوره‌ها</p>
+                <p className="mt-1 text-sm font-black text-[var(--text-primary)]">{rows.length}</p>
+              </div>
+              <div className="rounded-xl border border-[var(--border-soft)] bg-[var(--surface-soft)] p-2 text-center">
+                <p className="text-[10px] font-bold text-[var(--text-secondary)]">مجموع دانشجو</p>
+                <p className="mt-1 text-sm font-black text-[var(--text-primary)]">{totalStudents}</p>
+              </div>
+              <div className="rounded-xl border border-[var(--border-soft)] bg-[var(--surface-soft)] p-2 text-center">
+                <p className="text-[10px] font-bold text-[var(--text-secondary)]">جلسات پیش‌رو</p>
+                <p className="mt-1 text-sm font-black text-[var(--text-primary)]">{totalUpcomingSessions}</p>
+              </div>
+            </div>
+          ) : null}
           <div className="mb-3 flex items-center justify-between gap-2">
             <h2 className="text-sm font-extrabold text-[var(--text-primary)]">دوره‌های من</h2>
             {!loading ? (

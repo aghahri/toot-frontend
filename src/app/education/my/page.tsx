@@ -4,9 +4,11 @@ import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AuthGate } from '@/components/AuthGate';
 import {
+  checkInEducationSession,
   fetchMyEducationDashboard,
   type EducationMyCourse,
   type EducationMyDashboard,
+  type EducationMyUpcomingMeeting,
 } from '@/lib/education';
 import { formatAppDateTime } from '@/lib/locale-date';
 
@@ -39,6 +41,8 @@ export default function MyLearningPage() {
   const [data, setData] = useState<EducationMyDashboard | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [checkingMeetingId, setCheckingMeetingId] = useState<string | null>(null);
+  const [checkInFeedback, setCheckInFeedback] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -59,6 +63,15 @@ export default function MyLearningPage() {
 
   const courses = useMemo(() => data?.enrolledCourses ?? [], [data]);
   const upcoming = useMemo(() => data?.upcomingMeetings ?? [], [data]);
+  const liveNow = useMemo(() => upcoming.filter((m) => m.isLive), [upcoming]);
+  const startsSoon = useMemo(
+    () => upcoming.filter((m) => !m.isLive && !m.hasEnded && m.startsSoon),
+    [upcoming],
+  );
+  const continueLearning = useMemo(
+    () => courses.filter((course) => course.nextMeeting || course.channel || course.group).slice(0, 8),
+    [courses],
+  );
   const shortcuts = useMemo(
     () =>
       courses
@@ -74,6 +87,41 @@ export default function MyLearningPage() {
   );
 
   const isEmpty = !loading && courses.length === 0;
+
+  async function onCheckIn(meetingId: string) {
+    if (checkingMeetingId) return;
+    setCheckInFeedback(null);
+    setCheckingMeetingId(meetingId);
+    try {
+      const res = await checkInEducationSession(meetingId);
+      setData((prev) =>
+        prev
+          ? {
+              ...prev,
+              upcomingMeetings: prev.upcomingMeetings.map((m) =>
+                m.id === meetingId ? { ...m, checkedIn: true } : m,
+              ),
+            }
+          : prev,
+      );
+      setCheckInFeedback(res.alreadyCheckedIn ? 'حضور شما قبلا ثبت شده است' : 'حضور شما ثبت شد');
+    } catch (e) {
+      setCheckInFeedback(e instanceof Error ? e.message : 'خطا در ثبت حضور');
+    } finally {
+      setCheckingMeetingId(null);
+    }
+  }
+
+  function MeetingUrgencyBadge({ meeting }: { meeting: EducationMyUpcomingMeeting }) {
+    const text = meeting.isLive ? 'زنده' : meeting.hasEnded ? 'پایان یافته' : meeting.startsSoon ? 'تا ۱ ساعت دیگر' : null;
+    if (!text) return null;
+    const className = meeting.isLive
+      ? 'bg-red-500/15 text-red-700 dark:text-red-300'
+      : meeting.hasEnded
+        ? 'bg-zinc-500/20 text-zinc-700 dark:text-zinc-300'
+        : 'bg-amber-500/15 text-amber-700 dark:text-amber-300';
+    return <span className={`rounded-lg px-2 py-0.5 text-[10px] font-extrabold ${className}`}>{text}</span>;
+  }
 
   return (
     <AuthGate>
@@ -96,6 +144,11 @@ export default function MyLearningPage() {
             {error}
           </div>
         ) : null}
+        {checkInFeedback ? (
+          <div className="mb-4 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-700 dark:text-emerald-200">
+            {checkInFeedback}
+          </div>
+        ) : null}
 
         {isEmpty ? (
           <section className="rounded-3xl border border-dashed border-[var(--border-soft)] bg-[var(--surface-soft)] px-4 py-10 text-center ring-1 ring-[var(--border-soft)]">
@@ -112,6 +165,86 @@ export default function MyLearningPage() {
           </section>
         ) : (
           <div className="space-y-4">
+            <section className={SECTION}>
+              <h2 className="mb-3 text-sm font-extrabold text-[var(--text-primary)]">کلاس زنده اکنون</h2>
+              {loading ? (
+                <div className="h-14 animate-pulse rounded-xl bg-[var(--surface-soft)]" />
+              ) : liveNow.length ? (
+                <ul className="space-y-2">
+                  {liveNow.map((m) => (
+                    <li
+                      key={m.id}
+                      className="rounded-2xl border border-[var(--border-soft)] bg-[var(--surface-soft)] p-3 ring-1 ring-[var(--border-soft)]"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="line-clamp-1 text-sm font-extrabold text-[var(--text-primary)]">{m.title}</p>
+                        <MeetingUrgencyBadge meeting={m} />
+                      </div>
+                      <p className="mt-1 line-clamp-1 text-[11px] text-[var(--text-secondary)]">مرتبط با: {m.course.title}</p>
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        <Link
+                          href={`/meetings/${m.id}`}
+                          className="rounded-lg bg-violet-700 px-2.5 py-1 text-[11px] font-extrabold text-white"
+                        >
+                          ورود به کلاس زنده
+                        </Link>
+                        <button
+                          type="button"
+                          onClick={() => void onCheckIn(m.id)}
+                          disabled={!!m.checkedIn || checkingMeetingId === m.id}
+                          className="rounded-lg border border-[var(--border-soft)] px-2.5 py-1 text-[11px] font-bold text-[var(--text-primary)] disabled:opacity-50"
+                        >
+                          {m.checkedIn ? 'حضور شما ثبت شد' : checkingMeetingId === m.id ? 'در حال ثبت…' : 'حضور در کلاس'}
+                        </button>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-xs text-[var(--text-secondary)]">در حال حاضر کلاس زنده‌ای ندارید.</p>
+              )}
+            </section>
+
+            <section className={SECTION}>
+              <h2 className="mb-3 text-sm font-extrabold text-[var(--text-primary)]">شروع به‌زودی</h2>
+              {loading ? (
+                <div className="h-14 animate-pulse rounded-xl bg-[var(--surface-soft)]" />
+              ) : startsSoon.length ? (
+                <ul className="space-y-2">
+                  {startsSoon.map((m) => (
+                    <li
+                      key={m.id}
+                      className="rounded-2xl border border-[var(--border-soft)] bg-[var(--surface-soft)] p-3 ring-1 ring-[var(--border-soft)]"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="line-clamp-1 text-sm font-extrabold text-[var(--text-primary)]">{m.title}</p>
+                        <MeetingUrgencyBadge meeting={m} />
+                      </div>
+                      <p className="mt-1 text-[11px] text-[var(--text-secondary)]">{formatAppDateTime(m.startsAt)}</p>
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        <Link
+                          href={`/meetings/${m.id}`}
+                          className="rounded-lg border border-[var(--border-soft)] px-2.5 py-1 text-[11px] font-bold text-[var(--text-primary)]"
+                        >
+                          مشاهده کلاس
+                        </Link>
+                        <button
+                          type="button"
+                          onClick={() => void onCheckIn(m.id)}
+                          disabled={!!m.checkedIn || checkingMeetingId === m.id}
+                          className="rounded-lg border border-[var(--border-soft)] px-2.5 py-1 text-[11px] font-bold text-[var(--text-primary)] disabled:opacity-50"
+                        >
+                          {m.checkedIn ? 'حضور شما ثبت شد' : checkingMeetingId === m.id ? 'در حال ثبت…' : 'حضور در کلاس'}
+                        </button>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-xs text-[var(--text-secondary)]">کلاسی که به‌زودی شروع شود پیدا نشد.</p>
+              )}
+            </section>
+
             <section className={SECTION}>
               <h2 className="mb-3 text-sm font-extrabold text-[var(--text-primary)]">دوره‌های من</h2>
               {loading ? (
@@ -131,33 +264,58 @@ export default function MyLearningPage() {
             </section>
 
             <section className={SECTION}>
-              <h2 className="mb-3 text-sm font-extrabold text-[var(--text-primary)]">کلاس‌های پیش‌رو</h2>
+              <h2 className="mb-3 text-sm font-extrabold text-[var(--text-primary)]">ادامه یادگیری</h2>
               {loading ? (
                 <div className="space-y-2">
                   <div className="h-14 animate-pulse rounded-xl bg-[var(--surface-soft)]" />
                 </div>
-              ) : upcoming.length ? (
+              ) : continueLearning.length ? (
                 <ul className="space-y-2">
-                  {upcoming.map((m) => (
+                  {continueLearning.map((course) => (
                     <li
-                      key={m.id}
+                      key={course.id}
                       className="rounded-2xl border border-[var(--border-soft)] bg-[var(--surface-soft)] p-3 ring-1 ring-[var(--border-soft)]"
                     >
-                      <p className="line-clamp-1 text-sm font-extrabold text-[var(--text-primary)]">{m.title}</p>
-                      <p className="mt-1 line-clamp-1 text-[11px] text-[var(--text-secondary)]">
-                        مرتبط با: {m.course.title}
+                      <p className="line-clamp-1 text-sm font-extrabold text-[var(--text-primary)]">
+                        {course.title}
                       </p>
-                      <div className="mt-2 flex items-center justify-between gap-2">
-                        <span className="text-[11px] text-[var(--text-secondary)]">{formatAppDateTime(m.startsAt)}</span>
-                        <Link href={`/meetings/${m.id}`} className="text-[11px] font-extrabold text-violet-700 dark:text-violet-300">
-                          ورود / مشاهده
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        <Link
+                          href={`/education/${course.id}`}
+                          className="rounded-lg border border-[var(--border-soft)] px-2 py-1 text-[11px] font-bold text-[var(--text-primary)]"
+                        >
+                          دوره
                         </Link>
+                        {course.nextMeeting ? (
+                          <Link
+                            href={`/meetings/${course.nextMeeting.id}`}
+                            className="rounded-lg border border-[var(--border-soft)] px-2 py-1 text-[11px] font-bold text-[var(--text-primary)]"
+                          >
+                            جلسه بعدی
+                          </Link>
+                        ) : null}
+                        {course.group ? (
+                          <Link
+                            href={`/groups/${course.group.id}`}
+                            className="rounded-lg border border-[var(--border-soft)] px-2 py-1 text-[11px] font-bold text-[var(--text-primary)]"
+                          >
+                            گروه
+                          </Link>
+                        ) : null}
+                        {course.channel ? (
+                          <Link
+                            href={`/channels/${course.channel.id}`}
+                            className="rounded-lg border border-[var(--border-soft)] px-2 py-1 text-[11px] font-bold text-[var(--text-primary)]"
+                          >
+                            کانال
+                          </Link>
+                        ) : null}
                       </div>
                     </li>
                   ))}
                 </ul>
               ) : (
-                <p className="text-xs text-[var(--text-secondary)]">کلاس پیش‌رویی برای دوره‌های شما ثبت نشده است.</p>
+                <p className="text-xs text-[var(--text-secondary)]">موردی برای ادامه یادگیری ثبت نشده است.</p>
               )}
             </section>
 
