@@ -55,6 +55,9 @@ function MeetingCard({ m, dense }: { m: EducationMeetingMini; dense?: boolean })
 
 function CourseCard({ c }: { c: EducationCourse }) {
   const isMember = !!c.me || !!c.enrollments?.length;
+  const isTrending = c._count.enrollments >= 10 || !!c.nextMeeting?.startsSoon;
+  const isPopular = c._count.enrollments >= 20;
+  const hasActiveToday = !!c.nextMeeting?.isLive || !!c.nextMeeting?.startsSoon;
   const isNearSession =
     !!c.nextMeeting &&
     new Date(c.nextMeeting.startsAt).getTime() - Date.now() <= 24 * 60 * 60 * 1000 &&
@@ -75,6 +78,21 @@ function CourseCard({ c }: { c: EducationCourse }) {
         <p className="mt-1 line-clamp-2 text-[11px] text-[var(--text-secondary)]">{c.description}</p>
       ) : null}
       <div className="mt-1 flex flex-wrap gap-1 text-[10px] text-[var(--text-secondary)]">
+        {isPopular ? (
+          <span className="rounded-lg bg-rose-500/15 px-1.5 py-0.5 font-extrabold text-rose-700 dark:text-rose-300">
+            محبوب
+          </span>
+        ) : null}
+        {isTrending ? (
+          <span className="rounded-lg bg-fuchsia-500/15 px-1.5 py-0.5 font-extrabold text-fuchsia-700 dark:text-fuchsia-300">
+            پرطرفدار
+          </span>
+        ) : null}
+        {hasActiveToday ? (
+          <span className="rounded-lg bg-emerald-500/15 px-1.5 py-0.5 font-extrabold text-emerald-700 dark:text-emerald-300">
+            جلسه فعال امروز
+          </span>
+        ) : null}
         {isMember ? (
           <span className="rounded-lg bg-violet-500/15 px-1.5 py-0.5 font-extrabold text-violet-700 dark:text-violet-300">
             عضو هستید
@@ -121,6 +139,31 @@ export default function EducationSpacePage() {
 
   const myCourses = useMemo(() => data?.myCourses ?? [], [data]);
   const publicCourses = useMemo(() => data?.publicCourses ?? [], [data]);
+  const trendingCourses = useMemo(
+    () =>
+      publicCourses
+        .filter((c) => c._count.enrollments >= 10 || !!c.nextMeeting)
+        .sort((a, b) => b._count.enrollments - a._count.enrollments),
+    [publicCourses],
+  );
+  const newestCourses = useMemo(
+    () =>
+      [...publicCourses].sort(
+        (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+      ),
+    [publicCourses],
+  );
+  const soonCourses = useMemo(
+    () =>
+      publicCourses
+        .filter((c) => !!c.nextMeeting && !c.nextMeeting.hasEnded)
+        .sort(
+          (a, b) =>
+            new Date(a.nextMeeting?.startsAt ?? 0).getTime() -
+            new Date(b.nextMeeting?.startsAt ?? 0).getTime(),
+        ),
+    [publicCourses],
+  );
   const educationNetworks = useMemo(() => data?.educationNetworks ?? [], [data]);
   const canCreateEducationNetwork = !!data?.canCreateEducationNetwork;
   const createPolicyText =
@@ -192,16 +235,33 @@ export default function EducationSpacePage() {
             <ul className="space-y-2">
               {educationNetworks.map((n) => (
                 <li key={n.id}>
-                  <Link
-                    href={`/networks/${n.id}`}
-                    className="block rounded-2xl border border-[var(--border-soft)] bg-[var(--surface-soft)] px-3 py-2 ring-1 ring-[var(--border-soft)] hover:border-violet-400/40"
-                  >
+                  <div className="rounded-2xl border border-[var(--border-soft)] bg-[var(--surface-soft)] px-3 py-2 ring-1 ring-[var(--border-soft)]">
                     <p className="font-extrabold text-[var(--text-primary)]">{n.name}</p>
                     {n.description ? (
                       <p className="mt-1 line-clamp-2 text-[11px] text-[var(--text-secondary)]">{n.description}</p>
                     ) : null}
                     <p className="mt-1 text-[10px] text-[var(--text-secondary)]">{n.membersCount} عضو</p>
-                  </Link>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      <Link
+                        href={`/networks/${n.id}`}
+                        className="rounded-lg bg-violet-700 px-2.5 py-1 text-[11px] font-extrabold text-white"
+                      >
+                        مشاهده شبکه
+                      </Link>
+                      {n.isMember ? (
+                        <span className="rounded-lg bg-violet-500/15 px-2.5 py-1 text-[11px] font-extrabold text-violet-700 dark:text-violet-300">
+                          عضو هستید
+                        </span>
+                      ) : (
+                        <Link
+                          href={`/networks/${n.id}`}
+                          className="rounded-lg border border-[var(--border-soft)] px-2.5 py-1 text-[11px] font-bold text-[var(--text-primary)]"
+                        >
+                          عضو شوید
+                        </Link>
+                      )}
+                    </div>
+                  </div>
                 </li>
               ))}
             </ul>
@@ -211,7 +271,7 @@ export default function EducationSpacePage() {
           <div className="mt-3">
             {canCreateEducationNetwork ? (
               <Link
-                href="/spaces/EDUCATION"
+                href="/networks/new?spaceCategory=EDUCATION"
                 className="inline-flex rounded-xl bg-violet-700 px-3 py-2 text-xs font-extrabold text-white"
               >
                 ایجاد شبکه آموزشی
@@ -259,12 +319,46 @@ export default function EducationSpacePage() {
         </section>
 
         <section className={`${SECTION} mb-4`}>
-          <h2 className="mb-3 text-sm font-extrabold text-[var(--text-primary)]">دوره‌های عمومی</h2>
+          <h2 className="mb-3 text-sm font-extrabold text-[var(--text-primary)]">دوره‌های پرطرفدار</h2>
           {loading ? (
             <p className="text-sm text-[var(--text-secondary)]">…</p>
-          ) : publicCourses.length ? (
+          ) : trendingCourses.length ? (
             <ul className="space-y-2">
-              {publicCourses.slice(0, 8).map((c) => (
+              {trendingCourses.slice(0, 6).map((c) => (
+                <li key={c.id}>
+                  <CourseCard c={c} />
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-sm text-[var(--text-secondary)]">فعلا دوره پرطرفداری ثبت نشده است.</p>
+          )}
+        </section>
+
+        <section className={`${SECTION} mb-4`}>
+          <h2 className="mb-3 text-sm font-extrabold text-[var(--text-primary)]">شروع به‌زودی</h2>
+          {loading ? (
+            <p className="text-sm text-[var(--text-secondary)]">…</p>
+          ) : soonCourses.length ? (
+            <ul className="space-y-2">
+              {soonCourses.slice(0, 6).map((c) => (
+                <li key={c.id}>
+                  <CourseCard c={c} />
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-sm text-[var(--text-secondary)]">دوره‌ای با شروع نزدیک پیدا نشد.</p>
+          )}
+        </section>
+
+        <section className={`${SECTION} mb-4`}>
+          <h2 className="mb-3 text-sm font-extrabold text-[var(--text-primary)]">جدیدترین دوره‌ها</h2>
+          {loading ? (
+            <p className="text-sm text-[var(--text-secondary)]">…</p>
+          ) : newestCourses.length ? (
+            <ul className="space-y-2">
+              {newestCourses.slice(0, 6).map((c) => (
                 <li key={c.id}>
                   <CourseCard c={c} />
                 </li>

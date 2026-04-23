@@ -32,6 +32,9 @@ export type EducationCourse = {
   channel: { id: string; name: string } | null;
   group: { id: string; name: string } | null;
   _count: { enrollments: number };
+  shareUrl?: string;
+  shareTitle?: string;
+  shareText?: string;
   me?: { id: string; role: 'STUDENT' | 'ASSISTANT' } | null;
   enrollments?: Array<{ id: string; role: 'STUDENT' | 'ASSISTANT' }>;
   _meta?: { isOwner: boolean; canManage?: boolean };
@@ -43,7 +46,13 @@ export type EducationHub = {
   publicCourses: EducationCourse[];
   teacherChannels: Array<{ id: string; name: string; description: string | null; networkId: string }>;
   studyGroups: Array<{ id: string; name: string; description: string | null; networkId: string | null }>;
-  educationNetworks?: Array<{ id: string; name: string; description: string | null; membersCount: number }>;
+  educationNetworks?: Array<{
+    id: string;
+    name: string;
+    description: string | null;
+    membersCount: number;
+    isMember?: boolean;
+  }>;
   canCreateEducationNetwork?: boolean;
   createEducationNetworkPolicy?: 'ANY_AUTHENTICATED_USER' | string;
 };

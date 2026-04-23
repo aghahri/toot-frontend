@@ -12,6 +12,7 @@ export default function EducationManagePage() {
   const [rows, setRows] = useState<CreatorCourseRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [shareMessage, setShareMessage] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -34,6 +35,29 @@ export default function EducationManagePage() {
   const totalUpcomingSessions = rows.reduce((sum, row) => sum + row.upcomingMeetingsCount, 0);
   const totalTodaySessions = rows.reduce((sum, row) => sum + (row.todaySessionsCount ?? 0), 0);
   const totalRecentAttendances = rows.reduce((sum, row) => sum + (row.recentAttendanceCount ?? 0), 0);
+
+  async function shareCourse(id: string, title: string) {
+    const url = `${window.location.origin}/education/${id}`;
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: `${title} | آموزش توت`,
+          text: `این دوره را در توت ببینید: ${title}`,
+          url,
+        });
+        setShareMessage('لینک دوره آماده اشتراک‌گذاری شد.');
+        return;
+      } catch {
+        // dismissed
+      }
+    }
+    try {
+      await navigator.clipboard.writeText(url);
+      setShareMessage('لینک دوره کپی شد.');
+    } catch {
+      setShareMessage('کپی لینک انجام نشد.');
+    }
+  }
 
   return (
     <AuthGate>
@@ -74,6 +98,11 @@ export default function EducationManagePage() {
         {error ? (
           <div className="mb-4 rounded-2xl border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-700 dark:text-red-200">
             {error}
+          </div>
+        ) : null}
+        {shareMessage ? (
+          <div className="mb-4 rounded-2xl border border-violet-500/30 bg-violet-500/10 px-3 py-2 text-sm text-violet-700 dark:text-violet-200">
+            {shareMessage}
           </div>
         ) : null}
 
@@ -165,11 +194,18 @@ export default function EducationManagePage() {
                     >
                       جلسات دوره
                     </Link>
+                    <button
+                      type="button"
+                      onClick={() => void shareCourse(r.id, r.title)}
+                      className="rounded-lg border border-[var(--border-soft)] px-2.5 py-1.5 text-[11px] font-bold text-[var(--text-primary)]"
+                    >
+                      اشتراک دوره
+                    </button>
                     <Link
                       href={`/education/${r.id}`}
                       className="rounded-lg bg-violet-700 px-2.5 py-1.5 text-[11px] font-extrabold text-white"
                     >
-                      صفحه دوره
+                      مشاهده صفحه دوره
                     </Link>
                   </div>
                 </li>

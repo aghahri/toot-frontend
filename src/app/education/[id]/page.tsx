@@ -25,6 +25,8 @@ export default function EducationCourseDetailPage() {
   const [busy, setBusy] = useState(false);
   const [checkingIn, setCheckingIn] = useState(false);
   const [checkInMessage, setCheckInMessage] = useState<string | null>(null);
+  const [shareMessage, setShareMessage] = useState<string | null>(null);
+  const [showInvitePrompt, setShowInvitePrompt] = useState(false);
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -71,6 +73,7 @@ export default function EducationCourseDetailPage() {
 
   async function toggleEnroll() {
     if (!course || busy || canManage) return;
+    const wasEnrolled = isEnrolled;
     setBusy(true);
     const prev = course;
     setCourse({
@@ -84,12 +87,49 @@ export default function EducationCourseDetailPage() {
       if (isEnrolled) await unenrollCourse(course.id);
       else await enrollCourse(course.id);
       await load();
+      if (!wasEnrolled) setShowInvitePrompt(true);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'خطا');
       setCourse(prev);
     } finally {
       setBusy(false);
     }
+  }
+
+  function getSharePayload() {
+    const shareUrl =
+      (course?.shareUrl && /^https?:\/\//i.test(course.shareUrl)
+        ? course.shareUrl
+        : `${window.location.origin}${course?.shareUrl || `/education/${id}`}`) || window.location.href;
+    return {
+      url: shareUrl,
+      title: course?.shareTitle || `${course?.title || 'دوره آموزشی'} | آموزش توت`,
+      text: course?.shareText || `دوره «${course?.title || ''}» را در توت ببینید.`,
+    };
+  }
+
+  async function copyCourseLink() {
+    try {
+      const { url } = getSharePayload();
+      await navigator.clipboard.writeText(url);
+      setShareMessage('لینک دوره کپی شد.');
+    } catch {
+      setShareMessage('کپی لینک انجام نشد.');
+    }
+  }
+
+  async function shareCourse() {
+    const payload = getSharePayload();
+    if (navigator.share) {
+      try {
+        await navigator.share(payload);
+        setShareMessage('دوره با موفقیت آماده اشتراک‌گذاری شد.');
+        return;
+      } catch {
+        // dismissed
+      }
+    }
+    await copyCourseLink();
   }
 
   async function onCheckIn() {
@@ -128,6 +168,11 @@ export default function EducationCourseDetailPage() {
         {checkInMessage ? (
           <div className="mb-3 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-700 dark:text-emerald-200">
             {checkInMessage}
+          </div>
+        ) : null}
+        {shareMessage ? (
+          <div className="mb-3 rounded-xl border border-violet-500/30 bg-violet-500/10 px-3 py-2 text-sm text-violet-700 dark:text-violet-200">
+            {shareMessage}
           </div>
         ) : null}
         {loading ? (
@@ -195,34 +240,73 @@ export default function EducationCourseDetailPage() {
                       >
                         ویرایش دوره
                       </Link>
+                      <button
+                        type="button"
+                        onClick={() => void shareCourse()}
+                        className="rounded-xl border border-[var(--border-soft)] px-3 py-2 text-xs font-bold text-[var(--text-secondary)]"
+                      >
+                        اشتراک دوره
+                      </button>
                     </div>
                   ) : isEnrolled ? (
-                    nextSession && !nextSession.hasEnded ? (
-                      <Link
-                        href={`/meetings/${nextSession.id}`}
-                        className="inline-block rounded-xl bg-violet-700 px-3 py-2 text-xs font-extrabold text-white"
+                    <div className="flex flex-wrap gap-2">
+                      {nextSession && !nextSession.hasEnded ? (
+                        <Link
+                          href={`/meetings/${nextSession.id}`}
+                          className="inline-block rounded-xl bg-violet-700 px-3 py-2 text-xs font-extrabold text-white"
+                        >
+                          ورود به جلسه بعدی
+                        </Link>
+                      ) : (
+                        <Link
+                          href={`/education/${course.id}/sessions`}
+                          className="inline-block rounded-xl bg-violet-700 px-3 py-2 text-xs font-extrabold text-white"
+                        >
+                          مشاهده جلسات دوره
+                        </Link>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => void shareCourse()}
+                        className="rounded-xl border border-[var(--border-soft)] px-3 py-2 text-xs font-bold text-[var(--text-secondary)]"
                       >
-                        ورود به جلسه بعدی
-                      </Link>
-                    ) : (
-                      <Link
-                        href={`/education/${course.id}/sessions`}
-                        className="inline-block rounded-xl bg-violet-700 px-3 py-2 text-xs font-extrabold text-white"
-                      >
-                        مشاهده جلسات دوره
-                      </Link>
-                    )
+                        دعوت دوستان
+                      </button>
+                    </div>
                   ) : (
-                    <button
-                      type="button"
-                      onClick={() => void toggleEnroll()}
-                      disabled={busy}
-                      className="rounded-xl bg-violet-700 px-3 py-2 text-xs font-extrabold text-white disabled:opacity-50"
-                    >
-                      {busy ? 'در حال ثبت‌نام…' : 'ثبت‌نام در دوره'}
-                    </button>
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={() => void toggleEnroll()}
+                        disabled={busy}
+                        className="rounded-xl bg-violet-700 px-3 py-2 text-xs font-extrabold text-white disabled:opacity-50"
+                      >
+                        {busy ? 'در حال ثبت‌نام…' : 'ثبت‌نام در دوره'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void shareCourse()}
+                        className="rounded-xl border border-[var(--border-soft)] px-3 py-2 text-xs font-bold text-[var(--text-secondary)]"
+                      >
+                        اشتراک دوره
+                      </button>
+                    </div>
                   )}
                 </div>
+                {showInvitePrompt && isEnrolled ? (
+                  <div className="mt-3 rounded-xl border border-violet-500/30 bg-violet-500/10 px-3 py-2">
+                    <p className="text-xs font-extrabold text-violet-700 dark:text-violet-200">
+                      دوستان خود را هم دعوت کنید
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => void shareCourse()}
+                      className="mt-2 rounded-lg bg-violet-700 px-3 py-1.5 text-xs font-extrabold text-white"
+                    >
+                      اشتراک‌گذاری
+                    </button>
+                  </div>
+                ) : null}
               </div>
             </section>
 
