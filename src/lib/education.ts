@@ -80,6 +80,8 @@ export type EducationMyUpcomingMeeting = {
   startsSoon?: boolean;
   isLive?: boolean;
   hasEnded?: boolean;
+  startsInMinutes?: number;
+  isToday?: boolean;
   checkedIn?: boolean;
   course: {
     id: string;
