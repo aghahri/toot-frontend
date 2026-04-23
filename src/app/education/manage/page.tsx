@@ -3,6 +3,8 @@
 import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
 import { AuthGate } from '@/components/AuthGate';
+import { apiFetch } from '@/lib/api';
+import { getAccessToken } from '@/lib/auth';
 import { fetchCreatorCourses, type CreatorCourseRow } from '@/lib/education';
 
 const SECTION =
@@ -13,6 +15,7 @@ export default function EducationManagePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [shareMessage, setShareMessage] = useState<string | null>(null);
+  const [storyBusyCourseId, setStoryBusyCourseId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -60,6 +63,32 @@ export default function EducationManagePage() {
       setShareMessage('لینک دوره کپی شد.');
     } catch {
       setShareMessage('کپی لینک انجام نشد.');
+    }
+  }
+
+  async function shareCourseToStory(id: string, title: string) {
+    if (storyBusyCourseId) return;
+    const token = getAccessToken();
+    if (!token) {
+      setShareMessage('برای اشتراک در استوری وارد شوید.');
+      return;
+    }
+    setStoryBusyCourseId(id);
+    try {
+      await apiFetch('posts', {
+        method: 'POST',
+        token,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          text: `دوره «${title}» منتشر شد.`,
+          educationCourseId: id,
+        }),
+      });
+      setShareMessage('دوره در استوری شما منتشر شد.');
+    } catch (e) {
+      setShareMessage(e instanceof Error ? e.message : 'انتشار در استوری انجام نشد.');
+    } finally {
+      setStoryBusyCourseId(null);
     }
   }
 
@@ -206,6 +235,14 @@ export default function EducationManagePage() {
                       className="rounded-lg border border-[var(--border-soft)] px-2.5 py-1.5 text-[11px] font-bold text-[var(--text-primary)]"
                     >
                       اشتراک دوره
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void shareCourseToStory(r.id, r.title)}
+                      disabled={storyBusyCourseId === r.id}
+                      className="rounded-lg border border-[var(--border-soft)] px-2.5 py-1.5 text-[11px] font-bold text-[var(--text-primary)] disabled:opacity-60"
+                    >
+                      {storyBusyCourseId === r.id ? 'در حال انتشار…' : 'اشتراک در استوری'}
                     </button>
                     <Link
                       href={`/education/${r.id}`}

@@ -31,6 +31,15 @@ export type FeedPost = {
     createdAt: string;
     user: { id: string; name: string; avatar: string | null; username?: string | null };
   } | null;
+  educationCourse?: {
+    id: string;
+    ownerId: string;
+    title: string;
+    owner: { id: string; name: string; username?: string | null; avatar: string | null };
+    nextMeeting: { id: string; startsAt: string; status: string } | null;
+    enrollmentsCount: number;
+    isEnrolled: boolean;
+  } | null;
   /** Row is the viewer’s repost surfaced at the top of the home feed (from API). */
   feedEntry?: FeedEntryKind;
   viewerRepostedAt?: string | null;

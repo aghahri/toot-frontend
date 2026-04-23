@@ -533,6 +533,53 @@ export function FeedPostCard({
             </Link>
           ) : null}
 
+          {p.educationCourse ? (
+            <div className="mt-2 rounded-xl border border-violet-200 bg-violet-50/40 px-3 py-2">
+              <div className="flex items-center gap-1.5 text-[10px]">
+                <span className="rounded-full bg-violet-500/15 px-2 py-0.5 font-extrabold text-violet-700">
+                  دوره آموزشی
+                </span>
+                <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 font-extrabold text-emerald-700">
+                  مدرس معتبر
+                </span>
+                {p.educationCourse.nextMeeting?.status === 'LIVE' ? (
+                  <span className="rounded-full bg-red-500/15 px-2 py-0.5 font-extrabold text-red-700">
+                    LIVE
+                  </span>
+                ) : null}
+              </div>
+              <p className="mt-1 line-clamp-2 text-[14px] font-extrabold text-slate-900">
+                {p.educationCourse.title}
+              </p>
+              <p className="mt-1 text-[11px] text-slate-600">
+                مدرس: {p.educationCourse.owner.name}
+                {p.educationCourse.owner.username ? ` · @${p.educationCourse.owner.username}` : ''}
+              </p>
+              <p className="mt-1 text-[11px] text-slate-600">
+                {p.educationCourse.enrollmentsCount} دانشجو
+                {p.educationCourse.nextMeeting
+                  ? ` · جلسه بعدی: ${formatFeedTime(p.educationCourse.nextMeeting.startsAt)}`
+                  : ''}
+              </p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                <Link
+                  href={`/education/${p.educationCourse.id}`}
+                  className="rounded-lg bg-violet-700 px-2.5 py-1 text-[11px] font-extrabold text-white"
+                >
+                  مشاهده دوره
+                </Link>
+                {!p.educationCourse.isEnrolled && viewerUserId !== p.educationCourse.ownerId ? (
+                  <Link
+                    href={`/education/${p.educationCourse.id}`}
+                    className="rounded-lg border border-slate-300 px-2.5 py-1 text-[11px] font-bold text-slate-700"
+                  >
+                    ثبت‌نام
+                  </Link>
+                ) : null}
+              </div>
+            </div>
+          ) : null}
+
           {p.media && p.media.length > 0 ? (
             <div className="mt-3 overflow-hidden rounded-2xl border border-slate-200/80 bg-slate-50 shadow-sm">
               {p.media.map((m) =>

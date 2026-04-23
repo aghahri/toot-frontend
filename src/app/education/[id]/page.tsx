@@ -4,6 +4,8 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AuthGate } from '@/components/AuthGate';
+import { apiFetch } from '@/lib/api';
+import { getAccessToken } from '@/lib/auth';
 import {
   checkInEducationSession,
   enrollCourse,
@@ -26,6 +28,7 @@ export default function EducationCourseDetailPage() {
   const [checkingIn, setCheckingIn] = useState(false);
   const [checkInMessage, setCheckInMessage] = useState<string | null>(null);
   const [shareMessage, setShareMessage] = useState<string | null>(null);
+  const [sharingToStory, setSharingToStory] = useState(false);
   const [showInvitePrompt, setShowInvitePrompt] = useState(false);
 
   const load = useCallback(async () => {
@@ -138,6 +141,32 @@ export default function EducationCourseDetailPage() {
       }
     }
     await copyCourseLink();
+  }
+
+  async function shareCourseToStory() {
+    if (!course || sharingToStory) return;
+    const token = getAccessToken();
+    if (!token) {
+      setShareMessage('برای اشتراک در استوری وارد شوید.');
+      return;
+    }
+    setSharingToStory(true);
+    try {
+      await apiFetch('posts', {
+        method: 'POST',
+        token,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          text: `دوره «${course.title}» را پیشنهاد می‌کنم.`,
+          educationCourseId: course.id,
+        }),
+      });
+      setShareMessage('دوره در استوری شما منتشر شد.');
+    } catch (e) {
+      setShareMessage(e instanceof Error ? e.message : 'انتشار در استوری انجام نشد.');
+    } finally {
+      setSharingToStory(false);
+    }
   }
 
   async function onCheckIn() {
@@ -255,6 +284,14 @@ export default function EducationCourseDetailPage() {
                       >
                         اشتراک دوره
                       </button>
+                      <button
+                        type="button"
+                        onClick={() => void shareCourseToStory()}
+                        disabled={sharingToStory}
+                        className="rounded-xl border border-[var(--border-soft)] px-3 py-2 text-xs font-bold text-[var(--text-secondary)] disabled:opacity-60"
+                      >
+                        {sharingToStory ? 'در حال انتشار…' : 'اشتراک در استوری'}
+                      </button>
                     </div>
                   ) : isEnrolled ? (
                     <div className="flex flex-wrap gap-2">
@@ -280,6 +317,14 @@ export default function EducationCourseDetailPage() {
                       >
                         دعوت دوستان
                       </button>
+                      <button
+                        type="button"
+                        onClick={() => void shareCourseToStory()}
+                        disabled={sharingToStory}
+                        className="rounded-xl border border-[var(--border-soft)] px-3 py-2 text-xs font-bold text-[var(--text-secondary)] disabled:opacity-60"
+                      >
+                        {sharingToStory ? 'در حال انتشار…' : 'اشتراک در استوری'}
+                      </button>
                     </div>
                   ) : (
                     <div className="flex flex-wrap gap-2">
@@ -297,6 +342,14 @@ export default function EducationCourseDetailPage() {
                         className="rounded-xl border border-[var(--border-soft)] px-3 py-2 text-xs font-bold text-[var(--text-secondary)]"
                       >
                         اشتراک دوره
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void shareCourseToStory()}
+                        disabled={sharingToStory}
+                        className="rounded-xl border border-[var(--border-soft)] px-3 py-2 text-xs font-bold text-[var(--text-secondary)] disabled:opacity-60"
+                      >
+                        {sharingToStory ? 'در حال انتشار…' : 'اشتراک در استوری'}
                       </button>
                     </div>
                   )}
