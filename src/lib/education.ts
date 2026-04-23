@@ -10,6 +10,8 @@ export type EducationMeetingMini = {
   startsSoon?: boolean;
   isLive?: boolean;
   hasEnded?: boolean;
+  startsInMinutes?: number;
+  isToday?: boolean;
   checkedIn?: boolean;
 };
 
@@ -88,6 +90,8 @@ export type EducationMyUpcomingMeeting = {
 export type EducationMyDashboard = {
   enrolledCourses: EducationMyCourse[];
   upcomingMeetings: EducationMyUpcomingMeeting[];
+  missedRecentCount?: number;
+  missedRecentMeetings?: EducationMyUpcomingMeeting[];
   attendedCount?: number;
   lastAttendanceAt?: string | null;
   nextAction?: 'join_next' | 'browse_courses' | 'continue';
@@ -101,6 +105,8 @@ export type CreatorCourseRow = {
   enrolledCount: number;
   upcomingMeetingsCount: number;
   todaySessionsCount?: number;
+  soonSessionsCount?: number;
+  nearestSessionAt?: string | null;
   recentAttendanceCount?: number;
 };
 
@@ -113,6 +119,8 @@ export type CourseSessionRow = {
   startsSoon?: boolean;
   isLive?: boolean;
   hasEnded?: boolean;
+  startsInMinutes?: number;
+  isToday?: boolean;
   checkedIn?: boolean;
   checkedInCount?: number;
 };

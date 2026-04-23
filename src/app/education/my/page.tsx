@@ -63,11 +63,31 @@ export default function MyLearningPage() {
 
   const courses = useMemo(() => data?.enrolledCourses ?? [], [data]);
   const upcoming = useMemo(() => data?.upcomingMeetings ?? [], [data]);
-  const liveNow = useMemo(() => upcoming.filter((m) => m.isLive), [upcoming]);
-  const startsSoon = useMemo(
-    () => upcoming.filter((m) => !m.isLive && !m.hasEnded && m.startsSoon),
+  const todayMeetings = useMemo(
+    () => upcoming.filter((m) => m.isToday && !m.hasEnded).sort((a, b) => (a.startsInMinutes ?? 9999) - (b.startsInMinutes ?? 9999)),
     [upcoming],
   );
+  const liveNow = useMemo(() => todayMeetings.filter((m) => m.isLive), [todayMeetings]);
+  const startsWithin30 = useMemo(
+    () => todayMeetings.filter((m) => !m.isLive && !m.hasEnded && (m.startsInMinutes ?? 9999) >= 0 && (m.startsInMinutes ?? 9999) <= 30),
+    [todayMeetings],
+  );
+  const startsWithin60 = useMemo(
+    () =>
+      todayMeetings.filter(
+        (m) =>
+          !m.isLive &&
+          !m.hasEnded &&
+          (m.startsInMinutes ?? 9999) > 30 &&
+          (m.startsInMinutes ?? 9999) <= 60,
+      ),
+    [todayMeetings],
+  );
+  const laterToday = useMemo(
+    () => todayMeetings.filter((m) => !m.isLive && (m.startsInMinutes ?? 9999) > 60),
+    [todayMeetings],
+  );
+  const startsSoon = useMemo(() => upcoming.filter((m) => !m.isLive && !m.hasEnded && m.startsSoon), [upcoming]);
   const continueLearning = useMemo(
     () => courses.filter((course) => course.nextMeeting || course.channel || course.group).slice(0, 8),
     [courses],
@@ -90,6 +110,8 @@ export default function MyLearningPage() {
   const attendedCount = data?.attendedCount ?? 0;
   const nextAction = data?.nextAction ?? (upcoming.length ? 'join_next' : courses.length ? 'continue' : 'browse_courses');
   const nextMeetingForAction = liveNow[0] ?? startsSoon[0] ?? upcoming[0] ?? null;
+  const missedRecent = data?.missedRecentMeetings ?? [];
+  const soonBannerMeeting = startsWithin30[0] ?? startsWithin60[0] ?? null;
 
   async function onCheckIn(meetingId: string) {
     if (checkingMeetingId) return;
@@ -116,7 +138,20 @@ export default function MyLearningPage() {
   }
 
   function MeetingUrgencyBadge({ meeting }: { meeting: EducationMyUpcomingMeeting }) {
-    const text = meeting.isLive ? 'زنده' : meeting.hasEnded ? 'پایان یافته' : meeting.startsSoon ? 'تا ۱ ساعت دیگر' : null;
+    const mins = meeting.startsInMinutes ?? null;
+    const text = meeting.isLive
+      ? 'زنده اکنون'
+      : meeting.hasEnded
+        ? 'پایان یافته'
+        : mins !== null && mins >= 0 && mins <= 30
+          ? 'تا ۳۰ دقیقه دیگر'
+          : mins !== null && mins > 30 && mins <= 60
+            ? 'تا ۱ ساعت دیگر'
+            : meeting.isToday
+              ? 'امروز'
+              : meeting.startsSoon
+                ? 'شروع به‌زودی'
+                : null;
     if (!text) return null;
     const className = meeting.isLive
       ? 'bg-red-500/15 text-red-700 dark:text-red-300'
@@ -152,6 +187,14 @@ export default function MyLearningPage() {
             {checkInFeedback}
           </div>
         ) : null}
+        {soonBannerMeeting ? (
+          <div className="mb-4 rounded-2xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-800 dark:text-amber-200">
+            کلاس شما به‌زودی شروع می‌شود
+            <Link href={`/meetings/${soonBannerMeeting.id}`} className="mr-2 font-extrabold underline">
+              ورود به کلاس
+            </Link>
+          </div>
+        ) : null}
 
         {isEmpty ? (
           <section className="rounded-3xl border border-dashed border-[var(--border-soft)] bg-[var(--surface-soft)] px-4 py-10 text-center ring-1 ring-[var(--border-soft)]">
@@ -168,6 +211,71 @@ export default function MyLearningPage() {
           </section>
         ) : (
           <div className="space-y-4">
+            <section className={SECTION}>
+              <h2 className="mb-3 text-sm font-extrabold text-[var(--text-primary)]">کلاس‌های امروز</h2>
+              {loading ? (
+                <div className="h-14 animate-pulse rounded-xl bg-[var(--surface-soft)]" />
+              ) : todayMeetings.length ? (
+                <div className="space-y-3">
+                  {[
+                    { title: 'زنده اکنون', rows: liveNow },
+                    { title: 'شروع تا دقایقی دیگر', rows: [...startsWithin30, ...startsWithin60] },
+                    { title: 'بعدا امروز', rows: laterToday },
+                  ].map((group) =>
+                    group.rows.length ? (
+                      <div key={group.title}>
+                        <p className="mb-2 text-xs font-extrabold text-[var(--text-secondary)]">{group.title}</p>
+                        <ul className="space-y-2">
+                          {group.rows.map((m) => (
+                            <li
+                              key={`${group.title}-${m.id}`}
+                              className="rounded-2xl border border-[var(--border-soft)] bg-[var(--surface-soft)] p-3 ring-1 ring-[var(--border-soft)]"
+                            >
+                              <div className="flex items-center justify-between gap-2">
+                                <p className="line-clamp-1 text-sm font-extrabold text-[var(--text-primary)]">{m.title}</p>
+                                <MeetingUrgencyBadge meeting={m} />
+                              </div>
+                              <p className="mt-1 text-[11px] text-[var(--text-secondary)]">{formatAppDateTime(m.startsAt)}</p>
+                              <Link
+                                href={`/meetings/${m.id}`}
+                                className="mt-2 inline-flex rounded-lg bg-violet-700 px-2.5 py-1 text-[11px] font-extrabold text-white"
+                              >
+                                ورود به کلاس
+                              </Link>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    ) : null,
+                  )}
+                </div>
+              ) : (
+                <p className="text-xs text-[var(--text-secondary)]">امروز کلاسی ندارید</p>
+              )}
+            </section>
+
+            {missedRecent.length ? (
+              <section className={SECTION}>
+                <h2 className="mb-2 text-sm font-extrabold text-[var(--text-primary)]">جلسه‌ای را از دست دادید؟</h2>
+                <ul className="space-y-2">
+                  {missedRecent.map((m) => (
+                    <li key={m.id} className="rounded-2xl border border-[var(--border-soft)] bg-[var(--surface-soft)] p-3">
+                      <p className="line-clamp-1 text-sm font-bold text-[var(--text-primary)]">{m.title}</p>
+                      <p className="mt-1 text-[11px] text-[var(--text-secondary)]">{m.course.title}</p>
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        <Link href={`/education/${m.course.id}`} className="rounded-lg border border-[var(--border-soft)] px-2.5 py-1 text-[11px] font-bold text-[var(--text-primary)]">
+                          مشاهده دوره
+                        </Link>
+                        <Link href={`/education/${m.course.id}/sessions`} className="rounded-lg bg-violet-700 px-2.5 py-1 text-[11px] font-extrabold text-white">
+                          جلسات بعدی
+                        </Link>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            ) : null}
+
             <section className={SECTION}>
               <h2 className="mb-3 text-sm font-extrabold text-[var(--text-primary)]">گام بعدی شما</h2>
               {nextAction === 'join_next' && nextMeetingForAction ? (
@@ -226,86 +334,6 @@ export default function MyLearningPage() {
                   </p>
                 </div>
               </div>
-            </section>
-
-            <section className={SECTION}>
-              <h2 className="mb-3 text-sm font-extrabold text-[var(--text-primary)]">کلاس زنده اکنون</h2>
-              {loading ? (
-                <div className="h-14 animate-pulse rounded-xl bg-[var(--surface-soft)]" />
-              ) : liveNow.length ? (
-                <ul className="space-y-2">
-                  {liveNow.map((m) => (
-                    <li
-                      key={m.id}
-                      className="rounded-2xl border border-[var(--border-soft)] bg-[var(--surface-soft)] p-3 ring-1 ring-[var(--border-soft)]"
-                    >
-                      <div className="flex items-center justify-between gap-2">
-                        <p className="line-clamp-1 text-sm font-extrabold text-[var(--text-primary)]">{m.title}</p>
-                        <MeetingUrgencyBadge meeting={m} />
-                      </div>
-                      <p className="mt-1 line-clamp-1 text-[11px] text-[var(--text-secondary)]">مرتبط با: {m.course.title}</p>
-                      <div className="mt-2 flex flex-wrap gap-2">
-                        <Link
-                          href={`/meetings/${m.id}`}
-                          className="rounded-lg bg-violet-700 px-2.5 py-1 text-[11px] font-extrabold text-white"
-                        >
-                          ورود به کلاس زنده
-                        </Link>
-                        <button
-                          type="button"
-                          onClick={() => void onCheckIn(m.id)}
-                          disabled={!!m.checkedIn || checkingMeetingId === m.id}
-                          className="rounded-lg border border-[var(--border-soft)] px-2.5 py-1 text-[11px] font-bold text-[var(--text-primary)] disabled:opacity-50"
-                        >
-                          {m.checkedIn ? 'حضور شما ثبت شد' : checkingMeetingId === m.id ? 'در حال ثبت…' : 'حضور در کلاس'}
-                        </button>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="text-xs text-[var(--text-secondary)]">فعلا جلسه‌ای پیش‌رو ندارید</p>
-              )}
-            </section>
-
-            <section className={SECTION}>
-              <h2 className="mb-3 text-sm font-extrabold text-[var(--text-primary)]">شروع به‌زودی</h2>
-              {loading ? (
-                <div className="h-14 animate-pulse rounded-xl bg-[var(--surface-soft)]" />
-              ) : startsSoon.length ? (
-                <ul className="space-y-2">
-                  {startsSoon.map((m) => (
-                    <li
-                      key={m.id}
-                      className="rounded-2xl border border-[var(--border-soft)] bg-[var(--surface-soft)] p-3 ring-1 ring-[var(--border-soft)]"
-                    >
-                      <div className="flex items-center justify-between gap-2">
-                        <p className="line-clamp-1 text-sm font-extrabold text-[var(--text-primary)]">{m.title}</p>
-                        <MeetingUrgencyBadge meeting={m} />
-                      </div>
-                      <p className="mt-1 text-[11px] text-[var(--text-secondary)]">{formatAppDateTime(m.startsAt)}</p>
-                      <div className="mt-2 flex flex-wrap gap-2">
-                        <Link
-                          href={`/meetings/${m.id}`}
-                          className="rounded-lg border border-[var(--border-soft)] px-2.5 py-1 text-[11px] font-bold text-[var(--text-primary)]"
-                        >
-                          مشاهده کلاس
-                        </Link>
-                        <button
-                          type="button"
-                          onClick={() => void onCheckIn(m.id)}
-                          disabled={!!m.checkedIn || checkingMeetingId === m.id}
-                          className="rounded-lg border border-[var(--border-soft)] px-2.5 py-1 text-[11px] font-bold text-[var(--text-primary)] disabled:opacity-50"
-                        >
-                          {m.checkedIn ? 'حضور شما ثبت شد' : checkingMeetingId === m.id ? 'در حال ثبت…' : 'حضور در کلاس'}
-                        </button>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="text-xs text-[var(--text-secondary)]">کلاسی که به‌زودی شروع شود پیدا نشد.</p>
-              )}
             </section>
 
             <section className={SECTION}>

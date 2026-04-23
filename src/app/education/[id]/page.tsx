@@ -70,6 +70,14 @@ export default function EducationCourseDetailPage() {
     if (upcomingSessions.length > 0) return 'فعال';
     return 'آرام';
   }, [nextSession?.isLive, nextSession?.startsSoon, upcomingSessions.length]);
+  const nextSessionUrgencyText = useMemo(() => {
+    if (!nextSession) return null;
+    if (nextSession.isLive) return 'کلاس هم‌اکنون در حال برگزاری است';
+    const mins = nextSession.startsInMinutes ?? null;
+    if (mins !== null && mins >= 0 && mins <= 30) return 'جلسه بعدی تا ۳۰ دقیقه دیگر آغاز می‌شود';
+    if (mins !== null && mins > 30 && mins <= 60) return 'جلسه بعدی تا ۱ ساعت دیگر آغاز می‌شود';
+    return null;
+  }, [nextSession]);
 
   async function toggleEnroll() {
     if (!course || busy || canManage) return;
@@ -293,6 +301,11 @@ export default function EducationCourseDetailPage() {
                     </div>
                   )}
                 </div>
+                {nextSessionUrgencyText ? (
+                  <p className="mt-2 rounded-lg bg-amber-500/10 px-2 py-1 text-[11px] font-bold text-amber-800 dark:text-amber-200">
+                    {nextSessionUrgencyText}
+                  </p>
+                ) : null}
                 {showInvitePrompt && isEnrolled ? (
                   <div className="mt-3 rounded-xl border border-violet-500/30 bg-violet-500/10 px-3 py-2">
                     <p className="text-xs font-extrabold text-violet-700 dark:text-violet-200">
@@ -326,7 +339,7 @@ export default function EducationCourseDetailPage() {
                     ) : null}
                     {nextSession.startsSoon ? (
                       <span className="rounded-lg bg-amber-500/15 px-2 py-0.5 text-[10px] font-extrabold text-amber-700 dark:text-amber-300">
-                        تا ۱ ساعت دیگر
+                        {(nextSession.startsInMinutes ?? 9999) <= 30 ? 'تا ۳۰ دقیقه دیگر' : 'تا ۱ ساعت دیگر'}
                       </span>
                     ) : null}
                     {nextSession.hasEnded ? (

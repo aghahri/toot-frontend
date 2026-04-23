@@ -32,9 +32,13 @@ export default function EducationManagePage() {
   }, [load]);
 
   const totalStudents = rows.reduce((sum, row) => sum + row.enrolledCount, 0);
-  const totalUpcomingSessions = rows.reduce((sum, row) => sum + row.upcomingMeetingsCount, 0);
   const totalTodaySessions = rows.reduce((sum, row) => sum + (row.todaySessionsCount ?? 0), 0);
+  const totalSoonSessions = rows.reduce((sum, row) => sum + (row.soonSessionsCount ?? 0), 0);
   const totalRecentAttendances = rows.reduce((sum, row) => sum + (row.recentAttendanceCount ?? 0), 0);
+  const nearestSessionAt = rows
+    .map((row) => row.nearestSessionAt)
+    .filter((v): v is string => !!v)
+    .sort((a, b) => new Date(a).getTime() - new Date(b).getTime())[0];
 
   async function shareCourse(id: string, title: string) {
     const url = `${window.location.origin}/education/${id}`;
@@ -114,8 +118,8 @@ export default function EducationManagePage() {
                 <p className="mt-1 text-sm font-black text-[var(--text-primary)]">{totalTodaySessions}</p>
               </div>
               <div className="rounded-xl border border-[var(--border-soft)] bg-[var(--surface-soft)] p-2 text-center">
-                <p className="text-[10px] font-bold text-[var(--text-secondary)]">جلسات آینده</p>
-                <p className="mt-1 text-sm font-black text-[var(--text-primary)]">{totalUpcomingSessions}</p>
+                <p className="text-[10px] font-bold text-[var(--text-secondary)]">تا یک ساعت دیگر</p>
+                <p className="mt-1 text-sm font-black text-[var(--text-primary)]">{totalSoonSessions}</p>
               </div>
               <div className="rounded-xl border border-[var(--border-soft)] bg-[var(--surface-soft)] p-2 text-center">
                 <p className="text-[10px] font-bold text-[var(--text-secondary)]">دانشجویان فعال</p>
@@ -126,8 +130,10 @@ export default function EducationManagePage() {
                 <p className="mt-1 text-sm font-black text-[var(--text-primary)]">{totalRecentAttendances}</p>
               </div>
               <div className="rounded-xl border border-[var(--border-soft)] bg-[var(--surface-soft)] p-2 text-center col-span-2">
-                <p className="text-[10px] font-bold text-[var(--text-secondary)]">تعداد دوره‌ها</p>
-                <p className="mt-1 text-sm font-black text-[var(--text-primary)]">{rows.length}</p>
+                <p className="text-[10px] font-bold text-[var(--text-secondary)]">نزدیک‌ترین جلسه آینده</p>
+                <p className="mt-1 text-[12px] font-black text-[var(--text-primary)]">
+                  {nearestSessionAt ? new Date(nearestSessionAt).toLocaleString('fa-IR') : 'ثبت نشده'}
+                </p>
               </div>
             </div>
           ) : null}

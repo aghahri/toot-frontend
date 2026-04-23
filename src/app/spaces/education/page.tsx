@@ -49,6 +49,23 @@ function MeetingCard({ m, dense }: { m: EducationMeetingMini; dense?: boolean })
           {statusFa(m.status)}
         </span>
       </div>
+      <div className="mt-2 flex flex-wrap gap-1">
+        {m.isLive ? (
+          <span className="rounded-lg bg-red-500/15 px-2 py-0.5 text-[10px] font-extrabold text-red-700 dark:text-red-300">
+            زنده اکنون
+          </span>
+        ) : null}
+        {m.isToday ? (
+          <span className="rounded-lg bg-violet-500/15 px-2 py-0.5 text-[10px] font-extrabold text-violet-700 dark:text-violet-300">
+            شروع امروز
+          </span>
+        ) : null}
+        {!m.isLive && !m.hasEnded && (m.startsInMinutes ?? 9999) >= 0 && (m.startsInMinutes ?? 9999) <= 60 ? (
+          <span className="rounded-lg bg-amber-500/15 px-2 py-0.5 text-[10px] font-extrabold text-amber-700 dark:text-amber-300">
+            به‌زودی
+          </span>
+        ) : null}
+      </div>
     </Link>
   );
 }
@@ -91,6 +108,24 @@ function CourseCard({ c }: { c: EducationCourse }) {
         {hasActiveToday ? (
           <span className="rounded-lg bg-emerald-500/15 px-1.5 py-0.5 font-extrabold text-emerald-700 dark:text-emerald-300">
             جلسه فعال امروز
+          </span>
+        ) : null}
+        {c.nextMeeting?.isToday ? (
+          <span className="rounded-lg bg-violet-500/15 px-1.5 py-0.5 font-extrabold text-violet-700 dark:text-violet-300">
+            شروع امروز
+          </span>
+        ) : null}
+        {c.nextMeeting?.isLive ? (
+          <span className="rounded-lg bg-red-500/15 px-1.5 py-0.5 font-extrabold text-red-700 dark:text-red-300">
+            زنده اکنون
+          </span>
+        ) : null}
+        {!c.nextMeeting?.isLive &&
+        !c.nextMeeting?.hasEnded &&
+        (c.nextMeeting?.startsInMinutes ?? 9999) >= 0 &&
+        (c.nextMeeting?.startsInMinutes ?? 9999) <= 60 ? (
+          <span className="rounded-lg bg-amber-500/15 px-1.5 py-0.5 font-extrabold text-amber-700 dark:text-amber-300">
+            به‌زودی
           </span>
         ) : null}
         {isMember ? (

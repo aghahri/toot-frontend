@@ -202,14 +202,32 @@ export default function EducationSessionsPage() {
                   </div>
                   <p className="mt-1 text-[11px] text-[var(--text-secondary)]">{formatAppDateTime(s.startsAt)}</p>
                   <div className="mt-1 flex flex-wrap gap-1">
+                    {s.isToday ? (
+                      <span className="rounded-lg bg-violet-500/15 px-2 py-0.5 text-[10px] font-extrabold text-violet-700 dark:text-violet-300">
+                        امروز
+                      </span>
+                    ) : null}
                     {s.isLive ? (
                       <span className="rounded-lg bg-red-500/15 px-2 py-0.5 text-[10px] font-extrabold text-red-700 dark:text-red-300">
                         زنده
                       </span>
                     ) : null}
-                    {s.startsSoon ? (
+                    {!s.isLive && !s.hasEnded && (s.startsInMinutes ?? 9999) >= 0 && (s.startsInMinutes ?? 9999) <= 30 ? (
                       <span className="rounded-lg bg-amber-500/15 px-2 py-0.5 text-[10px] font-extrabold text-amber-700 dark:text-amber-300">
-                        شروع به‌زودی
+                        تا ۳۰ دقیقه دیگر
+                      </span>
+                    ) : null}
+                    {!s.isLive &&
+                    !s.hasEnded &&
+                    (s.startsInMinutes ?? 9999) > 30 &&
+                    (s.startsInMinutes ?? 9999) <= 60 ? (
+                      <span className="rounded-lg bg-amber-500/15 px-2 py-0.5 text-[10px] font-extrabold text-amber-700 dark:text-amber-300">
+                        تا ۱ ساعت دیگر
+                      </span>
+                    ) : null}
+                    {s.hasEnded ? (
+                      <span className="rounded-lg bg-zinc-500/20 px-2 py-0.5 text-[10px] font-extrabold text-zinc-700 dark:text-zinc-300">
+                        پایان یافته
                       </span>
                     ) : null}
                     <span className="rounded-lg bg-[var(--card-bg)] px-2 py-0.5 text-[10px] font-bold text-[var(--text-secondary)]">
