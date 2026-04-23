@@ -11,6 +11,7 @@ export default function NewEducationCoursePage() {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [visibility, setVisibility] = useState<'PUBLIC' | 'PRIVATE'>('PUBLIC');
+  const [status, setStatus] = useState<'DRAFT' | 'PUBLISHED'>('PUBLISHED');
   const [coverImageUrl, setCoverImageUrl] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -25,6 +26,7 @@ export default function NewEducationCoursePage() {
         title: title.trim(),
         description: description.trim() || undefined,
         visibility,
+        status,
         coverImageUrl: coverImageUrl.trim() || undefined,
       });
       router.replace(`/education/${c.id}`);
@@ -90,6 +92,17 @@ export default function NewEducationCoursePage() {
             >
               <option value="PUBLIC">عمومی</option>
               <option value="PRIVATE">خصوصی</option>
+            </select>
+          </label>
+          <label className="block">
+            <span className="mb-1 block text-xs font-bold text-[var(--text-secondary)]">وضعیت انتشار</span>
+            <select
+              value={status}
+              onChange={(e) => setStatus(e.target.value as 'DRAFT' | 'PUBLISHED')}
+              className="w-full rounded-xl border border-[var(--border-soft)] bg-[var(--surface-soft)] px-3 py-2 text-sm outline-none ring-0"
+            >
+              <option value="PUBLISHED">منتشر شده</option>
+              <option value="DRAFT">پیش‌نویس</option>
             </select>
           </label>
           <button

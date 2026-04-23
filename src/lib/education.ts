@@ -70,12 +70,34 @@ export type EducationMyDashboard = {
   upcomingMeetings: EducationMyUpcomingMeeting[];
 };
 
+export type CreatorCourseRow = {
+  id: string;
+  title: string;
+  summary: string | null;
+  published: boolean;
+  enrolledCount: number;
+  upcomingMeetingsCount: number;
+};
+
+export type CourseSessionRow = {
+  id: string;
+  title: string;
+  startsAt: string;
+  durationMinutes: number;
+  status: string;
+};
+
 export function fetchEducationHub() {
   return apiFetch<EducationHub>('education/hub', { method: 'GET' });
 }
 
 export function fetchMyEducationDashboard() {
   return apiFetch<EducationMyDashboard>('education/my', { method: 'GET' });
+}
+
+export function fetchCreatorCourses(limit = 40) {
+  const q = new URLSearchParams({ limit: String(limit) }).toString();
+  return apiFetch<CreatorCourseRow[]>(`education/creator/my?${q}`, { method: 'GET' });
 }
 
 export function fetchEducationCourses(query?: { mine?: boolean; public?: boolean; upcoming?: boolean }) {
@@ -95,9 +117,44 @@ export function createEducationCourse(body: {
   title: string;
   description?: string;
   visibility: 'PUBLIC' | 'PRIVATE';
+  status?: 'DRAFT' | 'PUBLISHED';
   coverImageUrl?: string;
 }) {
   return apiFetch<EducationCourse>('education/courses', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+}
+
+export function patchEducationCourse(
+  id: string,
+  body: {
+    title?: string;
+    description?: string;
+    visibility?: 'PUBLIC' | 'PRIVATE';
+    status?: 'DRAFT' | 'PUBLISHED';
+    coverImageUrl?: string;
+  },
+) {
+  return apiFetch<EducationCourse>(`education/courses/${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+}
+
+export function fetchCourseSessions(id: string) {
+  return apiFetch<CourseSessionRow[]>(`education/courses/${encodeURIComponent(id)}/sessions`, {
+    method: 'GET',
+  });
+}
+
+export function createCourseSession(
+  id: string,
+  body: { title: string; startsAt: string; durationMinutes: number },
+) {
+  return apiFetch<CourseSessionRow>(`education/courses/${encodeURIComponent(id)}/sessions`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),

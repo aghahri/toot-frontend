@@ -106,12 +106,20 @@ export default function EducationCourseDetailPage() {
                     {isEnrolled ? 'عضو شدید' : 'ثبت‌نام در دوره'}
                   </button>
                 ) : (
-                  <Link
-                    href="/education/new"
-                    className="mt-3 inline-block rounded-xl border border-[var(--border-soft)] px-3 py-2 text-xs font-bold text-[var(--text-secondary)]"
-                  >
-                    ویرایش/مدیریت دوره
-                  </Link>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <Link
+                      href={`/education/${course.id}/edit`}
+                      className="inline-block rounded-xl border border-[var(--border-soft)] px-3 py-2 text-xs font-bold text-[var(--text-secondary)]"
+                    >
+                      ویرایش دوره
+                    </Link>
+                    <Link
+                      href={`/education/${course.id}/sessions`}
+                      className="inline-block rounded-xl border border-[var(--border-soft)] px-3 py-2 text-xs font-bold text-[var(--text-secondary)]"
+                    >
+                      مدیریت جلسات
+                    </Link>
+                  </div>
                 )}
               </div>
             </section>

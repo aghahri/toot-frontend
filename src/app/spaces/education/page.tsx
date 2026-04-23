@@ -146,6 +146,9 @@ export default function EducationSpacePage() {
             <Link href="/meetings/my" className={`${BTN_CARD} col-span-2 sm:col-span-1`}>
               جلسات من
             </Link>
+            <Link href="/education/manage" className={`${BTN_CARD} col-span-2 sm:col-span-1`}>
+              مدیریت آموزش
+            </Link>
           </div>
         </section>
 
