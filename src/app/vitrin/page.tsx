@@ -7,7 +7,7 @@ import { apiFetch } from '@/lib/api';
 import { VITRIN_CATALOG } from '@/config/vitrinCatalog';
 
 function VitrinGlyph({ id }: { id: string }) {
-  const common = 'h-6 w-6 text-white';
+  const common = 'h-5 w-5 text-white';
   switch (id) {
     case 'bamakhabar':
       return (
@@ -90,35 +90,35 @@ export default function VitrinPage() {
             </span>
           </div>
           {coreLinks.length === 0 ? (
-            <p className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-xs text-slate-500">
+            <p className="rounded-2xl border border-[var(--line)] bg-[var(--surface)] px-4 py-3 text-xs text-[var(--ink-3)]">
               لینک‌های اصلی ویترین هنوز تنظیم نشده‌اند.
             </p>
           ) : (
-            <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <ul className="grid grid-cols-2 gap-3">
               {coreLinks.map((item) => {
                 const fallback = fallbackByKey.get(item.key);
-                const cardClass =
+                const brandClass =
                   fallback?.cardClass ??
-                  'from-slate-600/90 via-slate-600/85 to-slate-800/90 ring-slate-200/60';
+                  'from-[var(--accent)] via-[var(--accent)] to-[var(--accent-hover)]';
                 return (
                   <li key={item.key}>
                     <Link
                       href={`/vitrin/web?entry=${encodeURIComponent(item.key)}`}
-                      className={[
-                        'group relative flex min-h-[9rem] flex-col overflow-hidden rounded-3xl bg-gradient-to-br p-4 text-white shadow-lg ring-2 ring-inset transition',
-                        'hover:scale-[1.01] hover:shadow-xl active:scale-[0.99]',
-                        cardClass,
-                      ].join(' ')}
+                      className="group flex h-full min-h-[8.5rem] flex-col overflow-hidden rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-3 transition hover:bg-[var(--surface-2)]/60 active:scale-[0.99]"
                     >
                       <span
-                        className="mb-2 flex h-11 w-11 items-center justify-center rounded-2xl bg-white/20 backdrop-blur-sm"
+                        className={`mb-2 flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br shadow-sm ${brandClass}`}
                         aria-hidden
                       >
                         <VitrinGlyph id={fallback?.id ?? item.key.toLowerCase()} />
                       </span>
-                      <span className="text-lg font-extrabold leading-snug tracking-tight">{item.title}</span>
-                      <span className="mt-1 text-xs font-medium leading-relaxed text-white/90">{item.subtitle}</span>
-                      <span className="mt-auto pt-3 text-[11px] font-bold text-white/80">مشاهده</span>
+                      <span className="line-clamp-2 text-[14px] font-extrabold leading-snug tracking-tight text-[var(--ink)]">
+                        {item.title}
+                      </span>
+                      <span className="mt-1 line-clamp-2 text-[11px] leading-relaxed text-[var(--ink-3)]">
+                        {item.subtitle}
+                      </span>
+                      <span className="mt-auto pt-2 text-[11px] font-bold text-[var(--accent-hover)]">مشاهده</span>
                     </Link>
                   </li>
                 );
@@ -172,27 +172,27 @@ export default function VitrinPage() {
 
         {coreLinks.length === 0 ? (
           <>
-            <p className="mb-3 text-xs font-bold text-slate-500">سرویس‌های منتخب (پیش‌فرض)</p>
-            <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <p className="mb-3 text-xs font-bold text-[var(--ink-3)]">سرویس‌های منتخب (پیش‌فرض)</p>
+            <ul className="grid grid-cols-2 gap-3">
               {VITRIN_CATALOG.map((entry) => (
                 <li key={entry.id}>
                   <Link
                     href={`/vitrin/web?entry=${encodeURIComponent(entry.id)}`}
-                    className={[
-                      'group relative flex min-h-[8.5rem] flex-col overflow-hidden rounded-3xl bg-gradient-to-br p-4 text-white shadow-lg ring-2 ring-inset transition',
-                      'hover:scale-[1.01] hover:shadow-xl active:scale-[0.99]',
-                      entry.cardClass,
-                    ].join(' ')}
+                    className="group flex h-full min-h-[8.5rem] flex-col overflow-hidden rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-3 transition hover:bg-[var(--surface-2)]/60 active:scale-[0.99]"
                   >
                     <span
-                      className="mb-2 flex h-11 w-11 items-center justify-center rounded-2xl bg-white/20 backdrop-blur-sm"
+                      className={`mb-2 flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br shadow-sm ${entry.cardClass}`}
                       aria-hidden
                     >
                       <VitrinGlyph id={entry.id} />
                     </span>
-                    <span className="text-lg font-extrabold leading-snug tracking-tight">{entry.title}</span>
-                    <span className="mt-1 text-xs font-medium leading-relaxed text-white/90">{entry.subtitle}</span>
-                    <span className="mt-auto pt-3 text-[11px] font-bold text-white/80">مشاهده</span>
+                    <span className="line-clamp-2 text-[14px] font-extrabold leading-snug tracking-tight text-[var(--ink)]">
+                      {entry.title}
+                    </span>
+                    <span className="mt-1 line-clamp-2 text-[11px] leading-relaxed text-[var(--ink-3)]">
+                      {entry.subtitle}
+                    </span>
+                    <span className="mt-auto pt-2 text-[11px] font-bold text-[var(--accent-hover)]">مشاهده</span>
                   </Link>
                 </li>
               ))}
