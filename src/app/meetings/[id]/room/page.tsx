@@ -676,7 +676,7 @@ export default function MeetingRoomPage() {
                 ? remoteParticipants.map((p) => {
                     const remote = remotes.find((r) => r.userId === p.id);
                     if (remote) {
-                      return <RemoteTile key={p.id} stream={remote.stream} title={p.name} avatarUrl={p.avatar} />;
+                      return <RemoteTile key={p.id} stream={remote.stream} title={p.name} avatarUrl={p.avatar} logRtc={logRtc} />;
                     }
                     const pc = pcsRef.current.get(p.id);
                     const hasReceiverTrack =
@@ -772,10 +772,12 @@ function RemoteTile({
   stream,
   title,
   avatarUrl,
+  logRtc,
 }: {
   stream: MediaStream;
   title: string;
   avatarUrl: string | null;
+  logRtc: (event: string, data?: Record<string, unknown>) => void;
 }) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
