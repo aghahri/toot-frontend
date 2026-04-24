@@ -135,20 +135,20 @@ export default function VitrinPage() {
             </span>
           </div>
           {publishedAnnouncements.length === 0 ? (
-            <p className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-xs text-slate-500">
+            <p className="rounded-2xl border border-[var(--line)] bg-[var(--surface)] px-4 py-3 text-xs text-[var(--ink-3)]">
               فعلاً اطلاعیه‌ی منتشرشده‌ای وجود ندارد.
             </p>
           ) : (
             <ul className="grid grid-cols-1 gap-3">
               {publishedAnnouncements.map((item) => (
                 <li key={item.id}>
-                  <article className="group relative overflow-hidden rounded-3xl border border-amber-200/70 bg-gradient-to-br from-amber-50 via-orange-50 to-rose-50 p-4 shadow-sm ring-1 ring-inset ring-white/60 transition hover:shadow-md">
-                    <div className="mb-2 inline-flex items-center gap-1 rounded-full bg-white/80 px-2 py-1 text-[11px] font-bold text-amber-800 ring-1 ring-amber-200">
-                      📣 اطلاعیه
+                  <article className="group relative overflow-hidden rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-4 transition hover:bg-[var(--surface-2)]/50">
+                    <div className="mb-2 inline-flex items-center gap-1 rounded-full bg-[var(--accent-soft)] px-2 py-0.5 text-[11px] font-bold text-[var(--accent-hover)]">
+                      اطلاعیه
                     </div>
-                    <p className="text-[15px] font-extrabold leading-snug text-slate-900">{item.title}</p>
-                    <p className="mt-1 line-clamp-3 text-xs leading-relaxed text-slate-700">{item.body}</p>
-                    <p className="mt-3 text-[11px] font-bold text-amber-700">اطلاعیه ویترین</p>
+                    <p className="text-[15px] font-extrabold leading-snug text-[var(--ink)]">{item.title}</p>
+                    <p className="mt-1 line-clamp-3 text-xs leading-relaxed text-[var(--ink-2)]">{item.body}</p>
+                    <p className="mt-3 text-[11px] font-bold text-[var(--ink-3)]">اطلاعیه ویترین</p>
                   </article>
                 </li>
               ))}
@@ -243,28 +243,28 @@ function FeaturedList({
   kindLabel: string;
 }) {
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
-      <p className="text-xs font-extrabold text-slate-700">{title}</p>
+    <div className="rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-3">
+      <p className="text-xs font-extrabold text-[var(--ink-2)]">{title}</p>
       {items.length === 0 ? (
-        <p className="mt-2 rounded-xl bg-slate-50 px-3 py-2 text-xs text-slate-500">موردی برای نمایش وجود ندارد.</p>
+        <p className="mt-2 rounded-xl bg-[var(--surface-2)] px-3 py-2 text-xs text-[var(--ink-3)]">موردی برای نمایش وجود ندارد.</p>
       ) : (
         <ul className="mt-3 grid grid-cols-1 gap-2">
           {items.slice(0, 4).map((item) => (
             <li key={item.id}>
               <Link
                 href={`${hrefBase}/${encodeURIComponent(item.id)}`}
-                className="group block rounded-2xl border border-slate-200 bg-gradient-to-br from-white to-slate-50 px-3 py-3 text-xs text-slate-800 shadow-sm ring-1 ring-inset ring-white transition hover:border-sky-200 hover:shadow-md"
+                className="group block rounded-xl border border-[var(--line)] bg-[var(--surface-2)] px-3 py-3 text-xs text-[var(--ink-2)] transition hover:bg-[var(--surface-strong)]"
               >
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-extrabold text-slate-900">{item.name}</p>
-                    {item.description ? <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-slate-600">{item.description}</p> : null}
+                    <p className="truncate text-sm font-extrabold text-[var(--ink)]">{item.name}</p>
+                    {item.description ? <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-[var(--ink-2)]">{item.description}</p> : null}
                   </div>
-                  <span className="shrink-0 rounded-full bg-slate-100 px-2 py-1 text-[10px] font-bold text-slate-600">
+                  <span className="shrink-0 rounded-full bg-[var(--surface)] px-2 py-1 text-[10px] font-bold text-[var(--ink-3)]">
                     {kindLabel}
                   </span>
                 </div>
-                <p className="mt-2 text-[11px] font-bold text-sky-700">مشاهده {kindLabel}</p>
+                <p className="mt-2 text-[11px] font-bold text-[var(--accent-hover)]">مشاهده {kindLabel}</p>
               </Link>
             </li>
           ))}
