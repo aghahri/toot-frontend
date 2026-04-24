@@ -2,6 +2,53 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ---------------------------------------------------------------------------
+   Family-launch design tokens (Claude Design handoff, Round 1).
+   Additive on top of the existing blue/green/purple theme matrix: the handoff
+   tokens live on :root so they inherit under every data-theme block, while
+   --accent / --accent-soft are overridden inside [data-theme='light-blue']
+   (the default) to the warm Persian-tea palette. Other themes keep their
+   accent.
+   --------------------------------------------------------------------------- */
+:root {
+  /* Handoff surfaces */
+  --bg:          #F7F7F5;
+  --surface:     #FFFFFF;
+  --surface-2:   #F1F0EC;
+  --overlay:     rgba(15, 18, 20, 0.45);
+
+  /* Handoff ink ladder */
+  --ink:         #11151A;
+  --ink-2:       #3A4149;
+  --ink-3:       #6B7480;
+  --ink-4:       #A7ADB5;
+
+  /* Handoff lines */
+  --line:        #E6E5E0;
+  --line-strong: #D4D2CB;
+
+  /* Handoff status colors (only used by opt-in classes) */
+  --success:     #2F7A4E;
+  --danger:      #B3261E;
+  --warning:     #A2700A;
+  --info:        #2B5E9C;
+
+  /* Handoff soft-accent bubble/chip ink */
+  --accent-soft-ink: #6B2E14;
+
+  /* Handoff radii (tokens — existing rounded-* utilities still win) */
+  --r-sm: 8px;
+  --r-md: 12px;
+  --r-lg: 16px;
+  --r-xl: 20px;
+  --r-pill: 999px;
+
+  /* Handoff elevation */
+  --shadow-1: 0 1px 2px rgba(17,21,26,0.04), 0 1px 1px rgba(17,21,26,0.03);
+  --shadow-2: 0 4px 16px -6px rgba(17,21,26,0.10);
+  --shadow-nav: 0 -4px 24px -8px rgba(17,21,26,0.12);
+}
+
 :root {
   /** App chrome: Navbar + fixed bottom tab bar — channel workspace fills the region between them. */
   --toot-navbar-height: 3.25rem;
@@ -13,10 +60,10 @@
   --card-bg: #ffffff;
   --surface-soft: #f8fbff;
   --surface-strong: #dbeafe;
-  --accent: #60a5fa;
-  --accent-hover: #3b82f6;
-  --accent-soft: #eff6ff;
-  --accent-ring: #bfdbfe;
+  --accent: #B4532A;
+  --accent-hover: #963F1C;
+  --accent-soft: #F5E4DA;
+  --accent-ring: #E9C9B5;
   --accent-contrast: #ffffff;
   --text-primary: #0f172a;
   --text-secondary: #475569;
@@ -24,20 +71,23 @@
 }
 
 [data-theme='light-blue'] {
-  --app-bg: #eff6ff;
-  --page-bg: #f6f9ff;
-  --panel-bg: #e9f1ff;
-  --card-bg: #ffffff;
-  --surface-soft: #f8fbff;
-  --surface-strong: #dbeafe;
-  --accent: #60a5fa;
-  --accent-hover: #3b82f6;
-  --accent-soft: #eff6ff;
-  --accent-ring: #bfdbfe;
-  --accent-contrast: #ffffff;
-  --text-primary: #0f172a;
-  --text-secondary: #475569;
-  --border-soft: #dbe7fb;
+  /* Family-launch warm override: the default theme adopts the handoff
+     Persian-tea accent so new users see the family-launch look without a
+     migration step. Other data-theme blocks below are untouched. */
+  --app-bg: #F7F7F5;
+  --page-bg: #F7F7F5;
+  --panel-bg: #FFFFFF;
+  --card-bg: #FFFFFF;
+  --surface-soft: #F1F0EC;
+  --surface-strong: #E6E5E0;
+  --accent: #B4532A;
+  --accent-hover: #963F1C;
+  --accent-soft: #F5E4DA;
+  --accent-ring: #E9C9B5;
+  --accent-contrast: #FFFFFF;
+  --text-primary: #11151A;
+  --text-secondary: #3A4149;
+  --border-soft: #E6E5E0;
 }
 
 [data-theme='blue'] {
@@ -285,8 +335,25 @@ body {
 }
 
 body {
-  background-color: var(--app-bg);
-  color: var(--text-primary);
+  background-color: var(--bg);
+  color: var(--ink);
+  /* Persian-aware font stack. Vazirmatn/Vazir/IRANSans load if the user has
+     them installed locally; otherwise Tahoma provides a recognisable Persian
+     fallback on Windows, and system-ui covers modern mobile browsers. No
+     network fonts — build stays fully offline-safe. */
+  font-family:
+    'Vazirmatn',
+    'Vazir',
+    'IRANSans',
+    'IRANYekan',
+    'IRANSansX',
+    Tahoma,
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    'Segoe UI',
+    sans-serif;
+  line-height: 1.7;
   @apply antialiased;
 }
 
