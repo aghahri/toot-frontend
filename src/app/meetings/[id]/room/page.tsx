@@ -262,6 +262,7 @@ export default function MeetingRoomPage() {
         const pc = createPeerConnection(remoteUserId);
         const makingOffer = makingOfferRef.current.get(remoteUserId) === true;
         if (makingOffer) return;
+        if (pc.localDescription?.type === 'offer') return;
         if (pc.signalingState !== 'stable') return;
         makingOfferRef.current.set(remoteUserId, true);
         setRtcStage('negotiating');
@@ -361,29 +362,6 @@ export default function MeetingRoomPage() {
 
     let mounted = true;
     setStatusText('در حال پیوستن به اتاق…');
-
-    socket.emit(
-      'meeting_join',
-      { meetingId: id, joinToken: join.token },
-      async (ack: { ok?: boolean; self?: RoomParticipant; participants?: RoomParticipant[] }) => {
-        if (!mounted) return;
-        if (!ack?.ok || !ack.self) {
-          setError('پیوستن به اتاق انجام نشد.');
-          setStatusText('خطا در پیوستن');
-          return;
-        }
-        const self = ack.self;
-        setSelfId(self.id);
-        selfIdRef.current = self.id;
-        const list = Array.isArray(ack.participants) ? ack.participants : [self];
-        setParticipants(list);
-        setStatusText('اتاق آماده است');
-        if (list.some((p) => p.id !== self.id)) {
-          setRtcStage('peer_joined');
-        }
-      },
-    );
-    setRtcDebug((d) => ({ ...d, joinEmitted: true }));
 
     const onParticipantJoined = async (payload: { meetingId: string; participant: RoomParticipant }) => {
       if (payload.meetingId !== id) return;
@@ -511,7 +489,9 @@ export default function MeetingRoomPage() {
       setRtcStage((prev) => (prev === 'connected' ? prev : 'peer_joined'));
       if (payload.offererUserId === sid) {
         for (const p of remotes) {
-          await createOfferTo(p.id);
+          window.setTimeout(() => {
+            void createOfferTo(p.id);
+          }, 120);
         }
       }
     };
@@ -520,6 +500,38 @@ export default function MeetingRoomPage() {
     socket.on('meeting_participant_left', onParticipantLeft);
     socket.on('meeting_signal', onSignal);
     socket.on('meeting_roster', onRoster);
+    socket.emit(
+      'meeting_join',
+      { meetingId: id, joinToken: join.token },
+      async (ack: { ok?: boolean; self?: RoomParticipant; participants?: RoomParticipant[] }) => {
+        if (!mounted) return;
+        if (!ack?.ok || !ack.self) {
+          setError('پیوستن به اتاق انجام نشد.');
+          setStatusText('خطا در پیوستن');
+          return;
+        }
+        const self = ack.self;
+        setSelfId(self.id);
+        selfIdRef.current = self.id;
+        const list = Array.isArray(ack.participants) ? ack.participants : [self];
+        setParticipants(list);
+        setStatusText('اتاق آماده است');
+        const remotes = list.filter((p) => p.id !== self.id);
+        if (remotes.length > 0) {
+          setRtcStage('peer_joined');
+          const deterministicOfferer = [...list].map((p) => p.id).sort((a, b) => a.localeCompare(b))[0] ?? null;
+          setOffererUserId(deterministicOfferer);
+          if (deterministicOfferer === self.id) {
+            for (const remote of remotes) {
+              window.setTimeout(() => {
+                void createOfferTo(remote.id);
+              }, 120);
+            }
+          }
+        }
+      },
+    );
+    setRtcDebug((d) => ({ ...d, joinEmitted: true }));
 
     return () => {
       mounted = false;
@@ -862,12 +874,21 @@ function RemoteTile({
         void tryPlayVideo();
       }, 450);
     }
+    const blackFrameTimer = setTimeout(() => {
+      const videoEl = videoRef.current;
+      if (!videoEl || !hasLiveVideo) return;
+      if (videoEl.videoWidth > 0 && videoEl.videoHeight > 0) return;
+      logRtc('remote-video-black-frame-retry', { title });
+      videoEl.srcObject = videoOnly;
+      void tryPlayVideo();
+    }, 1400);
     return () => {
       if (retryTimerA) clearTimeout(retryTimerA);
       if (retryTimerB) clearTimeout(retryTimerB);
+      clearTimeout(blackFrameTimer);
       if (videoRef.current) videoRef.current.srcObject = null;
     };
-  }, [hasLiveVideo, isSafariWebKit, stream, trackVersion, tryPlayVideo]);
+  }, [hasLiveVideo, isSafariWebKit, logRtc, stream, title, trackVersion, tryPlayVideo]);
 
   useEffect(() => {
     if (!isSafariWebKit || !hasLiveVideo) return;
