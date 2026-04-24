@@ -61,14 +61,12 @@ export default function MeetingRoomPage() {
   const makingOfferRef = useRef<Map<string, boolean>>(new Map());
   const isSettingRemoteAnswerRef = useRef<Map<string, boolean>>(new Map());
 
-  const isDev = process.env.NODE_ENV !== 'production';
   const logRtc = useCallback(
     (event: string, data?: Record<string, unknown>) => {
-      if (!isDev) return;
       const suffix = data ? ` ${JSON.stringify(data)}` : '';
-      console.debug(`[meeting-rtc:${id}] ${event}${suffix}`);
+      console.debug(`[mtg:${id}] ${event}${suffix}`);
     },
-    [id, isDev],
+    [id],
   );
 
   const participantCount = participants.length;
@@ -95,6 +93,46 @@ export default function MeetingRoomPage() {
     setRemoteStreams([]);
   }, []);
 
+  const emitMeetingSignalWithAck = useCallback(
+    async (payload: {
+      meetingId: string;
+      targetUserId: string;
+      type: 'offer' | 'answer' | 'ice-candidate';
+      sdp?: string;
+      candidate?: RTCIceCandidateInit;
+    }) => {
+      if (!socket) return false;
+      const sendOnce = () =>
+        new Promise<boolean>((resolve) => {
+          let done = false;
+          const timer = window.setTimeout(() => {
+            if (done) return;
+            done = true;
+            resolve(false);
+          }, 3000);
+          socket.emit(
+            'meeting_signal',
+            payload,
+            (ack?: { ok?: boolean; code?: string; message?: string }) => {
+              if (done) return;
+              done = true;
+              window.clearTimeout(timer);
+              resolve(ack?.ok === true);
+            },
+          );
+        });
+      const first = await sendOnce();
+      if (first) return true;
+      await new Promise((r) => window.setTimeout(r, 1000));
+      const second = await sendOnce();
+      if (!second) {
+        logRtc('signal-no-ack', { type: payload.type, to: payload.targetUserId });
+      }
+      return second;
+    },
+    [logRtc, socket],
+  );
+
   const createPeerConnection = useCallback(
     (remoteUserId: string): RTCPeerConnection => {
       const existing = pcsRef.current.get(remoteUserId);
@@ -104,16 +142,23 @@ export default function MeetingRoomPage() {
         iceServers: join?.iceServers ?? [],
       });
       pcsRef.current.set(remoteUserId, pc);
+      logRtc('pc-created', { peer: remoteUserId, iceServers: join?.iceServers?.length ?? 0 });
 
       const local = localStreamRef.current;
+      const hasLocalVideo =
+        !!local && local.getVideoTracks().some((track) => track.readyState === 'live');
+      if (!hasLocalVideo) {
+        pc.addTransceiver('video', { direction: 'recvonly' });
+        logRtc('pc-add-recvonly-video', { peer: remoteUserId });
+      }
       if (local) {
         local.getTracks().forEach((track) => pc.addTrack(track, local));
       }
 
       pc.onicecandidate = (e) => {
         if (!e.candidate || !socket || !id) return;
-        logRtc('emit_ice', { to: remoteUserId });
-        socket.emit('meeting_signal', {
+        logRtc('signal-out', { type: 'ice-candidate', to: remoteUserId });
+        void emitMeetingSignalWithAck({
           meetingId: id,
           targetUserId: remoteUserId,
           type: 'ice-candidate',
@@ -122,7 +167,6 @@ export default function MeetingRoomPage() {
       };
 
       const logReceiversAndStream = (label: string, mediaStream: MediaStream) => {
-        if (!isDev) return;
         logRtc(`receivers:${label}`, {
           peer: remoteUserId,
           receivers: pc.getReceivers().map((receiver) => ({
@@ -171,7 +215,7 @@ export default function MeetingRoomPage() {
       };
 
       const handleDisconnect = () => {
-        if (pc.connectionState === 'failed' || pc.connectionState === 'closed' || pc.connectionState === 'disconnected') {
+        if (pc.connectionState === 'closed' || pc.connectionState === 'disconnected') {
           pc.close();
           pcsRef.current.delete(remoteUserId);
           pendingIceRef.current.delete(remoteUserId);
@@ -194,13 +238,22 @@ export default function MeetingRoomPage() {
         logRtc('pc_ice_state', { peer: remoteUserId, state: st });
         if (st === 'checking') setRtcStage('ice_connecting');
         if (st === 'connected' || st === 'completed') setRtcStage('connected');
-        if (st === 'failed' || st === 'disconnected') setRtcStage('failed');
+        if (st === 'failed') {
+          setRtcStage('failed');
+          try {
+            pc.restartIce();
+            logRtc('restart-ice-attempt', { peer: remoteUserId });
+          } catch {
+            logRtc('restart-ice-failed', { peer: remoteUserId });
+          }
+        }
+        if (st === 'disconnected') setRtcStage('failed');
         handleDisconnect();
       };
 
       return pc;
     },
-    [id, isDev, join?.iceServers, logRtc, socket],
+    [emitMeetingSignalWithAck, id, join?.iceServers, logRtc, socket],
   );
 
   const createOfferTo = useCallback(
@@ -217,7 +270,8 @@ export default function MeetingRoomPage() {
         const offer = await pc.createOffer();
         await pc.setLocalDescription(offer);
         if (!socket || !id) return;
-        socket.emit('meeting_signal', {
+        logRtc('signal-out', { type: 'offer', to: remoteUserId });
+        await emitMeetingSignalWithAck({
           meetingId: id,
           targetUserId: remoteUserId,
           type: 'offer',
@@ -230,7 +284,7 @@ export default function MeetingRoomPage() {
         makingOfferRef.current.set(remoteUserId, false);
       }
     },
-    [createPeerConnection, id, logRtc, socket],
+    [createPeerConnection, emitMeetingSignalWithAck, id, logRtc, socket],
   );
 
   const load = useCallback(async () => {
@@ -241,6 +295,7 @@ export default function MeetingRoomPage() {
       const [detail, tok] = await Promise.all([fetchMeeting(id), fetchJoinToken(id)]);
       setM(detail);
       setJoin(tok);
+      logRtc('ice-config-received', { iceServers: tok.iceServers.length });
       setStatusText('در حال دریافت دسترسی میکروفون/دوربین…');
 
       let stream: MediaStream;
@@ -361,6 +416,7 @@ export default function MeetingRoomPage() {
       candidate?: RTCIceCandidateInit;
     }) => {
       if (payload.meetingId !== id) return;
+      logRtc('signal-in', { type: payload.type, from: payload.fromUserId, target: payload.targetUserId });
       const sid = selfIdRef.current;
       if (sid && payload.targetUserId && payload.targetUserId !== sid) return;
       if (!sid || payload.fromUserId === sid) return;
@@ -393,7 +449,8 @@ export default function MeetingRoomPage() {
           const answer = await pc.createAnswer();
           await pc.setLocalDescription(answer);
           logRtc('emit_answer', { to: payload.fromUserId });
-          socket.emit('meeting_signal', {
+          logRtc('signal-out', { type: 'answer', to: payload.fromUserId });
+          await emitMeetingSignalWithAck({
             meetingId: id,
             targetUserId: payload.fromUserId,
             type: 'answer',
@@ -472,7 +529,7 @@ export default function MeetingRoomPage() {
       socket.off('meeting_signal', onSignal);
       socket.off('meeting_roster', onRoster);
     };
-  }, [connected, createOfferTo, createPeerConnection, id, join?.token, logRtc, mediaReady, socket]);
+  }, [connected, createOfferTo, createPeerConnection, emitMeetingSignalWithAck, id, join?.token, logRtc, mediaReady, socket]);
 
   const remotes = useMemo(
     () =>
