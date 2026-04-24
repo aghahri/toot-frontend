@@ -60,6 +60,7 @@ export default function MeetingRoomPage() {
   const pendingIceRef = useRef<Map<string, RTCIceCandidateInit[]>>(new Map());
   const makingOfferRef = useRef<Map<string, boolean>>(new Map());
   const isSettingRemoteAnswerRef = useRef<Map<string, boolean>>(new Map());
+  const iceRestartTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
 
   const logRtc = useCallback(
     (event: string, data?: Record<string, unknown>) => {
@@ -85,6 +86,10 @@ export default function MeetingRoomPage() {
       pc.oniceconnectionstatechange = null;
       pc.close();
     }
+    for (const t of iceRestartTimersRef.current.values()) {
+      clearTimeout(t);
+    }
+    iceRestartTimersRef.current.clear();
     pcsRef.current.clear();
     pendingIceRef.current.clear();
     makingOfferRef.current.clear();
@@ -222,6 +227,11 @@ export default function MeetingRoomPage() {
           makingOfferRef.current.delete(remoteUserId);
           isSettingRemoteAnswerRef.current.delete(remoteUserId);
           remoteStreamsRef.current.delete(remoteUserId);
+          const restartTimer = iceRestartTimersRef.current.get(remoteUserId);
+          if (restartTimer) {
+            clearTimeout(restartTimer);
+            iceRestartTimersRef.current.delete(remoteUserId);
+          }
           setRemoteStreams(Array.from(remoteStreamsRef.current.entries()).map(([userId, s]) => ({ userId, stream: s })));
         }
       };
@@ -238,11 +248,28 @@ export default function MeetingRoomPage() {
         logRtc('pc_ice_state', { peer: remoteUserId, state: st });
         if (st === 'checking') setRtcStage('ice_connecting');
         if (st === 'connected' || st === 'completed') setRtcStage('connected');
+        if (st === 'connected' || st === 'completed' || st === 'closed') {
+          const existing = iceRestartTimersRef.current.get(remoteUserId);
+          if (existing) {
+            clearTimeout(existing);
+            iceRestartTimersRef.current.delete(remoteUserId);
+          }
+        }
         if (st === 'failed') {
           setRtcStage('failed');
           try {
             pc.restartIce();
             logRtc('restart-ice-attempt', { peer: remoteUserId });
+            const existing = iceRestartTimersRef.current.get(remoteUserId);
+            if (existing) clearTimeout(existing);
+            const timer = setTimeout(() => {
+              iceRestartTimersRef.current.delete(remoteUserId);
+              if (pc.iceConnectionState === 'failed') {
+                logRtc('ice-restart-give-up', { peer: remoteUserId });
+                pc.close();
+              }
+            }, 5000);
+            iceRestartTimersRef.current.set(remoteUserId, timer);
           } catch {
             logRtc('restart-ice-failed', { peer: remoteUserId });
           }
