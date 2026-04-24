@@ -331,10 +331,7 @@ export default function SpacesOverviewPage() {
         className="theme-page-bg theme-text-primary mx-auto w-full max-w-lg px-4 pb-28 pt-5 sm:max-w-xl sm:pb-16"
         dir="rtl"
       >
-        <header className="mb-6 flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <h1 className="text-2xl font-black tracking-tight text-[var(--text-primary)] sm:text-3xl">فضاها</h1>
-          </div>
+        <div className="mb-4 flex justify-end">
           <button
             type="button"
             onClick={() => setEditOpen(true)}
@@ -343,7 +340,7 @@ export default function SpacesOverviewPage() {
           >
             ویرایش
           </button>
-        </header>
+        </div>
 
         {loading ? (
           <div className="space-y-4" aria-busy>
