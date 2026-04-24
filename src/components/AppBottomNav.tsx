@@ -45,41 +45,53 @@ const tabs = [
   },
 ] as const;
 
-export function AppBottomNav() {
+export function AppBottomNav({ hasUnreadDirect = false }: { hasUnreadDirect?: boolean } = {}) {
   const pathname = usePathname() ?? '';
 
   return (
     <nav
-      className="theme-panel-bg theme-border-soft fixed bottom-0 left-0 right-0 z-20 border-t/90 shadow-[0_-2px_16px_rgba(0,0,0,0.06)] backdrop-blur-md"
+      className="fixed bottom-0 left-0 right-0 z-20 border-t border-[var(--line)] bg-[var(--surface)]/95 shadow-[0_-4px_24px_-8px_rgba(17,21,26,0.12)] backdrop-blur-md"
       aria-label="ناوبری اصلی"
     >
-      <div className="mx-auto flex max-w-md items-stretch justify-around gap-0.5 px-1 pb-[max(0.45rem,env(safe-area-inset-bottom,0px))] pt-1.5">
+      <div className="mx-auto flex max-w-md items-stretch justify-around gap-1 px-1 pb-[max(0.45rem,env(safe-area-inset-bottom,0px))] pt-1.5">
         {tabs.map((tab) => {
           const active = tab.match(pathname);
-          const isPrimary = tab.primary;
+          const showUnreadDot = tab.href === '/direct' && hasUnreadDirect;
           return (
             <Link
               key={tab.href}
               href={tab.href}
               className={[
-                'flex min-h-[3.5rem] min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-2xl px-1 py-1 text-center transition-colors',
-                active && isPrimary
-                  ? 'bg-[var(--accent-soft)] text-[var(--accent-hover)]'
-                  : active
-                    ? 'bg-[var(--surface-strong)] text-[var(--text-primary)]'
-                    : 'text-[var(--text-secondary)] hover:bg-[var(--surface-soft)] hover:text-[var(--text-primary)]',
+                'relative flex min-h-[3.5rem] min-w-0 flex-1 flex-col items-center justify-center gap-1 rounded-xl px-1 py-1 text-center transition-colors',
+                active
+                  ? 'text-[var(--ink)]'
+                  : 'text-[var(--ink-3)] hover:text-[var(--ink)]',
               ].join(' ')}
               aria-current={active ? 'page' : undefined}
             >
-              <tab.Icon
+              <span className="relative flex items-center justify-center">
+                <tab.Icon className="h-6 w-6 shrink-0" />
+                {showUnreadDot ? (
+                  <span
+                    className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-[var(--accent)]"
+                    aria-label="پیام خوانده‌نشده"
+                  />
+                ) : null}
+              </span>
+              <span
                 className={[
-                  'h-6 w-6 shrink-0',
-                  active && isPrimary ? 'text-[var(--accent-hover)]' : '',
-                ]
-                  .filter(Boolean)
-                  .join(' ')}
-              />
-              <span className="max-w-full truncate text-[10px] font-bold leading-tight">{tab.label}</span>
+                  'max-w-full truncate text-[11px] leading-tight',
+                  active ? 'font-bold' : 'font-semibold',
+                ].join(' ')}
+              >
+                {tab.label}
+              </span>
+              {active ? (
+                <span
+                  className="absolute bottom-0.5 h-1 w-1 rounded-full bg-[var(--accent)]"
+                  aria-hidden
+                />
+              ) : null}
             </Link>
           );
         })}
