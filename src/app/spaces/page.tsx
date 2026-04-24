@@ -243,6 +243,13 @@ export default function SpacesOverviewPage() {
     [],
   );
 
+  // Hide blueprints the user already has pinned on their dashboard so the
+  // selected-spaces grid and the discovery grid never repeat the same cards.
+  const discoveryBlueprints = useMemo(
+    () => exploreBlueprints.filter((bp) => !preferredSpaces.includes(bp.id as UserSpaceKey)),
+    [exploreBlueprints, preferredSpaces],
+  );
+
   async function savePreferredSpaces() {
     const selected = normalizeSpaces(draftPrefs);
     if (selected.length < MIN_SPACES || selected.length > MAX_SPACES) {
@@ -414,12 +421,13 @@ export default function SpacesOverviewPage() {
               </section>
             ) : null}
 
+            {discoveryBlueprints.length > 0 ? (
             <section aria-labelledby="explore-heading">
               <h2 id="explore-heading" className="mb-3 text-xs font-extrabold text-[var(--text-secondary)]">
-                فضاها
+                فضاهای بیشتر
               </h2>
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                {exploreBlueprints.map((bp) => {
+                {discoveryBlueprints.map((bp) => {
                   const isHood = bp.id === 'neighborhood';
                   const title = EXPLORE_TITLE_FA[bp.id];
                   const line = EXPLORE_ONE_LINE[bp.id];
@@ -461,6 +469,7 @@ export default function SpacesOverviewPage() {
                 })}
               </div>
             </section>
+            ) : null}
 
             <section aria-labelledby="trend-heading">
               <h2 id="trend-heading" className="mb-3 text-xs font-extrabold text-[var(--text-secondary)]">
