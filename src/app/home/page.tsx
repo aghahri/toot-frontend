@@ -9,7 +9,6 @@ import { apiFetch } from '@/lib/api';
 import { FeedTabs } from '@/components/home/FeedTabs';
 import { FeedPostCard } from '@/components/home/FeedPostCard';
 import { FeedEmptyState } from '@/components/home/FeedEmptyState';
-import { HomeFeedHeader } from '@/components/home/HomeFeedHeader';
 import { HomeComposeSheet } from '@/components/home/HomeComposeSheet';
 import { PostReplySheet } from '@/components/home/PostReplySheet';
 import { TrendingTopicsRow, type TrendChip } from '@/components/home/TrendingTopicsRow';
@@ -699,7 +698,6 @@ function HomePageInner() {
       <div className="theme-page-bg theme-text-primary relative min-h-[60dvh] w-full min-w-0 max-w-[100vw]" dir="rtl">
         <div className="theme-panel-bg theme-border-soft sticky top-14 z-[15] w-full min-w-0 max-w-[100vw] overflow-x-hidden border-b shadow-[0_1px_0_rgba(15,23,42,0.06)] backdrop-blur-md">
           <div className="mx-auto w-full min-w-0 max-w-lg">
-            <HomeFeedHeader />
             <FeedTabs active={tab} onChange={setTab} />
           </div>
         </div>
