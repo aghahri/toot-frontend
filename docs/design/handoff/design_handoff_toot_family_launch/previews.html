@@ -1,0 +1,1138 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Toot — Current vs Proposed</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --bg-page: #E9E8E3;
+    /* Proposed tokens */
+    --bg: #F7F7F5;
+    --surface: #FFFFFF;
+    --surface-2: #F1F0EC;
+    --ink: #11151A;
+    --ink-2: #3A4149;
+    --ink-3: #6B7480;
+    --ink-4: #A7ADB5;
+    --line: #E6E5E0;
+    --line-strong: #D4D2CB;
+    --accent: #B4532A;
+    --accent-ink: #FFFFFF;
+    --accent-soft: #F5E4DA;
+    --accent-soft-ink: #6B2E14;
+  }
+  * { box-sizing: border-box; -webkit-font-smoothing: antialiased; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: var(--bg-page);
+    color: var(--ink);
+    font-family: "Vazirmatn", ui-sans-serif, system-ui, sans-serif;
+    padding: 40px 24px 80px;
+  }
+
+  .doc-head { max-width: 1100px; margin: 0 auto 32px; }
+  .eyebrow {
+    font-size: 11px; letter-spacing: .14em; color: var(--ink-3);
+    text-transform: uppercase; font-weight: 700;
+  }
+  h1 {
+    font-size: 28px; line-height: 1.25; margin: 6px 0 4px;
+    font-weight: 800; letter-spacing: -0.01em;
+  }
+  .doc-head p { color: var(--ink-2); margin: 0 0 12px; max-width: 65ch; font-size: 14px; line-height: 1.7; }
+  .legend { display: flex; gap: 14px; font-size: 12px; color: var(--ink-3); align-items: center; }
+  .legend .dot { display: inline-block; width: 10px; height: 10px; border-radius: 999px; margin-inline-end: 6px; vertical-align: middle; }
+
+  /* Route section */
+  .route {
+    max-width: 1100px; margin: 0 auto 48px;
+    background: transparent;
+  }
+  .route-head {
+    display: flex; align-items: baseline; gap: 10px;
+    padding: 0 4px; margin-bottom: 14px;
+  }
+  .route-head h2 {
+    font-size: 20px; font-weight: 700; margin: 0;
+    letter-spacing: -0.005em;
+  }
+  .route-head code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 13px; color: var(--ink-3);
+    background: transparent;
+  }
+  .route-head .sub { color: var(--ink-3); font-size: 13px; margin-inline-start: auto; }
+
+  .pair {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 32px;
+    align-items: start;
+  }
+  @media (max-width: 820px) { .pair { grid-template-columns: 1fr; } }
+
+  .col { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+  .col-label {
+    font-size: 11px; letter-spacing: .12em; text-transform: uppercase;
+    font-weight: 700; padding: 4px 10px; border-radius: 999px;
+  }
+  .col-label.now { background: #E5E4DE; color: var(--ink-2); }
+  .col-label.new { background: var(--accent-soft); color: var(--accent-soft-ink); }
+
+  /* Phone frame */
+  .phone {
+    width: 360px;
+    height: 720px;
+    background: #111418;
+    border-radius: 44px;
+    padding: 10px;
+    box-shadow: 0 10px 40px -12px rgba(17,21,26,.35), 0 2px 0 #C9C7C1;
+    position: relative;
+  }
+  .phone-inner {
+    width: 100%; height: 100%;
+    border-radius: 36px;
+    background: var(--bg);
+    overflow: hidden;
+    position: relative;
+    display: flex; flex-direction: column;
+  }
+  .phone-inner.slate { background: #F8FAFC; }
+  .status-bar {
+    height: 28px; flex: none;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 4px 22px 0;
+    font-size: 11px; font-weight: 700; color: var(--ink);
+    font-variant-numeric: tabular-nums;
+  }
+  .status-bar .right { display: flex; gap: 4px; align-items: center; }
+  .notch {
+    position: absolute; top: 10px; left: 50%; transform: translateX(-50%);
+    width: 100px; height: 24px; background: #111418; border-radius: 0 0 14px 14px;
+    z-index: 10;
+  }
+
+  /* Top bar (navbar) */
+  .topbar {
+    height: 52px; flex: none;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 16px;
+    border-bottom: 1px solid var(--line);
+    background: var(--surface);
+  }
+  .topbar.old { background: rgba(255,255,255,.9); border-color: #E2E8F0; }
+  .brand { font-weight: 800; font-size: 14px; }
+  .topbar-btn { font-size: 12px; font-weight: 600; }
+  .topbar-btn.old { color: #0F172A; text-decoration: underline; text-underline-offset: 4px; }
+  .topbar-btn.old.pill { background: #0F172A; color: #fff; padding: 6px 12px; border-radius: 10px; text-decoration: none; font-size: 11px; }
+  .avatar-btn { width: 32px; height: 32px; border-radius: 999px; background: var(--surface-2); border: 1px solid var(--line); }
+
+  /* Body scroll area */
+  .body { flex: 1 1 auto; overflow: hidden; position: relative; }
+  .scroll { height: 100%; overflow-y: auto; padding: 12px 12px 90px; }
+  .scroll::-webkit-scrollbar { display: none; }
+
+  /* Bottom nav — current (full-pill fill active) */
+  .bottomnav {
+    position: absolute; bottom: 0; left: 0; right: 0;
+    border-top: 1px solid var(--line);
+    background: rgba(255,255,255,0.95);
+    backdrop-filter: blur(12px);
+    padding: 8px 10px 10px;
+    display: flex; gap: 6px;
+  }
+  .bottomnav.old { background: rgba(255,255,255,0.95); border-color: #E2E8F0; }
+  .bn-tab {
+    flex: 1; min-height: 44px; border-radius: 12px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+    font-size: 11px; font-weight: 600; color: #475569;
+  }
+  .bn-tab.active.old { background: #0F172A; color: #fff; }
+  .bn-tab svg { width: 18px; height: 18px; stroke-width: 1.6; stroke: currentColor; fill: none; }
+
+  /* Bottom nav — new (dot indicator + icon) */
+  .bottomnav.new { background: rgba(255,255,255,0.95); border-color: var(--line); }
+  .bn-tab.new { color: var(--ink-3); position: relative; padding: 6px 2px; }
+  .bn-tab.new.active { color: var(--ink); font-weight: 700; }
+  .bn-tab.new.active::after {
+    content: ""; position: absolute; bottom: 2px; left: 50%; transform: translateX(-50%);
+    width: 4px; height: 4px; border-radius: 999px; background: var(--accent);
+  }
+  .bn-badge {
+    position: absolute; top: 6px;
+    inset-inline-start: calc(50% + 6px);
+    width: 8px; height: 8px; border-radius: 999px;
+    background: var(--accent); border: 2px solid var(--surface);
+  }
+
+  /* Cards / utility */
+  .card-old {
+    background: #fff; border: 1px solid #E2E8F0; border-radius: 16px;
+    padding: 14px; box-shadow: 0 1px 2px rgba(15,23,42,.04);
+    margin-bottom: 12px;
+  }
+  .card-new {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 16px;
+    padding: 14px;
+  }
+
+  /* ===== HOME current ===== */
+  .h1-old { font-size: 20px; font-weight: 800; margin: 0; color: #0F172A; }
+  .p-old { font-size: 12px; color: #334155; margin: 4px 0 0; }
+  .btn-old {
+    background: #0F172A; color: #fff; font-weight: 600;
+    padding: 10px; border-radius: 12px; text-align: center; font-size: 13px;
+  }
+  .input-old {
+    background: #fff; border: 1px solid #E2E8F0; border-radius: 12px;
+    padding: 10px; font-size: 12px; color: #94A3B8;
+    min-height: 60px;
+  }
+  .mediahint-old {
+    background: #fff; border: 1px solid #E2E8F0; border-radius: 12px;
+    padding: 8px; font-size: 11px; color: #64748B;
+  }
+  .token-old {
+    font-size: 9.5px; color: #94A3B8; direction: ltr; text-align: left;
+    overflow-wrap: anywhere;
+  }
+
+  /* Feed post old/new */
+  .feedhead-old { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+  .feedname-old { font-size: 13px; font-weight: 800; color: #0F172A; }
+  .feedtime-old { font-size: 10.5px; color: #64748B; margin-top: 2px; }
+  .feedbody-old { font-size: 13px; color: #1F2937; line-height: 1.6; }
+
+  /* ===== HOME new ===== */
+  .stories {
+    display: flex; gap: 12px; padding: 12px 12px 4px;
+    overflow-x: auto;
+  }
+  .stories::-webkit-scrollbar { display: none; }
+  .story { flex: none; width: 64px; text-align: center; }
+  .story-ring {
+    width: 60px; height: 60px; border-radius: 999px;
+    padding: 2px; background: var(--accent);
+  }
+  .story-ring.seen { background: var(--line-strong); }
+  .story-ring.me { background: var(--surface-2); }
+  .story-inner {
+    width: 100%; height: 100%; border-radius: 999px;
+    background: #D7D3CC; border: 2px solid var(--surface);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px; font-weight: 700; color: var(--ink-2);
+    background-image: linear-gradient(135deg, #C8B8A5, #9A8475);
+    color: #fff;
+  }
+  .story.me .story-inner { background: var(--surface-2); color: var(--ink-2); background-image: none; position: relative; }
+  .story.me .story-inner::after {
+    content: "+"; font-size: 18px; font-weight: 700; color: var(--accent);
+  }
+  .story-name { font-size: 10px; color: var(--ink-2); margin-top: 4px; line-height: 1.2;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  .post {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 16px;
+    padding: 14px; margin-bottom: 8px;
+  }
+  .post-head { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+  .post-head .a { width: 36px; height: 36px; border-radius: 999px; background: linear-gradient(135deg, #C8B8A5, #9A8475); flex: none; }
+  .post-head .a.b { background: linear-gradient(135deg, #B4C5A5, #7A9875); }
+  .post-head .a.c { background: linear-gradient(135deg, #B4A5C8, #8475A5); }
+  .post-meta { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+  .post-name { font-weight: 700; font-size: 13px; color: var(--ink); line-height: 1.2; }
+  .post-sub { font-size: 11.5px; color: var(--ink-3); margin-top: 2px;
+    font-variant-numeric: tabular-nums; }
+  .post-menu { width: 28px; height: 28px; color: var(--ink-3); display: flex; align-items: center; justify-content: center; }
+  .post-body { font-size: 14.5px; line-height: 1.6; color: var(--ink); margin-bottom: 12px; }
+  .post-hashtag { color: var(--accent); }
+  .post-media {
+    aspect-ratio: 16/10; border-radius: 12px;
+    background: repeating-linear-gradient(135deg, #E8DFD3 0 10px, #DCD1C2 10px 20px);
+    margin-bottom: 10px;
+    display: flex; align-items: center; justify-content: center;
+    color: var(--ink-3); font-family: ui-monospace, monospace; font-size: 11px;
+  }
+  .post-actions { display: flex; justify-content: space-between; color: var(--ink-3); font-size: 12px; font-variant-numeric: tabular-nums; }
+  .post-actions .a { display: inline-flex; align-items: center; gap: 5px; }
+  .post-actions .a svg { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 1.6; }
+  .post-actions .a.on { color: var(--accent); }
+  .post-actions .a.on svg { fill: currentColor; stroke: currentColor; }
+
+  .fab {
+    position: absolute; bottom: 88px; inset-inline-start: 18px;
+    width: 50px; height: 50px; border-radius: 999px;
+    background: var(--accent); color: var(--accent-ink);
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 8px 20px -6px rgba(180,83,42,.45);
+    z-index: 5;
+  }
+  .fab svg { width: 22px; height: 22px; stroke: currentColor; fill: none; stroke-width: 2; }
+
+  /* Section header new */
+  .section-head-new {
+    display: flex; align-items: baseline; justify-content: space-between;
+    padding: 6px 4px 10px;
+  }
+  .section-head-new h3 { margin: 0; font-size: 18px; font-weight: 700; }
+  .section-head-new .act { font-size: 12px; color: var(--accent); font-weight: 600; }
+
+  /* ===== CHAT old ===== */
+  .chat-old-head {
+    padding: 12px 16px;
+    display: flex; align-items: center; justify-content: space-between;
+    border-bottom: 1px solid #E2E8F0;
+    background: #fff;
+  }
+  .chat-old-id {
+    font-size: 10px; color: #94A3B8;
+    direction: ltr; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    margin-top: 2px;
+  }
+  .bubble-old { max-width: 85%; padding: 8px 12px; border-radius: 16px; font-size: 13px; line-height: 1.55; margin-bottom: 8px; }
+  .bubble-old.in { background: #fff; border: 1px solid #E2E8F0; color: #0F172A; align-self: flex-start; }
+  .bubble-old.out { background: #0F172A; color: #fff; align-self: flex-end; }
+  .bubble-meta-old { font-size: 9.5px; opacity: 0.7; display: flex; justify-content: space-between; margin-bottom: 4px; }
+  .bubble-foot-old { font-size: 9px; opacity: 0.7; margin-top: 4px; font-variant-numeric: tabular-nums; }
+  .composer-old {
+    background: #fff; border: 1px solid #E2E8F0; border-radius: 16px;
+    padding: 12px; margin: 12px;
+  }
+  .composer-old .lbl { font-size: 12px; font-weight: 700; margin-bottom: 8px; color: #0F172A; }
+  .composer-old .ta {
+    width: 100%; border: 1px solid #E2E8F0; border-radius: 12px;
+    padding: 10px; min-height: 50px; font-size: 12px; color: #94A3B8;
+  }
+  .composer-old .ip-file {
+    border: 1px solid #E2E8F0; border-radius: 12px; padding: 6px 8px;
+    font-size: 11px; color: #94A3B8; margin-top: 8px;
+  }
+  .composer-old .send {
+    background: #0F172A; color: #fff; padding: 10px; border-radius: 12px;
+    text-align: center; font-size: 13px; font-weight: 600; margin-top: 8px;
+  }
+
+  /* ===== CHAT new ===== */
+  .chat-head-new {
+    padding: 8px 12px; display: flex; align-items: center; gap: 10px;
+    background: var(--surface); border-bottom: 1px solid var(--line); flex: none;
+  }
+  .chat-head-new .back {
+    width: 36px; height: 36px; border-radius: 999px;
+    display: flex; align-items: center; justify-content: center; color: var(--ink-2);
+  }
+  .chat-head-new .back svg { width: 18px; height: 18px; transform: rotate(180deg); stroke: currentColor; fill: none; stroke-width: 2; }
+  .chat-head-new .a { width: 38px; height: 38px; border-radius: 999px; background: linear-gradient(135deg, #E0C9A0, #B48A5F); flex: none; }
+  .chat-head-new .who { flex: 1; min-width: 0; }
+  .chat-head-new .who .n { font-size: 14px; font-weight: 700; line-height: 1.2; }
+  .chat-head-new .who .p {
+    font-size: 11px; color: var(--success); margin-top: 2px;
+    display: inline-flex; align-items: center; gap: 4px;
+  }
+  .chat-head-new .who .p::before {
+    content: ""; width: 6px; height: 6px; border-radius: 999px; background: var(--success);
+  }
+  .chat-head-new .menu { width: 36px; height: 36px; color: var(--ink-2); display: flex; align-items: center; justify-content: center; }
+
+  .chat-new-scroll {
+    flex: 1 1 auto; overflow-y: auto; padding: 12px;
+    display: flex; flex-direction: column; gap: 4px;
+  }
+  .chat-new-scroll::-webkit-scrollbar { display: none; }
+
+  .daysep {
+    align-self: center;
+    background: var(--surface-2); color: var(--ink-3);
+    font-size: 11px; padding: 4px 12px; border-radius: 999px;
+    margin: 8px 0;
+  }
+
+  .bubble-new { max-width: 75%; padding: 8px 12px; border-radius: 16px;
+    font-size: 14px; line-height: 1.55; position: relative; }
+  .bubble-new.in { background: var(--surface); border: 1px solid var(--line); color: var(--ink);
+    align-self: flex-start; border-top-right-radius: 8px; }
+  .bubble-new.out { background: var(--accent-soft); color: var(--accent-soft-ink);
+    align-self: flex-end; border-top-left-radius: 8px; }
+  .bubble-new.grouped.in  { border-top-right-radius: 10px; border-bottom-right-radius: 10px; }
+  .bubble-new.grouped.out { border-top-left-radius: 10px; border-bottom-left-radius: 10px; }
+  .bubble-new .tm {
+    display: inline-flex; align-items: center; gap: 4px;
+    font-size: 10.5px; font-variant-numeric: tabular-nums; opacity: 0.7;
+    float: inline-end; margin-inline-start: 8px; margin-top: 4px; white-space: nowrap;
+  }
+  .bubble-new.out .tm { color: var(--accent-soft-ink); }
+  .bubble-new .tm svg { width: 14px; height: 8px; }
+  .bubble-new .tm .seen { color: var(--accent); opacity: 1; }
+  .typing-bubble {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 16px;
+    padding: 10px 12px; align-self: flex-start; display: flex; gap: 4px;
+  }
+  .typing-bubble span {
+    width: 6px; height: 6px; border-radius: 999px; background: var(--ink-4);
+    animation: blink 1.4s infinite both;
+  }
+  .typing-bubble span:nth-child(2) { animation-delay: .2s; }
+  .typing-bubble span:nth-child(3) { animation-delay: .4s; }
+  @keyframes blink {
+    0%, 60%, 100% { opacity: .3; transform: translateY(0); }
+    30% { opacity: 1; transform: translateY(-2px); }
+  }
+
+  .composer-new {
+    flex: none; background: var(--surface); border-top: 1px solid var(--line);
+    padding: 8px 10px 12px; display: flex; align-items: center; gap: 8px;
+  }
+  .composer-new .ic {
+    width: 38px; height: 38px; border-radius: 999px;
+    display: flex; align-items: center; justify-content: center; color: var(--ink-2);
+  }
+  .composer-new .ic svg { width: 20px; height: 20px; stroke: currentColor; fill: none; stroke-width: 1.6; }
+  .composer-new .fld {
+    flex: 1; background: var(--surface-2); border-radius: 18px;
+    padding: 10px 14px; font-size: 13px; color: var(--ink-3);
+    min-height: 40px; display: flex; align-items: center;
+  }
+  .composer-new .send-btn {
+    width: 40px; height: 40px; border-radius: 999px;
+    background: var(--accent); color: var(--accent-ink);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .composer-new .send-btn svg { width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-width: 2; transform: rotate(180deg); }
+
+  /* ===== VITRIN ===== */
+  .chip-row { display: flex; gap: 8px; overflow-x: auto; padding: 4px 4px 12px; }
+  .chip-row::-webkit-scrollbar { display: none; }
+  .chip {
+    flex: none; padding: 6px 14px; border-radius: 999px; font-size: 12px; font-weight: 600;
+    background: var(--surface); border: 1px solid var(--line); color: var(--ink-2);
+    white-space: nowrap;
+  }
+  .chip.active { background: var(--ink); color: #fff; border-color: var(--ink); }
+
+  .vgrid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  .vcard {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 14px;
+    overflow: hidden; position: relative;
+  }
+  .vcard .img {
+    aspect-ratio: 4/5;
+    background: repeating-linear-gradient(135deg, var(--surface-2) 0 10px, #EAE5DC 10px 20px);
+    position: relative;
+  }
+  .vcard .fav {
+    position: absolute; top: 8px; inset-inline-end: 8px;
+    width: 28px; height: 28px; border-radius: 999px;
+    background: rgba(255,255,255,.85); display: flex; align-items: center; justify-content: center;
+    color: var(--ink-2);
+  }
+  .vcard .fav.on { color: var(--accent); }
+  .vcard .fav svg { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 1.8; }
+  .vcard .fav.on svg { fill: currentColor; stroke: currentColor; }
+  .vcard .badge {
+    position: absolute; top: 8px; inset-inline-start: 8px;
+    font-size: 10px; font-weight: 700; padding: 3px 8px; border-radius: 999px;
+    background: var(--accent-soft); color: var(--accent-soft-ink);
+  }
+  .vcard .body { padding: 10px 10px 12px; }
+  .vcard .t { font-size: 12.5px; font-weight: 600; line-height: 1.4; color: var(--ink); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .vcard .s { font-size: 10.5px; color: var(--ink-3); margin-top: 3px; }
+  .vcard .pr { font-size: 12.5px; font-weight: 700; margin-top: 6px; font-variant-numeric: tabular-nums; }
+  .vcard .pr small { font-size: 10px; color: var(--ink-3); font-weight: 500; margin-inline-start: 2px; }
+
+  /* ===== SPACES ===== */
+  .sp-hero {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 16px;
+    padding: 14px; margin-bottom: 12px;
+    display: flex; gap: 12px; align-items: center;
+  }
+  .sp-hero .icon {
+    width: 44px; height: 44px; border-radius: 12px;
+    background: var(--accent-soft); color: var(--accent-soft-ink);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .sp-hero .icon svg { width: 22px; height: 22px; stroke: currentColor; fill: none; stroke-width: 1.8; }
+  .sp-hero .t { font-size: 14px; font-weight: 700; line-height: 1.3; }
+  .sp-hero .d { font-size: 11.5px; color: var(--ink-3); margin-top: 3px; line-height: 1.45; }
+
+  .sp-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  .spcard {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 14px;
+    padding: 12px 10px; position: relative;
+  }
+  .spcard .cover {
+    height: 56px; border-radius: 10px; margin-bottom: 10px;
+    background: linear-gradient(135deg, var(--surface-2), #E8DDCE);
+    position: relative; overflow: hidden;
+  }
+  .spcard .cover.v2 { background: linear-gradient(135deg, #DDD6C8, #C4B9A4); }
+  .spcard .cover.v3 { background: linear-gradient(135deg, #E6DACA, #D1B28E); }
+  .spcard .cover.v4 { background: linear-gradient(135deg, #D6DDD0, #A5B89A); }
+  .spcard .av {
+    position: absolute; bottom: -12px; inset-inline-start: 10px;
+    width: 32px; height: 32px; border-radius: 10px;
+    background: #A58262; border: 2px solid var(--surface);
+  }
+  .spcard .av.v2 { background: #86A179; }
+  .spcard .av.v3 { background: #9B7F5E; }
+  .spcard .av.v4 { background: #7A8FA5; }
+  .spcard .t { font-size: 13px; font-weight: 700; margin-top: 14px; line-height: 1.3; }
+  .spcard .d { font-size: 10.5px; color: var(--ink-3); margin-top: 3px; line-height: 1.4;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+  }
+  .spcard .m { font-size: 10.5px; color: var(--ink-3); margin-top: 8px; font-variant-numeric: tabular-nums;
+    display: flex; align-items: center; gap: 4px;
+  }
+  .spcard .m::before {
+    content: ""; width: 4px; height: 4px; border-radius: 999px; background: var(--success);
+  }
+
+  .notes {
+    max-width: 1100px; margin: 24px auto 0;
+    background: var(--surface); border: 1px solid var(--line); border-radius: 14px;
+    padding: 18px 22px; font-size: 13px; color: var(--ink-2); line-height: 1.7;
+  }
+  .notes h3 { margin: 0 0 8px; font-size: 14px; color: var(--ink); }
+  .notes ul { padding-inline-start: 20px; margin: 6px 0; }
+  .notes li { margin-bottom: 4px; }
+  .notes code { background: var(--surface-2); padding: 1px 6px; border-radius: 5px; font-size: 12px; }
+
+  /* Spaces current (simple card from existing code) */
+  .spaces-old-body { font-size: 11px; color: #475569; line-height: 1.7; }
+  .spaces-old-body li { list-style: none; padding: 0; }
+  .spaces-old-body ul { padding: 0; margin: 10px 0 0; border-top: 1px solid #F1F5F9; padding-top: 10px; }
+  .bullet { color: #94A3B8; margin-inline-end: 6px; }
+
+  .sep { height: 1px; background: var(--line); margin: 20px 0; }
+</style>
+</head>
+<body>
+
+<div class="doc-head">
+  <div class="eyebrow">Toot · mobile RTL preview</div>
+  <h1>مقایسهٔ وضعیت فعلی و پیشنهادی</h1>
+  <p>
+    پیش‌نمایش‌های قابل‌ریویو برای چهار مسیر موجود. چپ: استایل فعلی مطابق کد ریپو (slate + pill فعال + کارت‌های توضیحی).
+    راست: نسخهٔ صیقل‌یافته طبق spec — توکن‌های warm، تایپ Vazirmatn، لهجهٔ چای فارسی، بدون تغییر IA.
+  </p>
+  <div class="legend">
+    <span><span class="dot" style="background:#E5E4DE"></span>Current</span>
+    <span><span class="dot" style="background:var(--accent)"></span>Proposed</span>
+    <span>— همهٔ route ها و کامپوننت‌های موجود حفظ شده‌اند</span>
+  </div>
+</div>
+
+<!-- ============= /home ============= -->
+<section class="route">
+  <div class="route-head">
+    <h2>خانه</h2>
+    <code>/home</code>
+    <span class="sub">فید استوری + توت</span>
+  </div>
+  <div class="pair">
+
+    <!-- HOME CURRENT -->
+    <div class="col">
+      <div class="col-label now">Current</div>
+      <div class="phone"><div class="notch"></div><div class="phone-inner slate">
+        <div class="status-bar"><span>۹:۴۱</span><span class="right">● ●●●● ▮▮▮</span></div>
+        <div class="topbar old">
+          <div class="brand">توت</div>
+          <div style="display:flex;gap:10px;align-items:center;">
+            <span class="topbar-btn old">Home</span>
+            <span class="topbar-btn old">Profile</span>
+            <span class="topbar-btn old pill">Logout</span>
+          </div>
+        </div>
+        <div class="body"><div class="scroll">
+          <h1 class="h1-old">خانه</h1>
+          <p class="p-old">به پنل اصلی خوش آمدید.</p>
+          <div style="height:12px;"></div>
+
+          <div class="card-old">
+            <div style="font-size:12px;font-weight:700;color:#0F172A;margin-bottom:8px;">ایجاد پست</div>
+            <div class="input-old">چی می‌خوای بنویسی؟</div>
+            <div style="font-size:10px;font-weight:700;color:#334155;margin:8px 0 4px;">عکس / ویدیو (اختیاری)</div>
+            <div class="mediahint-old">Choose file — No file chosen</div>
+            <div class="btn-old" style="margin-top:10px;">ارسال پست</div>
+            <div class="token-old" style="margin-top:6px;">توکن: eyJhbGciOiJIUzI1NiIs...</div>
+          </div>
+
+          <div style="display:flex;justify-content:space-between;font-size:12px;margin:4px 2px 10px;">
+            <span style="font-weight:700;">فید</span>
+            <span style="color:#334155;text-decoration:underline;">رفرش</span>
+          </div>
+
+          <div class="card-old">
+            <div class="feedhead-old">
+              <div>
+                <div class="feedname-old">سارا رضایی</div>
+                <div class="feedtime-old">۱۴۰۳/۵/۲۱، ۱۰:۳۲:۰۰</div>
+              </div>
+            </div>
+            <div class="feedbody-old">امروز قهوه‌ای که در کافه نزدیک خانه زدم بهترین قهوهٔ این هفته بود. شما جایی سراغ دارید؟</div>
+          </div>
+
+          <div class="card-old">
+            <div class="feedhead-old">
+              <div>
+                <div class="feedname-old">آرمان</div>
+                <div class="feedtime-old">۱۴۰۳/۵/۲۱، ۹:۱۵:۱۸</div>
+              </div>
+            </div>
+            <div class="feedbody-old">داشتم یه مقاله عالی می‌خوندم درباره معماری سنتی یزد. واقعاً جالب بود.</div>
+          </div>
+        </div></div>
+
+        <div class="bottomnav old">
+          <div class="bn-tab active old">استوری</div>
+          <div class="bn-tab">گفتگو</div>
+          <div class="bn-tab">ویترین</div>
+          <div class="bn-tab">فضاها</div>
+        </div>
+      </div></div>
+    </div>
+
+    <!-- HOME NEW -->
+    <div class="col">
+      <div class="col-label new">Proposed</div>
+      <div class="phone"><div class="notch"></div><div class="phone-inner">
+        <div class="status-bar"><span>۹:۴۱</span><span class="right">● ●●●● ▮▮▮</span></div>
+        <div class="topbar">
+          <div class="brand">توت</div>
+          <div class="avatar-btn"></div>
+        </div>
+        <div class="body"><div class="scroll" style="padding: 0 0 90px;">
+
+          <!-- Stories -->
+          <div class="stories">
+            <div class="story me">
+              <div class="story-ring me"><div class="story-inner"></div></div>
+              <div class="story-name">شما</div>
+            </div>
+            <div class="story">
+              <div class="story-ring"><div class="story-inner">س</div></div>
+              <div class="story-name">سارا</div>
+            </div>
+            <div class="story">
+              <div class="story-ring"><div class="story-inner" style="background-image:linear-gradient(135deg,#B4C5A5,#7A9875);">ا</div></div>
+              <div class="story-name">آرمان</div>
+            </div>
+            <div class="story">
+              <div class="story-ring seen"><div class="story-inner" style="background-image:linear-gradient(135deg,#B4A5C8,#8475A5);">م</div></div>
+              <div class="story-name">مریم</div>
+            </div>
+            <div class="story">
+              <div class="story-ring seen"><div class="story-inner" style="background-image:linear-gradient(135deg,#E0C9A0,#B48A5F);">ح</div></div>
+              <div class="story-name">حسین</div>
+            </div>
+            <div class="story">
+              <div class="story-ring seen"><div class="story-inner" style="background-image:linear-gradient(135deg,#D1BA9E,#A58262);">پ</div></div>
+              <div class="story-name">پریسا</div>
+            </div>
+          </div>
+
+          <div style="padding: 0 12px;">
+            <div class="section-head-new">
+              <h3>توت‌های تازه</h3>
+              <span class="act">نوشتن</span>
+            </div>
+
+            <div class="post">
+              <div class="post-head">
+                <div class="a"></div>
+                <div class="post-meta">
+                  <div class="post-name">سارا رضایی</div>
+                  <div class="post-sub">@sara_r · ۲ ساعت پیش</div>
+                </div>
+                <div class="post-menu">⋯</div>
+              </div>
+              <div class="post-body">امروز قهوه‌ای که در کافهٔ نزدیک خانه زدم بهترین قهوهٔ این هفته بود. شما جایی سراغ دارید؟ <span class="post-hashtag">#قهوه</span></div>
+              <div class="post-actions">
+                <span class="a"><svg viewBox="0 0 24 24"><path d="M4 7h16v9a3 3 0 0 1-3 3h-5l-4 3v-3H7a3 3 0 0 1-3-3V7z"/></svg>۱۲</span>
+                <span class="a"><svg viewBox="0 0 24 24"><path d="M4 10h12l-3-3M20 14H8l3 3"/></svg>۳</span>
+                <span class="a on"><svg viewBox="0 0 24 24"><path d="M12 20s-7-4.5-7-10a4 4 0 0 1 7-2.5A4 4 0 0 1 19 10c0 5.5-7 10-7 10z"/></svg>۴۸</span>
+                <span class="a"><svg viewBox="0 0 24 24"><path d="M4 12l16-8-5 16-3-7-8-1z"/></svg></span>
+              </div>
+            </div>
+
+            <div class="post">
+              <div class="post-head">
+                <div class="a b"></div>
+                <div class="post-meta">
+                  <div class="post-name">آرمان محمدی</div>
+                  <div class="post-sub">@arman · ۴ ساعت پیش</div>
+                </div>
+                <div class="post-menu">⋯</div>
+              </div>
+              <div class="post-body">داشتم یه مقالهٔ عالی می‌خوندم دربارهٔ معماری سنتی یزد. بادگیرها واقعاً شگفت‌انگیزن.</div>
+              <div class="post-media">product shot · ۱۶:۱۰</div>
+              <div class="post-actions">
+                <span class="a"><svg viewBox="0 0 24 24"><path d="M4 7h16v9a3 3 0 0 1-3 3h-5l-4 3v-3H7a3 3 0 0 1-3-3V7z"/></svg>۵</span>
+                <span class="a"><svg viewBox="0 0 24 24"><path d="M4 10h12l-3-3M20 14H8l3 3"/></svg>۱</span>
+                <span class="a"><svg viewBox="0 0 24 24"><path d="M12 20s-7-4.5-7-10a4 4 0 0 1 7-2.5A4 4 0 0 1 19 10c0 5.5-7 10-7 10z"/></svg>۲۲</span>
+                <span class="a"><svg viewBox="0 0 24 24"><path d="M4 12l16-8-5 16-3-7-8-1z"/></svg></span>
+              </div>
+            </div>
+          </div>
+        </div></div>
+
+        <div class="fab" aria-label="نوشتن توت">
+          <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+        </div>
+
+        <div class="bottomnav new">
+          <div class="bn-tab new active">
+            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/></svg>
+            استوری
+          </div>
+          <div class="bn-tab new">
+            <svg viewBox="0 0 24 24"><path d="M4 7h16v9a3 3 0 0 1-3 3h-5l-4 3v-3H7a3 3 0 0 1-3-3V7z"/></svg>
+            <div class="bn-badge"></div>
+            گفتگو
+          </div>
+          <div class="bn-tab new">
+            <svg viewBox="0 0 24 24"><path d="M5 8h14l-1 11a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 8z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/></svg>
+            ویترین
+          </div>
+          <div class="bn-tab new">
+            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M9 13l2.5-5 4.5-1.5-2.5 5L9 13z"/></svg>
+            فضاها
+          </div>
+        </div>
+      </div></div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ============= /direct/[id] ============= -->
+<section class="route">
+  <div class="route-head">
+    <h2>چت خصوصی</h2>
+    <code>/direct/[id]</code>
+    <span class="sub">WhatsApp-like polish</span>
+  </div>
+  <div class="pair">
+
+    <!-- CHAT CURRENT -->
+    <div class="col">
+      <div class="col-label now">Current</div>
+      <div class="phone"><div class="notch"></div><div class="phone-inner slate">
+        <div class="status-bar"><span>۹:۴۱</span><span class="right">● ●●●● ▮▮▮</span></div>
+        <div class="topbar old">
+          <div class="brand">توت</div>
+          <div style="display:flex;gap:10px;align-items:center;">
+            <span class="topbar-btn old pill">Logout</span>
+          </div>
+        </div>
+
+        <div class="chat-old-head">
+          <div>
+            <div style="font-size:18px;font-weight:800;color:#0F172A;">گفتگوی خصوصی</div>
+            <div class="chat-old-id">cm5xkq2fl00001k3jhbty9yuo</div>
+          </div>
+          <div style="font-size:12px;color:#334155;text-decoration:underline;">بازگشت</div>
+        </div>
+
+        <div class="body"><div class="scroll" style="background:#F8FAFC;">
+
+          <div class="btn-old" style="margin-bottom:10px;">رفرش پیام‌ها</div>
+
+          <div style="display:flex;flex-direction:column;">
+            <div class="bubble-old in">
+              <div class="bubble-meta-old"><span>سارا</span><span>پاسخ</span></div>
+              سلام، رسیدی خونه؟
+              <div class="bubble-foot-old">۱۴۰۳/۵/۲۱، ۱۰:۳۲:۰۰</div>
+            </div>
+
+            <div class="bubble-old out">
+              <div class="bubble-meta-old" style="color:#CBD5E1;"><span>شما</span><span>حذف · پاسخ</span></div>
+              آره، الان رسیدم. یه چایی می‌ذارم و برمی‌گردم.
+              <div class="bubble-foot-old">۱۴۰۳/۵/۲۱، ۱۰:۳۳:۱۲ ✓✓</div>
+            </div>
+
+            <div class="bubble-old out">
+              <div class="bubble-meta-old" style="color:#CBD5E1;"><span>شما</span><span>حذف · پاسخ</span></div>
+              راستی فردا ساعت چند بریم؟
+              <div class="bubble-foot-old">۱۴۰۳/۵/۲۱، ۱۰:۳۳:۴۵ ✓</div>
+            </div>
+
+            <div class="bubble-old in">
+              <div class="bubble-meta-old"><span>سارا</span><span>پاسخ</span></div>
+              حدود ۱۰ صبح خوبه؟
+              <div class="bubble-foot-old">۱۴۰۳/۵/۲۱، ۱۰:۳۵:۰۱</div>
+            </div>
+          </div>
+
+          <div class="composer-old">
+            <div class="lbl">ارسال پیام</div>
+            <div class="ta">پیام خود را بنویسید...</div>
+            <div style="font-size:10px;font-weight:700;margin:8px 0 4px;color:#334155;">عکس / ویدیو (اختیاری)</div>
+            <div class="ip-file">Choose file — No file chosen</div>
+            <div class="send">ارسال</div>
+          </div>
+        </div></div>
+
+        <div class="bottomnav old">
+          <div class="bn-tab">استوری</div>
+          <div class="bn-tab active old">گفتگو</div>
+          <div class="bn-tab">ویترین</div>
+          <div class="bn-tab">فضاها</div>
+        </div>
+      </div></div>
+    </div>
+
+    <!-- CHAT NEW -->
+    <div class="col">
+      <div class="col-label new">Proposed</div>
+      <div class="phone"><div class="notch"></div><div class="phone-inner">
+        <div class="status-bar"><span>۹:۴۱</span><span class="right">● ●●●● ▮▮▮</span></div>
+
+        <!-- Chat header replaces Navbar -->
+        <div class="chat-head-new">
+          <div class="back"><svg viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg></div>
+          <div class="a"></div>
+          <div class="who">
+            <div class="n">سارا رضایی</div>
+            <div class="p">آنلاین</div>
+          </div>
+          <div class="menu">⋯</div>
+        </div>
+
+        <div class="chat-new-scroll">
+          <div class="daysep">امروز</div>
+
+          <div class="bubble-new in">
+            سلام، رسیدی خونه؟
+            <span class="tm">۱۰:۳۲</span>
+          </div>
+
+          <div class="bubble-new out">
+            آره، الان رسیدم. یه چایی می‌ذارم و برمی‌گردم.
+            <span class="tm">۱۰:۳۳ <span class="seen">✓✓</span></span>
+          </div>
+          <div class="bubble-new out grouped">
+            راستی فردا ساعت چند بریم؟
+            <span class="tm">۱۰:۳۳ ✓</span>
+          </div>
+
+          <div class="bubble-new in">
+            حدود ۱۰ صبح خوبه؟
+            <span class="tm">۱۰:۳۵</span>
+          </div>
+
+          <div class="bubble-new out">
+            عالیه، پس می‌بینمت 🌼
+            <span class="tm">۱۰:۳۶ <span class="seen">✓✓</span></span>
+          </div>
+
+          <div class="typing-bubble">
+            <span></span><span></span><span></span>
+          </div>
+        </div>
+
+        <div class="composer-new">
+          <div class="ic">
+            <svg viewBox="0 0 24 24"><path d="M21 12l-9 9a5 5 0 0 1-7-7l9-9a3 3 0 0 1 4 4l-9 9a1 1 0 0 1-2-2l8-8"/></svg>
+          </div>
+          <div class="fld">پیام بنویس…</div>
+          <div class="ic">
+            <svg viewBox="0 0 24 24"><path d="M12 3v13m0 0l-4-4m4 4l4-4M5 21h14"/></svg>
+          </div>
+          <div class="send-btn">
+            <svg viewBox="0 0 24 24"><path d="M4 12l16-8-5 16-3-7-8-1z"/></svg>
+          </div>
+        </div>
+      </div></div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ============= /vitrin ============= -->
+<section class="route">
+  <div class="route-head">
+    <h2>ویترین</h2>
+    <code>/vitrin</code>
+    <span class="sub">marketplace / directory</span>
+  </div>
+  <div class="pair">
+
+    <!-- VITRIN CURRENT -->
+    <div class="col">
+      <div class="col-label now">Current</div>
+      <div class="phone"><div class="notch"></div><div class="phone-inner slate">
+        <div class="status-bar"><span>۹:۴۱</span><span class="right">● ●●●● ▮▮▮</span></div>
+        <div class="topbar old"><div class="brand">توت</div>
+          <span class="topbar-btn old pill">Logout</span>
+        </div>
+        <div class="body"><div class="scroll">
+          <div style="font-size:16px;font-weight:700;color:#0F172A;margin-bottom:10px;padding:0 2px;">ویترین</div>
+          <div class="card-old">
+            <div style="font-size:13px;font-weight:700;color:#0F172A;">فروشگاه و پیشنهادهای ویژه</div>
+            <div style="font-size:12px;color:#475569;line-height:1.7;margin-top:8px;">
+              ویترین جایی برای دیدن محصولات، خدمات و پیشنهادهای منتخب است؛ بدون شلوغی و با تمرکز روی کیفیت نمایش.
+            </div>
+            <ul style="padding:0;margin:12px 0 0;border-top:1px solid #F1F5F9;padding-top:10px;list-style:none;font-size:12px;color:#475569;line-height:1.9;">
+              <li><span class="bullet">•</span>دسته‌بندی‌های روشن و مرور آسان</li>
+              <li><span class="bullet">•</span>هماهنگ با تجربهٔ موبایل و RTL</li>
+              <li><span class="bullet">•</span>محتوای واقعی به‌زودی اضافه می‌شود</li>
+            </ul>
+          </div>
+        </div></div>
+        <div class="bottomnav old">
+          <div class="bn-tab">استوری</div>
+          <div class="bn-tab">گفتگو</div>
+          <div class="bn-tab active old">ویترین</div>
+          <div class="bn-tab">فضاها</div>
+        </div>
+      </div></div>
+    </div>
+
+    <!-- VITRIN NEW -->
+    <div class="col">
+      <div class="col-label new">Proposed</div>
+      <div class="phone"><div class="notch"></div><div class="phone-inner">
+        <div class="status-bar"><span>۹:۴۱</span><span class="right">● ●●●● ▮▮▮</span></div>
+        <div class="topbar">
+          <div class="brand">توت</div>
+          <div class="avatar-btn"></div>
+        </div>
+        <div class="body"><div class="scroll">
+          <div class="section-head-new" style="padding:2px 2px 10px;">
+            <h3>ویترین</h3>
+            <span class="act">جستجو</span>
+          </div>
+
+          <div class="chip-row">
+            <div class="chip active">همه</div>
+            <div class="chip">صنایع دستی</div>
+            <div class="chip">خوراکی</div>
+            <div class="chip">خدمات</div>
+            <div class="chip">پوشاک</div>
+            <div class="chip">کتاب</div>
+          </div>
+
+          <div class="vgrid">
+            <div class="vcard">
+              <div class="img">
+                <div class="badge">ویژه</div>
+                <div class="fav on"><svg viewBox="0 0 24 24"><path d="M12 20s-7-4.5-7-10a4 4 0 0 1 7-2.5A4 4 0 0 1 19 10c0 5.5-7 10-7 10z"/></svg></div>
+              </div>
+              <div class="body">
+                <div class="t">شالی پشمی دست‌بافت قزوین</div>
+                <div class="s">گالری آرام</div>
+                <div class="pr">۴۸۰٬۰۰۰<small>تومان</small></div>
+              </div>
+            </div>
+
+            <div class="vcard">
+              <div class="img" style="background:repeating-linear-gradient(135deg,#E4DED0 0 10px,#D3C8B2 10px 20px);">
+                <div class="fav"><svg viewBox="0 0 24 24"><path d="M12 20s-7-4.5-7-10a4 4 0 0 1 7-2.5A4 4 0 0 1 19 10c0 5.5-7 10-7 10z"/></svg></div>
+              </div>
+              <div class="body">
+                <div class="t">ست قاشق چوبی گردو</div>
+                <div class="s">صنایع دستی مهرا</div>
+                <div class="pr">۱۲۰٬۰۰۰<small>تومان</small></div>
+              </div>
+            </div>
+
+            <div class="vcard">
+              <div class="img" style="background:repeating-linear-gradient(135deg,#EDE0CE 0 10px,#DCC5A6 10px 20px);">
+                <div class="fav"><svg viewBox="0 0 24 24"><path d="M12 20s-7-4.5-7-10a4 4 0 0 1 7-2.5A4 4 0 0 1 19 10c0 5.5-7 10-7 10z"/></svg></div>
+              </div>
+              <div class="body">
+                <div class="t">زعفران سرگل قائنات — ۲ مثقال</div>
+                <div class="s">عطاری پارسه</div>
+                <div class="pr">۳۲۰٬۰۰۰<small>تومان</small></div>
+              </div>
+            </div>
+
+            <div class="vcard">
+              <div class="img" style="background:repeating-linear-gradient(135deg,#DCE0D0 0 10px,#B8BFA0 10px 20px);">
+                <div class="fav"><svg viewBox="0 0 24 24"><path d="M12 20s-7-4.5-7-10a4 4 0 0 1 7-2.5A4 4 0 0 1 19 10c0 5.5-7 10-7 10z"/></svg></div>
+              </div>
+              <div class="body">
+                <div class="t">سرویس چای مسی دست‌سازِ اصفهان</div>
+                <div class="s">کارگاه مس آفرین</div>
+                <div class="pr">۹۵۰٬۰۰۰<small>تومان</small></div>
+              </div>
+            </div>
+          </div>
+
+          <div style="height:20px;"></div>
+        </div></div>
+
+        <div class="bottomnav new">
+          <div class="bn-tab new">
+            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/></svg>
+            استوری
+          </div>
+          <div class="bn-tab new">
+            <svg viewBox="0 0 24 24"><path d="M4 7h16v9a3 3 0 0 1-3 3h-5l-4 3v-3H7a3 3 0 0 1-3-3V7z"/></svg>
+            گفتگو
+          </div>
+          <div class="bn-tab new active">
+            <svg viewBox="0 0 24 24"><path d="M5 8h14l-1 11a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 8z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/></svg>
+            ویترین
+          </div>
+          <div class="bn-tab new">
+            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M9 13l2.5-5 4.5-1.5-2.5 5L9 13z"/></svg>
+            فضاها
+          </div>
+        </div>
+      </div></div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ============= /spaces ============= -->
+<section class="route">
+  <div class="route-head">
+    <h2>فضاها</h2>
+    <code>/spaces</code>
+    <span class="sub">community hub</span>
+  </div>
+  <div class="pair">
+
+    <!-- SPACES CURRENT -->
+    <div class="col">
+      <div class="col-label now">Current</div>
+      <div class="phone"><div class="notch"></div><div class="phone-inner slate">
+        <div class="status-bar"><span>۹:۴۱</span><span class="right">● ●●●● ▮▮▮</span></div>
+        <div class="topbar old"><div class="brand">توت</div>
+          <span class="topbar-btn old pill">Logout</span>
+        </div>
+        <div class="body"><div class="scroll">
+          <div style="font-size:16px;font-weight:700;color:#0F172A;margin-bottom:10px;padding:0 2px;">فضاها</div>
+          <div class="card-old">
+            <div style="font-size:13px;font-weight:700;color:#0F172A;">محله و جمع‌های نزدیک شما</div>
+            <div style="font-size:12px;color:#475569;line-height:1.7;margin-top:8px;">
+              فضاها برای کشف همسایگی، گروه‌های محلی و فعالیت‌های مشترک طراحی می‌شود؛ نقطهٔ ورودی ساده به اجتماع کوچک‌تر از کل شبکه.
+            </div>
+            <ul style="padding:0;margin:12px 0 0;border-top:1px solid #F1F5F9;padding-top:10px;list-style:none;font-size:12px;color:#475569;line-height:1.9;">
+              <li><span class="bullet">•</span>معرفی فضاهای عمومی و محلی</li>
+              <li><span class="bullet">•</span>همسایگی و رویدادها (در نسخهٔ بعد)</li>
+              <li><span class="bullet">•</span>بدون دادهٔ ساختگی؛ فعلاً چارچوب محصول</li>
+            </ul>
+          </div>
+        </div></div>
+        <div class="bottomnav old">
+          <div class="bn-tab">استوری</div>
+          <div class="bn-tab">گفتگو</div>
+          <div class="bn-tab">ویترین</div>
+          <div class="bn-tab active old">فضاها</div>
+        </div>
+      </div></div>
+    </div>
+
+    <!-- SPACES NEW -->
+    <div class="col">
+      <div class="col-label new">Proposed</div>
+      <div class="phone"><div class="notch"></div><div class="phone-inner">
+        <div class="status-bar"><span>۹:۴۱</span><span class="right">● ●●●● ▮▮▮</span></div>
+        <div class="topbar">
+          <div class="brand">توت</div>
+          <div class="avatar-btn"></div>
+        </div>
+        <div class="body"><div class="scroll">
+          <div class="section-head-new" style="padding:2px 2px 10px;">
+            <h3>فضاها</h3>
+            <span class="act">کشف</span>
+          </div>
+
+          <div class="sp-hero">
+            <div class="icon">
+              <svg viewBox="0 0 24 24"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/><path d="M10 20v-5h4v5"/></svg>
+            </div>
+            <div>
+              <div class="t">محلهٔ الهیهٔ تهران</div>
+              <div class="d">جمع همسایه‌های فعال محل — تبادل خدمات، گم‌شده‌ها، رویدادها.</div>
+            </div>
+          </div>
+
+          <div class="chip-row">
+            <div class="chip active">دنبال‌شده</div>
+            <div class="chip">پیشنهادی</div>
+            <div class="chip">جدید</div>
+            <div class="chip">محلی</div>
+          </div>
+
+          <div class="sp-grid">
+            <div class="spcard">
+              <div class="cover"><div class="av"></div></div>
+              <div class="t">کتاب‌خوان‌های تهران</div>
+              <div class="d">هفته‌ای یک جلسه، کتاب و چای.</div>
+              <div class="m">۲٬۴۸۰ عضو</div>
+            </div>
+
+            <div class="spcard">
+              <div class="cover v2"><div class="av v2"></div></div>
+              <div class="t">والدین مدرسهٔ خرد</div>
+              <div class="d">هماهنگی، پرسش و گفتگوی والدین.</div>
+              <div class="m">۱٬۰۲۰ عضو</div>
+            </div>
+
+            <div class="spcard">
+              <div class="cover v3"><div class="av v3"></div></div>
+              <div class="t">آشپزی خانگی</div>
+              <div class="d">دستورها و عکس غذاها از خانه‌ها.</div>
+              <div class="m">۸٬۳۵۰ عضو</div>
+            </div>
+
+            <div class="spcard">
+              <div class="cover v4"><div class="av v4"></div></div>
+              <div class="t">دوچرخه‌سواران شمال</div>
+              <div class="d">مسیرها، تعمیرات، سفرهای گروهی.</div>
+              <div class="m">۶۴۰ عضو</div>
+            </div>
+          </div>
+
+          <div style="height:20px;"></div>
+        </div></div>
+
+        <div class="bottomnav new">
+          <div class="bn-tab new">
+            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/></svg>
+            استوری
+          </div>
+          <div class="bn-tab new">
+            <svg viewBox="0 0 24 24"><path d="M4 7h16v9a3 3 0 0 1-3 3h-5l-4 3v-3H7a3 3 0 0 1-3-3V7z"/></svg>
+            گفتگو
+          </div>
+          <div class="bn-tab new">
+            <svg viewBox="0 0 24 24"><path d="M5 8h14l-1 11a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 8z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/></svg>
+            ویترین
+          </div>
+          <div class="bn-tab new active">
+            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M9 13l2.5-5 4.5-1.5-2.5 5L9 13z"/></svg>
+            فضاها
+          </div>
+        </div>
+      </div></div>
+    </div>
+
+  </div>
+</section>
+
+<div class="notes">
+  <h3>چه چیزهایی عوض شد؟ (بدون تغییر IA یا route)</h3>
+  <ul>
+    <li><strong>Navbar</strong> از لینک‌های انگلیسی Home/Profile/Upload + Logout پاک شد؛ فقط برند «توت» و آواتار ماند.</li>
+    <li><strong>Bottom nav</strong> از پیل پرشدهٔ <code>bg-slate-900</code> به بولد + نقطهٔ لهجه تغییر کرد. آیکن ۲۰px اضافه شد. بج نخوانده روی «گفتگو».</li>
+    <li><strong>/home</strong>: نوار استوری افقی، کارت‌های فید با ترتیب RTL درست (آواتار → نام → handle → زمان → منو)، اکشن‌ها با اعداد فارسی، FAB نوشتن پایین-چپ.</li>
+    <li><strong>/direct/[id]</strong>: Navbar جای خود را به هدر چت داد (back + آواتار + حضور). حباب‌ها با واریاسیون گوشه (بدون تغییر رنگ سیاه سنگین)، تایم‌استمپ داخل حباب، جداکنندهٔ روزانه، کامپوزر چسبان با textarea و آیکن ارسال گرد.</li>
+    <li><strong>/vitrin</strong> از کارت توضیحی «چارچوب محصول» به گرید واقعی ۲ستونه رسید — تصویر ۴:۵، عنوان، فروشنده، قیمت فارسی با «تومان» بعد از عدد.</li>
+    <li><strong>/spaces</strong> همینطور — هیرو محلی + نوار چیپ فیلتر + گرید کارت فضا با کاور، آواتار، تعداد عضو.</li>
+    <li>پس‌زمینه از <code>slate-50</code> سرد به کاغذی گرم <code>#F7F7F5</code> رفت. لهجهٔ واحد <code>#B4532A</code> (چای). فونت Vazirmatn.</li>
+    <li>همهٔ کامپوننت‌ها و state های موجود (reply, typing, delete, media preview, unread, loading) قابل‌انطباق‌اند — فقط کلاس‌ها عوض می‌شوند.</li>
+  </ul>
+</div>
+
+</body>
+</html>
