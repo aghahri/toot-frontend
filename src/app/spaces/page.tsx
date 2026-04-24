@@ -439,10 +439,10 @@ export default function SpacesOverviewPage() {
 
             {getAccessToken() && recommendations.length > 0 ? (
               <section aria-labelledby="rec-heading">
-                <h2 id="rec-heading" className="mb-3 text-xs font-extrabold text-[var(--text-secondary)]">
+                <h2 id="rec-heading" className="mb-3 text-xs font-extrabold text-[var(--ink-3)]">
                   پیشنهاد برای شما
                 </h2>
-                <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
                   {recommendations.map((item, idx) => (
                     <Link
                       key={`${item.kind}-${item.id}-${idx}`}
@@ -453,12 +453,12 @@ export default function SpacesOverviewPage() {
                             ? `/groups/${item.id}`
                             : `/channels/${item.id}?network=${encodeURIComponent(item.networkId)}`
                       }
-                      className="rounded-2xl border border-[var(--border-soft)] bg-[var(--surface-soft)] px-3 py-3 transition hover:border-[var(--accent-ring)]"
+                      className="rounded-2xl border border-[var(--line)] bg-[var(--surface)] px-3 py-3 transition hover:bg-[var(--surface-2)]/60"
                     >
-                      <p className="text-[10px] font-bold text-[var(--accent-hover)]">
+                      <p className="inline-flex rounded-full bg-[var(--accent-soft)] px-2 py-0.5 text-[10px] font-bold text-[var(--accent-hover)]">
                         {item.kind === 'network' ? 'شبکه' : item.kind === 'group' ? 'گروه' : 'کانال'}
                       </p>
-                      <p className="mt-1 line-clamp-2 text-sm font-extrabold text-[var(--text-primary)]">{item.name}</p>
+                      <p className="mt-2 line-clamp-2 text-sm font-extrabold text-[var(--ink)]">{item.name}</p>
                     </Link>
                   ))}
                 </div>
@@ -467,14 +467,23 @@ export default function SpacesOverviewPage() {
 
             {discoveryBlueprints.length > 0 ? (
             <section aria-labelledby="explore-heading">
-              <h2 id="explore-heading" className="mb-3 text-xs font-extrabold text-[var(--text-secondary)]">
+              <h2 id="explore-heading" className="mb-3 text-xs font-extrabold text-[var(--ink-3)]">
                 فضاهای بیشتر
               </h2>
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="grid grid-cols-2 gap-3">
                 {discoveryBlueprints.map((bp) => {
-                  const isHood = bp.id === 'neighborhood';
                   const title = EXPLORE_TITLE_FA[bp.id];
                   const line = EXPLORE_ONE_LINE[bp.id];
+                  const emoji =
+                    bp.id === 'neighborhood'
+                      ? '🏘'
+                      : bp.id === 'education'
+                        ? '🎓'
+                        : bp.id === 'sports'
+                          ? '⚽'
+                          : bp.id === 'gaming'
+                            ? '🎮'
+                            : '💼';
                   return (
                     <Link
                       key={bp.id}
@@ -485,29 +494,21 @@ export default function SpacesOverviewPage() {
                             ? '/spaces/education'
                             : `/spaces/${bp.mappedCategory}`
                       }
-                      className={`relative block overflow-hidden rounded-3xl border border-[var(--border-soft)] bg-[var(--card-bg)] p-5 shadow-sm ring-1 ring-[var(--border-soft)] transition hover:shadow-md active:scale-[0.99] ${
-                        isHood ? 'sm:col-span-2' : ''
-                      }`}
+                      className="group flex h-full min-h-[8.5rem] flex-col overflow-hidden rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-3 transition hover:bg-[var(--surface-2)]/60 active:scale-[0.99]"
                     >
-                      <div className={`pointer-events-none absolute inset-0 bg-gradient-to-bl opacity-[0.12] ${bp.accentClass}`} aria-hidden />
-                      <div className="relative flex items-center gap-4">
-                        <span className="text-4xl" aria-hidden>
-                          {bp.id === 'neighborhood'
-                            ? '🏘'
-                            : bp.id === 'education'
-                              ? '🎓'
-                              : bp.id === 'sports'
-                                ? '⚽'
-                                : bp.id === 'gaming'
-                                  ? '🎮'
-                                  : '💼'}
-                        </span>
-                        <div className="min-w-0 flex-1 text-right">
-                          <p className="text-lg font-black text-[var(--text-primary)]">{title}</p>
-                          <p className="mt-1 text-[12px] text-[var(--text-secondary)]">{line}</p>
-                          <p className="mt-3 text-xs font-extrabold text-[var(--accent-hover)]">مشاهده</p>
-                        </div>
-                      </div>
+                      <span
+                        className="mb-2 flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--surface-2)] text-2xl leading-none"
+                        aria-hidden
+                      >
+                        {emoji}
+                      </span>
+                      <p className="line-clamp-2 text-[14px] font-extrabold leading-snug text-[var(--ink)]">
+                        {title}
+                      </p>
+                      <p className="mt-1 line-clamp-2 text-[11px] leading-relaxed text-[var(--ink-3)]">
+                        {line}
+                      </p>
+                      <p className="mt-auto pt-2 text-[11px] font-bold text-[var(--accent-hover)]">مشاهده</p>
                     </Link>
                   );
                 })}
@@ -516,11 +517,11 @@ export default function SpacesOverviewPage() {
             ) : null}
 
             <section aria-labelledby="trend-heading">
-              <h2 id="trend-heading" className="mb-3 text-xs font-extrabold text-[var(--text-secondary)]">
+              <h2 id="trend-heading" className="mb-3 text-xs font-extrabold text-[var(--ink-3)]">
                 اجتماع‌های داغ
               </h2>
               {trending.length === 0 && !discoverLoading ? (
-                <p className="rounded-2xl border border-[var(--border-soft)] bg-[var(--surface-soft)] px-3 py-6 text-center text-xs text-[var(--text-secondary)]">
+                <p className="rounded-2xl border border-[var(--line)] bg-[var(--surface)] px-3 py-6 text-center text-xs text-[var(--ink-3)]">
                   به‌زودی
                 </p>
               ) : (
@@ -528,22 +529,22 @@ export default function SpacesOverviewPage() {
                   {trending.map((g) => (
                     <li
                       key={g.id}
-                      className="flex flex-col gap-2 rounded-2xl border border-[var(--border-soft)] bg-[var(--card-bg)] px-3 py-3 sm:flex-row sm:items-center sm:justify-between"
+                      className="flex flex-col gap-2 rounded-2xl border border-[var(--line)] bg-[var(--surface)] px-3 py-3 sm:flex-row sm:items-center sm:justify-between"
                     >
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-2">
                           <Link
                             href={`/groups/${g.id}`}
-                            className="truncate text-sm font-extrabold text-[var(--accent-hover)] hover:underline"
+                            className="truncate text-sm font-extrabold text-[var(--ink)] hover:underline"
                           >
                             {g.name}
                           </Link>
-                          <span className="rounded-full bg-[var(--surface-soft)] px-2 py-0.5 text-[9px] font-bold text-[var(--text-secondary)] ring-1 ring-[var(--border-soft)]">
+                          <span className="rounded-full bg-[var(--surface-2)] px-2 py-0.5 text-[10px] font-bold text-[var(--ink-3)]">
                             {g.tag}
                           </span>
                         </div>
                         {g.description ? (
-                          <p className="mt-0.5 line-clamp-1 text-[11px] text-[var(--text-secondary)]">{g.description}</p>
+                          <p className="mt-0.5 line-clamp-1 text-[11px] text-[var(--ink-3)]">{g.description}</p>
                         ) : null}
                       </div>
                       {g.joinable ? (
@@ -558,7 +559,7 @@ export default function SpacesOverviewPage() {
                       ) : (
                         <Link
                           href={`/groups/${g.id}`}
-                          className="shrink-0 rounded-full border border-[var(--border-soft)] px-4 py-2 text-center text-[11px] font-extrabold text-[var(--text-primary)] hover:bg-[var(--surface-soft)]"
+                          className="shrink-0 rounded-full border border-[var(--line)] px-4 py-2 text-center text-[11px] font-extrabold text-[var(--ink)] hover:bg-[var(--surface-2)]"
                         >
                           مشاهده
                         </Link>
