@@ -339,23 +339,23 @@ export function FeedPostCard({
   return (
     <article
       id={anchorId}
-      className={`theme-card-bg border-b border-slate-100/90 px-4 py-3.5 transition hover:bg-[var(--surface-soft)] ${
-        isViewerRepostRow ? 'bg-emerald-50/40 ring-1 ring-inset ring-emerald-200/55' : ''
-      } ${emphasize ? 'bg-sky-50/90 ring-2 ring-inset ring-sky-400/70' : ''}`}
+      className={`bg-[var(--surface)] border-b border-[var(--line)] px-4 py-3.5 transition hover:bg-[var(--surface-2)]/70 ${
+        isViewerRepostRow ? 'bg-[var(--accent-soft)]/30' : ''
+      } ${emphasize ? 'bg-[var(--accent-soft)]/60 ring-2 ring-inset ring-[var(--accent)]' : ''}`}
       dir="rtl"
     >
       {isViewerRepostRow ? (
         <div
-          className="mb-3 flex items-center gap-2 rounded-xl border border-emerald-200/90 bg-emerald-100/80 px-3 py-2 text-xs font-extrabold text-emerald-900"
+          className="mb-3 flex items-center gap-2 rounded-xl border border-[var(--line)] bg-[var(--surface-2)] px-3 py-2 text-xs font-extrabold text-[var(--ink-2)]"
           role="status"
         >
-          <span className="text-base" aria-hidden>
+          <span className="text-base text-[var(--accent)]" aria-hidden>
             ↻
           </span>
           <span>شما این پست را بازنشر کردید</span>
           {p.viewerRepostedAt ? (
             <time
-              className="ms-auto font-mono text-[10px] font-semibold text-emerald-800/80"
+              className="ms-auto font-mono text-[10px] font-semibold text-[var(--ink-3)]"
               dateTime={p.viewerRepostedAt}
             >
               {formatFeedTime(p.viewerRepostedAt)}
@@ -367,17 +367,17 @@ export function FeedPostCard({
         {authorProfileHref ? (
           <Link
             href={authorProfileHref}
-            className="shrink-0 rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2"
+            className="shrink-0 rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
             aria-label={`پروفایل ${name}`}
           >
             {p.user?.avatar ? (
               <img
                 src={p.user.avatar}
                 alt=""
-                className="h-11 w-11 rounded-full object-cover ring-1 ring-slate-200/80"
+                className="h-11 w-11 rounded-full object-cover ring-1 ring-[var(--line)]"
               />
             ) : (
-              <div className="flex h-11 w-11 items-center justify-center rounded-full bg-gradient-to-br from-sky-500 to-slate-600 text-sm font-bold text-white ring-1 ring-slate-200/60">
+              <div className="flex h-11 w-11 items-center justify-center rounded-full bg-[var(--surface-2)] text-sm font-bold text-[var(--ink-2)] ring-1 ring-[var(--line)]">
                 {initials(name)}
               </div>
             )}
@@ -388,10 +388,10 @@ export function FeedPostCard({
               <img
                 src={p.user.avatar}
                 alt=""
-                className="h-11 w-11 rounded-full object-cover ring-1 ring-slate-200/80"
+                className="h-11 w-11 rounded-full object-cover ring-1 ring-[var(--line)]"
               />
             ) : (
-              <div className="flex h-11 w-11 items-center justify-center rounded-full bg-gradient-to-br from-sky-500 to-slate-600 text-sm font-bold text-white ring-1 ring-slate-200/60">
+              <div className="flex h-11 w-11 items-center justify-center rounded-full bg-[var(--surface-2)] text-sm font-bold text-[var(--ink-2)] ring-1 ring-[var(--line)]">
                 {initials(name)}
               </div>
             )}
@@ -407,22 +407,22 @@ export function FeedPostCard({
                     href={authorProfileHref}
                     className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-0.5 hover:opacity-90"
                   >
-                    <span className="truncate text-[15px] font-extrabold text-slate-900">{name}</span>
-                    <span className="truncate text-[13px] font-semibold text-slate-500" dir="ltr">
+                    <span className="truncate text-[15px] font-extrabold text-[var(--ink)]">{name}</span>
+                    <span className="truncate text-[13px] font-semibold text-[var(--ink-3)]" dir="ltr">
                       {handle}
                     </span>
                   </Link>
                 ) : (
                   <>
-                    <span className="truncate text-[15px] font-extrabold text-slate-900">{name}</span>
-                    <span className="truncate text-[13px] font-semibold text-slate-500" dir="ltr">
+                    <span className="truncate text-[15px] font-extrabold text-[var(--ink)]">{name}</span>
+                    <span className="truncate text-[13px] font-semibold text-[var(--ink-3)]" dir="ltr">
                       {handle}
                     </span>
                   </>
                 )}
-                <span className="text-slate-300">·</span>
+                <span className="text-[var(--ink-4)]">·</span>
                 <time
-                  className="shrink-0 text-xs font-semibold tabular-nums text-slate-400"
+                  className="shrink-0 text-xs font-semibold tabular-nums text-[var(--ink-3)]"
                   dateTime={p.createdAt}
                   title={new Date(p.createdAt).toLocaleString('fa-IR')}
                 >
