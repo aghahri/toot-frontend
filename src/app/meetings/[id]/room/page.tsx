@@ -162,7 +162,11 @@ export default function MeetingRoomPage() {
 
       pc.onicecandidate = (e) => {
         if (!e.candidate || !socket || !id) return;
-        logRtc('signal-out', { type: 'ice-candidate', to: remoteUserId });
+        logRtc('signal-out', {
+          type: 'ice-candidate',
+          to: remoteUserId,
+          candidateType: e.candidate.type,
+        });
         void emitMeetingSignalWithAck({
           meetingId: id,
           targetUserId: remoteUserId,
@@ -298,7 +302,11 @@ export default function MeetingRoomPage() {
         const offer = await pc.createOffer();
         await pc.setLocalDescription(offer);
         if (!socket || !id) return;
-        logRtc('signal-out', { type: 'offer', to: remoteUserId });
+        logRtc('signal-out', {
+          type: 'offer',
+          to: remoteUserId,
+          sdpLen: offer.sdp?.length ?? 0,
+        });
         await emitMeetingSignalWithAck({
           meetingId: id,
           targetUserId: remoteUserId,
@@ -454,7 +462,11 @@ export default function MeetingRoomPage() {
           const answer = await pc.createAnswer();
           await pc.setLocalDescription(answer);
           logRtc('emit_answer', { to: payload.fromUserId });
-          logRtc('signal-out', { type: 'answer', to: payload.fromUserId });
+          logRtc('signal-out', {
+            type: 'answer',
+            to: payload.fromUserId,
+            sdpLen: answer.sdp?.length ?? 0,
+          });
           await emitMeetingSignalWithAck({
             meetingId: id,
             targetUserId: payload.fromUserId,
