@@ -33,27 +33,41 @@ export function ChannelPublicationCard({
   pinActionDisabled,
 }: Props) {
   const isFeatured = variant === 'featured';
-  const pad = isFeatured ? 'px-4 py-3.5' : 'px-4 py-4';
+  const pad = isFeatured ? 'px-4 py-3.5' : 'px-3.5 py-2.5';
   const media = m.media;
 
   const loc = m.messageType === 'LOCATION' && m.metadata ? (m.metadata as Record<string, unknown>) : null;
   const contact = m.messageType === 'CONTACT' && m.metadata ? (m.metadata as Record<string, unknown>) : null;
 
+  // Timeline variant renders as a chat-style "them" bubble so the channel
+  // feed visually matches /groups/[id]; featured variant keeps its hero
+  // treatment (amber ring + publication stripe) for pinned / newest callouts.
+  const wrapperClass = isFeatured
+    ? 'relative overflow-hidden rounded-2xl border border-[var(--border-soft)] bg-[var(--card-bg)] ring-2 ring-amber-400/25 shadow-lg'
+    : 'relative max-w-[88%] overflow-hidden rounded-[1.15rem] border border-slate-200/80 bg-white shadow-[0_1px_2px_rgba(0,0,0,0.06)]';
+  const bodyClass = isFeatured ? `${pad} pl-3` : pad;
+
   return (
-    <article
-      className={`relative overflow-hidden rounded-2xl border border-[var(--border-soft)] bg-[var(--card-bg)] ${
-        isFeatured ? 'ring-2 ring-amber-400/25 shadow-lg' : 'shadow-[0_2px_12px_rgba(0,0,0,0.06)]'
-      }`}
-    >
-      <div className="pointer-events-none absolute inset-y-3 right-0 w-1 rounded-l bg-gradient-to-b from-amber-500/90 via-violet-500/80 to-indigo-600/70" />
-      <div className={`${pad} pl-3`}>
-        <header className="flex flex-wrap items-start justify-between gap-2">
+    <article className={wrapperClass}>
+      {isFeatured ? (
+        <div className="pointer-events-none absolute inset-y-3 right-0 w-1 rounded-l bg-gradient-to-b from-amber-500/90 via-violet-500/80 to-indigo-600/70" />
+      ) : null}
+      <div className={bodyClass}>
+        <header className="flex flex-wrap items-center justify-between gap-2">
           <div className="min-w-0 flex-1 text-right">
-            <p className="text-[10px] font-black tracking-wide text-amber-800/90">{broadcastLabel}</p>
-            <p className="theme-text-primary mt-1 line-clamp-2 text-[15px] font-bold leading-snug">{m.sender.name}</p>
+            {isFeatured ? (
+              <>
+                <p className="text-[10px] font-black tracking-wide text-amber-800/90">{broadcastLabel}</p>
+                <p className="theme-text-primary mt-1 line-clamp-2 text-[15px] font-bold leading-snug">{m.sender.name}</p>
+              </>
+            ) : (
+              <p className="truncate text-[11px] font-medium text-slate-500">{m.sender.name}</p>
+            )}
           </div>
           <time
-            className="shrink-0 rounded-lg bg-[var(--surface-soft)] px-2 py-1 text-[10px] tabular-nums text-[var(--text-secondary)]"
+            className={`shrink-0 rounded-lg px-2 py-0.5 text-[10px] tabular-nums text-[var(--text-secondary)] ${
+              isFeatured ? 'bg-[var(--surface-soft)]' : ''
+            }`}
             dateTime={m.createdAt}
             dir="ltr"
           >
@@ -132,7 +146,9 @@ export function ChannelPublicationCard({
         {m.content?.trim() ? (
           <MessageText
             text={m.content}
-            className="theme-text-primary mt-3 whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-[15px] leading-[1.7]"
+            className={`theme-text-primary whitespace-pre-wrap break-words [overflow-wrap:anywhere] ${
+              isFeatured ? 'mt-3 text-[15px] leading-[1.7]' : 'mt-2 text-[14px] leading-[1.6]'
+            }`}
           />
         ) : null}
 
