@@ -526,8 +526,12 @@ export default function MeetingRoomPage() {
         return;
       }
       setRtcStage((prev) => (prev === 'connected' ? prev : 'peer_joined'));
-      if (payload.offererUserId === sid) {
-        for (const p of remotes) {
+      // Pairwise offerer: for each remote peer, the user with the lower id
+      // (lexicographic) is the offerer. In 2-person calls this degenerates
+      // to the previous single-offerer behavior. Perfect-negotiation handles
+      // residual glare.
+      for (const p of remotes) {
+        if (sid.localeCompare(p.id) < 0) {
           window.setTimeout(() => {
             void createOfferTo(p.id);
           }, 120);
@@ -560,8 +564,10 @@ export default function MeetingRoomPage() {
           setRtcStage('peer_joined');
           const deterministicOfferer = [...list].map((p) => p.id).sort((a, b) => a.localeCompare(b))[0] ?? null;
           setOffererUserId(deterministicOfferer);
-          if (deterministicOfferer === self.id) {
-            for (const remote of remotes) {
+          // Pairwise offerer: offer to every remote whose id sorts after ours.
+          // In 2-person meetings this is identical to the previous behavior.
+          for (const remote of remotes) {
+            if (self.id.localeCompare(remote.id) < 0) {
               window.setTimeout(() => {
                 void createOfferTo(remote.id);
               }, 120);
