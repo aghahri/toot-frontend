@@ -222,7 +222,7 @@ export default function EducationSpacePage() {
           <p className="text-[11px] font-bold uppercase tracking-wide text-violet-300/90">Toot Education</p>
           <h1 className="mt-1 text-2xl font-black tracking-tight text-[var(--text-primary)]">آموزش توت</h1>
           <p className="mt-2 text-sm leading-relaxed text-[var(--text-secondary)]">
-            کلاس آنلاین، دوره‌ها، جلسات و یادگیری محلی در یک فضای یکپارچه.
+            کلاس، دوره و شبکه‌های آموزشی در یک‌جا.
           </p>
         </header>
 
@@ -332,7 +332,7 @@ export default function EducationSpacePage() {
               ))}
             </ul>
           ) : (
-            <p className="text-sm text-[var(--text-secondary)]">هنوز دوره‌ای برای شما ثبت نشده است.</p>
+            <p className="text-sm text-[var(--text-secondary)]">هنوز دوره‌ای ندارید.</p>
           )}
         </section>
 
@@ -349,7 +349,7 @@ export default function EducationSpacePage() {
               ))}
             </ul>
           ) : (
-            <p className="text-sm text-[var(--text-secondary)]">جلسه‌ای در پیش رو نیست.</p>
+            <p className="text-sm text-[var(--text-secondary)]">فعلا جلسه‌ای پیش‌رو نیست.</p>
           )}
         </section>
 
@@ -366,7 +366,7 @@ export default function EducationSpacePage() {
               ))}
             </ul>
           ) : (
-            <p className="text-sm text-[var(--text-secondary)]">فعلا دوره پرطرفداری ثبت نشده است.</p>
+            <p className="text-sm text-[var(--text-secondary)]">فعلا دوره پرطرفداری نیست.</p>
           )}
         </section>
 
@@ -383,7 +383,7 @@ export default function EducationSpacePage() {
               ))}
             </ul>
           ) : (
-            <p className="text-sm text-[var(--text-secondary)]">دوره‌ای با شروع نزدیک پیدا نشد.</p>
+            <p className="text-sm text-[var(--text-secondary)]">فعلا دوره نزدیک به شروع نداریم.</p>
           )}
         </section>
 
@@ -400,7 +400,7 @@ export default function EducationSpacePage() {
               ))}
             </ul>
           ) : (
-            <p className="text-sm text-[var(--text-secondary)]">دوره عمومی برای نمایش موجود نیست.</p>
+            <p className="text-sm text-[var(--text-secondary)]">دوره عمومی برای نمایش نیست.</p>
           )}
         </section>
 

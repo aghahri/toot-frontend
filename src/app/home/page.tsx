@@ -779,8 +779,8 @@ function HomePageInner() {
                 </div>
               ) : posts.length === 0 ? (
                 <FeedEmptyState
-                  title="هنوز پستی در «برای شما» نیست"
-                  description="با انتشار اولین پست یا تعامل بیشتر، پیشنهادهای این بخش سریع‌تر شخصی می‌شود."
+                  title="فعلا پستی برای شما نیست"
+                  description="یک پست منتشر کنید یا چند نفر را دنبال کنید تا این بخش سریع پر شود."
                   icon="✦"
                 />
               ) : (
@@ -836,7 +836,7 @@ function HomePageInner() {
                 <div>
                   <FeedEmptyState
                     title="دنبال‌شده‌ها"
-                    description="هنوز پستی از دنبال‌شده‌ها ندارید. افراد بیشتری را دنبال کنید تا این فید فعال‌تر شود."
+                    description="هنوز پستی ندارید. چند نفر دیگر را دنبال کنید."
                     icon="◎"
                   />
                   {suggestedFollows.length ? (
@@ -929,7 +929,7 @@ function HomePageInner() {
               ) : (
                 <FeedEmptyState
                   title="محلهٔ من"
-                  description="آپدیت‌های اطراف شما، صداهای همسایگی و جریان محلی اینجا ظاهر می‌شوند."
+                  description="خبرها و پست‌های نزدیک شما اینجا می‌آید."
                   icon="⌂"
                 />
               )}
@@ -968,7 +968,7 @@ function HomePageInner() {
               ) : (
                 <FeedEmptyState
                   title="شبکه‌ها"
-                  description="پست‌های شبکه‌های Education / Business / Sports / Gaming / Neighborhood اینجا می‌آیند."
+                  description="پست‌های شبکه‌هایی که عضو هستید اینجا می‌آید."
                   icon="⬡"
                 />
               )}
@@ -1004,7 +1004,7 @@ function HomePageInner() {
 
 function InlineCuratedStoryCard({ item }: { item: StoryItem }) {
   const href = item.url?.trim() || null;
-  const kindLabel = item.storyKind === 'LOCAL' ? 'Local' : item.storyKind === 'NETWORK' ? 'Network' : 'Curated';
+  const kindLabel = item.storyKind === 'LOCAL' ? 'محلی' : item.storyKind === 'NETWORK' ? 'شبکه' : 'منتخب';
   const kindCls =
     item.storyKind === 'LOCAL'
       ? 'bg-emerald-500/15 text-emerald-700'
@@ -1020,7 +1020,7 @@ function InlineCuratedStoryCard({ item }: { item: StoryItem }) {
       <div className="flex items-center gap-1.5">
         <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${kindCls}`}>{kindLabel}</span>
         <span className="rounded-full border border-[var(--border-soft)] px-2 py-0.5 text-[10px] font-semibold text-[var(--text-secondary)]">
-          Story Curated
+          خبر منتخب
         </span>
         {item.trustLabel ? (
           <span className="rounded-full border border-[var(--border-soft)] px-2 py-0.5 text-[10px] font-semibold text-[var(--text-secondary)]">
@@ -1030,7 +1030,7 @@ function InlineCuratedStoryCard({ item }: { item: StoryItem }) {
       </div>
       <p className="mt-2 text-[13px] font-extrabold text-[var(--text-primary)]">{item.title}</p>
       <p className="mt-1 line-clamp-2 text-[12px] text-[var(--text-secondary)]">
-        {item.summary || 'گزیده کوتاه در دسترس نیست.'}
+        {item.summary || 'خلاصه‌ای ثبت نشده است.'}
       </p>
       <p className="mt-2 text-[11px] font-semibold text-[var(--accent-hover)]">{item.source.name}</p>
     </Root>

@@ -235,7 +235,7 @@ export default function NotificationsPage() {
             <div className="theme-card-bg theme-border-soft rounded-2xl border px-6 py-12 text-center shadow-sm ring-1 ring-[var(--border-soft)]">
               <p className="text-base font-extrabold">هنوز اعلانی نیست</p>
               <p className="theme-text-secondary mt-2 text-[13px] leading-relaxed">
-                پسند، پاسخ، نام بردن (@) و دنبال‌کردن اینجا دیده می‌شود.
+                پسند، پاسخ و دنبال‌کردن را اینجا می‌بینید.
               </p>
               <Link
                 href="/home"

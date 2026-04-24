@@ -324,7 +324,7 @@ export default function SpacesOverviewPage() {
         className="theme-page-bg theme-text-primary mx-auto w-full max-w-lg px-4 pb-28 pt-5 sm:max-w-xl sm:pb-16"
         dir="rtl"
       >
-        <header className="mb-8 flex items-start justify-between gap-3">
+        <header className="mb-6 flex items-start justify-between gap-3">
           <div className="min-w-0">
             <h1 className="text-2xl font-black tracking-tight text-[var(--text-primary)] sm:text-3xl">فضاها</h1>
           </div>
@@ -388,7 +388,7 @@ export default function SpacesOverviewPage() {
 
             {getAccessToken() && recommendations.length > 0 ? (
               <section aria-labelledby="rec-heading">
-                <h2 id="rec-heading" className="mb-4 text-xs font-extrabold uppercase tracking-wider text-[var(--text-secondary)]">
+                <h2 id="rec-heading" className="mb-3 text-xs font-extrabold text-[var(--text-secondary)]">
                   پیشنهاد برای شما
                 </h2>
                 <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
@@ -415,8 +415,8 @@ export default function SpacesOverviewPage() {
             ) : null}
 
             <section aria-labelledby="explore-heading">
-              <h2 id="explore-heading" className="mb-4 text-xs font-extrabold uppercase tracking-wider text-[var(--text-secondary)]">
-                کاوش فضاها
+              <h2 id="explore-heading" className="mb-3 text-xs font-extrabold text-[var(--text-secondary)]">
+                فضاها
               </h2>
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 {exploreBlueprints.map((bp) => {
@@ -453,7 +453,7 @@ export default function SpacesOverviewPage() {
                         <div className="min-w-0 flex-1 text-right">
                           <p className="text-lg font-black text-[var(--text-primary)]">{title}</p>
                           <p className="mt-1 text-[12px] text-[var(--text-secondary)]">{line}</p>
-                          <p className="mt-3 text-xs font-extrabold text-[var(--accent-hover)]">ورود به فضا ←</p>
+                          <p className="mt-3 text-xs font-extrabold text-[var(--accent-hover)]">مشاهده</p>
                         </div>
                       </div>
                     </Link>
@@ -463,7 +463,7 @@ export default function SpacesOverviewPage() {
             </section>
 
             <section aria-labelledby="trend-heading">
-              <h2 id="trend-heading" className="mb-4 text-xs font-extrabold uppercase tracking-wider text-[var(--text-secondary)]">
+              <h2 id="trend-heading" className="mb-3 text-xs font-extrabold text-[var(--text-secondary)]">
                 اجتماع‌های داغ
               </h2>
               {trending.length === 0 && !discoverLoading ? (

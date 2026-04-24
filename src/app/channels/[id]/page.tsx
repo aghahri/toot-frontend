@@ -312,7 +312,7 @@ function ChannelDetailInner() {
 
               <CommunityTimelineFrame
                 title="انتشارات"
-                subtitle="فید رسمی کانال"
+                subtitle="پست‌های کانال"
                 className="mt-3 border-0 bg-transparent p-0 shadow-none"
               >
                 {loadingMsgs ? (
@@ -457,7 +457,7 @@ function ChannelDetailInner() {
                       href={`/channels/${encodeURIComponent(id)}/info`}
                       className="mt-2 inline-block text-[11px] font-extrabold text-[var(--accent-hover)] underline-offset-2 hover:underline"
                     >
-                      مشاهدهٔ جزئیات و آمار کانال
+                      مشاهده جزئیات
                     </Link>
                   ) : null}
                 </div>
@@ -484,13 +484,13 @@ function ChannelDetailInner() {
           <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50/90 p-4 text-sm text-amber-950">
             <p className="font-bold">دسترسی به کانال</p>
             <p className="mt-2 text-xs leading-relaxed">
-              احتمالاً هنوز عضو شبکهٔ این کانال نیستید. ابتدا به شبکه بپیوندید، سپس دوباره کانال را باز کنید.
+              احتمالاً هنوز عضو شبکه این کانال نیستید. ابتدا عضو شوید.
             </p>
             <Link
               href={`/networks/${encodeURIComponent(fallbackNetworkId)}`}
               className="mt-3 inline-block text-xs font-bold text-sky-800 underline"
             >
-              رفتن به صفحهٔ شبکه و پیوستن
+              مشاهده شبکه
             </Link>
             {error ? <p className="mt-2 text-[11px] text-amber-900/90">{error}</p> : null}
           </div>

@@ -256,7 +256,7 @@ export default function GroupsInboxPage() {
         >
           <div>
             <p className="text-sm font-semibold text-stone-700">گروه‌ها</p>
-            <p className="text-[10px] text-stone-500">گروه چت (خصوصی) و گروه اجتماعی (جامعه‌محور)</p>
+            <p className="text-[10px] text-stone-500">گروه‌های چت و اجتماعی</p>
           </div>
           <div className="flex shrink-0 items-center gap-1">
             <button
@@ -300,14 +300,12 @@ export default function GroupsInboxPage() {
           ) : items.length === 0 ? (
             <div className="px-6 py-14 text-center" dir="rtl">
               <p className="text-base font-bold text-stone-900">هنوز عضو هیچ گروهی نیستید</p>
-              <p className="mx-auto mt-2 max-w-[18rem] text-sm text-stone-500">
-                از صفحهٔ فضاها شبکه‌ها را ببینید و به گروه بپیوندید.
-              </p>
+              <p className="mx-auto mt-2 max-w-[18rem] text-sm text-stone-500">از فضاها یک گروه انتخاب کنید.</p>
               <Link
                 href="/spaces"
                 className="mt-4 inline-block rounded-full bg-sky-600 px-4 py-2 text-sm font-bold text-white"
               >
-                رفتن به فضاها
+                مشاهده فضاها
               </Link>
             </div>
           ) : mainItems.length === 0 && archivedItems.length === 0 ? (

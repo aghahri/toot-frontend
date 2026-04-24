@@ -79,7 +79,7 @@ export default function VitrinPage() {
   return (
     <AuthGate>
       <main className="mx-auto w-full max-w-md px-4 pb-6 pt-2" dir="rtl">
-        <p className="mb-4 text-sm leading-relaxed text-slate-600">کارت‌های زنده‌ی ویترین بر اساس داده‌های منتشرشده بارگذاری می‌شوند.</p>
+        <p className="mb-4 text-sm leading-relaxed text-slate-600">ویترین خدمات و پیشنهادها</p>
 
         {loading ? <p className="mb-4 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-500">در حال بارگذاری ویترین…</p> : null}
         {error ? <p className="mb-4 rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p> : null}
@@ -120,7 +120,7 @@ export default function VitrinPage() {
                       </span>
                       <span className="text-lg font-extrabold leading-snug tracking-tight">{item.title}</span>
                       <span className="mt-1 text-xs font-medium leading-relaxed text-white/90">{item.subtitle}</span>
-                      <span className="mt-auto pt-3 text-[11px] font-bold text-white/80">ورود به سرویس</span>
+                      <span className="mt-auto pt-3 text-[11px] font-bold text-white/80">مشاهده</span>
                     </Link>
                   </li>
                 );
@@ -150,7 +150,7 @@ export default function VitrinPage() {
                     </div>
                     <p className="text-[15px] font-extrabold leading-snug text-slate-900">{item.title}</p>
                     <p className="mt-1 line-clamp-3 text-xs leading-relaxed text-slate-700">{item.body}</p>
-                    <p className="mt-3 text-[11px] font-bold text-amber-700">متن اطلاع‌رسانی ویترین</p>
+                    <p className="mt-3 text-[11px] font-bold text-amber-700">اطلاعیه ویترین</p>
                   </article>
                 </li>
               ))}

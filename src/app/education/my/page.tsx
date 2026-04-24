@@ -173,7 +173,7 @@ export default function MyLearningPage() {
         <header className="mb-4 rounded-3xl border border-[var(--border-soft)] bg-gradient-to-br from-violet-950/30 via-[var(--card-bg)] to-[var(--card-bg)] p-5 ring-1 ring-[var(--border-soft)]">
           <h1 className="text-2xl font-black tracking-tight text-[var(--text-primary)]">یادگیری من</h1>
           <p className="mt-2 text-sm text-[var(--text-secondary)]">
-            دوره‌های ثبت‌نام‌شده، کلاس‌های پیش‌رو و دسترسی‌های سریع شما.
+            دوره‌ها، کلاس‌های امروز و مسیر ادامه.
           </p>
         </header>
 
@@ -307,9 +307,7 @@ export default function MyLearningPage() {
                 </div>
               ) : (
                 <div className="rounded-2xl border border-[var(--border-soft)] bg-[var(--surface-soft)] p-3">
-                  <p className="text-sm text-[var(--text-secondary)]">
-                    برای شروع مسیر یادگیری، دوره‌های آموزشی را مرور کنید.
-                  </p>
+                  <p className="text-sm text-[var(--text-secondary)]">برای شروع، یک دوره انتخاب کنید.</p>
                   <Link
                     href="/spaces/education"
                     className="mt-2 inline-flex rounded-lg bg-violet-700 px-3 py-1.5 text-xs font-extrabold text-white"
@@ -406,7 +404,7 @@ export default function MyLearningPage() {
                   ))}
                 </ul>
               ) : (
-                <p className="text-xs text-[var(--text-secondary)]">موردی برای ادامه یادگیری ثبت نشده است.</p>
+                <p className="text-xs text-[var(--text-secondary)]">فعلا موردی برای ادامه ندارید.</p>
               )}
             </section>
 
@@ -441,7 +439,7 @@ export default function MyLearningPage() {
                   ))}
                 </ul>
               ) : (
-                <p className="text-xs text-[var(--text-secondary)]">برای دوره‌های شما هنوز لینک سریع ثبت نشده است.</p>
+                <p className="text-xs text-[var(--text-secondary)]">فعلا میانبری ثبت نشده است.</p>
               )}
             </section>
           </div>

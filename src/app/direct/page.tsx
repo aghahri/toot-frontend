@@ -585,7 +585,7 @@ export default function DirectPage() {
           className="theme-panel-bg theme-border-soft sticky top-0 z-10 flex items-center justify-between gap-3 border-b px-4 py-2.5 backdrop-blur-sm"
           dir="rtl"
         >
-          <p className="text-sm font-semibold text-stone-600">گفتگوهای اخیر</p>
+          <p className="text-sm font-semibold text-stone-600">گفتگوها</p>
           <div className="flex shrink-0 items-center gap-1">
             <button
               type="button"
@@ -672,7 +672,7 @@ export default function DirectPage() {
             <div className="px-6 py-14 text-center">
               <p className="text-base font-bold text-stone-900">هنوز گفتگویی ندارید</p>
               <p className="mx-auto mt-2 max-w-[17rem] text-sm leading-relaxed text-stone-500">
-                با دکمهٔ سبز <span className="font-bold text-emerald-600">+</span> گفتگوی جدید بسازید.
+                برای شروع روی دکمه <span className="font-bold text-emerald-600">+</span> بزنید.
               </p>
             </div>
           ) : mainItems.length === 0 && archivedItems.length === 0 ? (
@@ -738,7 +738,7 @@ export default function DirectPage() {
               گفتگوی جدید
             </h2>
             <p className="mt-1 text-xs text-stone-500">
-              نام، نام کاربری یا بخشی از شماره موبایل را جستجو کنید (حداقل ۲ نویسه).
+              نام یا نام کاربری را جستجو کنید.
             </p>
 
             <input

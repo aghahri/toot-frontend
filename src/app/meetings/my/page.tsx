@@ -57,7 +57,7 @@ export default function MyMeetingsPage() {
 
         <header className="mb-4 rounded-2xl border border-[var(--border-soft)] bg-[var(--card-bg)] px-4 py-3 ring-1 ring-[var(--border-soft)]">
           <h1 className="text-base font-black text-[var(--text-primary)]">جلسات من</h1>
-          <p className="mt-1 text-xs text-[var(--text-secondary)]">جلساتی که توسط شما ایجاد شده‌اند</p>
+          <p className="mt-1 text-xs text-[var(--text-secondary)]">جلسه‌های ساخته‌شده توسط شما</p>
         </header>
 
         {error ? (
@@ -93,9 +93,9 @@ export default function MyMeetingsPage() {
           </ul>
         ) : (
           <div className="rounded-2xl border border-dashed border-[var(--border-soft)] bg-[var(--surface-soft)] px-4 py-8 text-center">
-            <p className="text-sm font-bold text-[var(--text-primary)]">هنوز جلسه‌ای ندارید.</p>
+            <p className="text-sm font-bold text-[var(--text-primary)]">هنوز جلسه‌ای ندارید</p>
             <Link href="/meetings/new" className="mt-3 inline-block text-xs font-extrabold text-violet-700 dark:text-violet-300">
-              ایجاد جلسه جدید
+              شروع جلسه جدید
             </Link>
           </div>
         )}

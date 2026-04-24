@@ -269,7 +269,7 @@ export default function EducationCourseDetailPage() {
                         href={`/education/${course.id}/sessions`}
                         className="inline-block rounded-xl bg-violet-700 px-3 py-2 text-xs font-extrabold text-white"
                       >
-                        مدیریت جلسات دوره
+                        جلسات دوره
                       </Link>
                       <Link
                         href={`/education/${course.id}/edit`}
@@ -307,7 +307,7 @@ export default function EducationCourseDetailPage() {
                           href={`/education/${course.id}/sessions`}
                           className="inline-block rounded-xl bg-violet-700 px-3 py-2 text-xs font-extrabold text-white"
                         >
-                          مشاهده جلسات دوره
+                          مشاهده
                         </Link>
                       )}
                       <button
@@ -315,7 +315,7 @@ export default function EducationCourseDetailPage() {
                         onClick={() => void shareCourse()}
                         className="rounded-xl border border-[var(--border-soft)] px-3 py-2 text-xs font-bold text-[var(--text-secondary)]"
                       >
-                        دعوت دوستان
+                        اشتراک‌گذاری
                       </button>
                       <button
                         type="button"
@@ -460,7 +460,7 @@ export default function EducationCourseDetailPage() {
             </section>
 
             <section className="rounded-2xl border border-[var(--border-soft)] bg-[var(--card-bg)] p-4 ring-1 ring-[var(--border-soft)]">
-              <h2 className="text-sm font-extrabold text-[var(--text-primary)]">جلسات آینده</h2>
+              <h2 className="text-sm font-extrabold text-[var(--text-primary)]">جلسات</h2>
               {upcomingSessions.length ? (
                 <ul className="mt-2 space-y-2">
                   {upcomingSessions.slice(0, 4).map((session) => (
@@ -532,7 +532,7 @@ export default function EducationCourseDetailPage() {
                       href={`/education/${course.id}/sessions`}
                       className="block w-full rounded-xl bg-violet-700 px-3 py-2 text-center text-sm font-extrabold text-white"
                     >
-                      مشاهده جلسات دوره
+                      مشاهده
                     </Link>
                   )
                 ) : (

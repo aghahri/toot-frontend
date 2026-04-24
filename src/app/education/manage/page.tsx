@@ -104,7 +104,7 @@ export default function EducationManagePage() {
         <header className="mb-4 rounded-3xl border border-[var(--border-soft)] bg-gradient-to-br from-violet-950/35 via-[var(--card-bg)] to-[var(--card-bg)] p-5 ring-1 ring-[var(--border-soft)]">
           <h1 className="text-2xl font-black text-[var(--text-primary)]">مدیریت آموزش</h1>
           <p className="mt-2 text-sm text-[var(--text-secondary)]">
-            مدیریت دوره‌ها، وضعیت انتشار و برنامه‌ریزی جلسات آموزشی
+            دوره‌ها و جلسه‌های شما در یک نگاه
           </p>
           <div className="mt-4 flex flex-wrap gap-2">
             <Link
@@ -117,13 +117,13 @@ export default function EducationManagePage() {
               href="/spaces/education"
               className="rounded-xl border border-[var(--border-soft)] px-3 py-2 text-xs font-bold text-[var(--text-secondary)]"
             >
-              بازگشت به فضای آموزش
+              بازگشت
             </Link>
             <Link
               href="/education/manage"
               className="rounded-xl border border-[var(--border-soft)] px-3 py-2 text-xs font-bold text-[var(--text-secondary)]"
             >
-              دوره‌های من
+              مشاهده
             </Link>
           </div>
         </header>
@@ -207,13 +207,13 @@ export default function EducationManagePage() {
                   ) : null}
                   <div className="mt-2 flex flex-wrap gap-2 text-[11px] text-[var(--text-secondary)]">
                     <span className="rounded-lg border border-[var(--border-soft)] px-2 py-1">
-                      وضعیت: {r.published ? 'منتشرشده' : 'پیش‌نویس'}
+                      {r.published ? 'منتشرشده' : 'پیش‌نویس'}
                     </span>
                     <span className="rounded-lg border border-[var(--border-soft)] px-2 py-1">
-                      هنرجو: {r.enrolledCount}
+                      {r.enrolledCount} هنرجو
                     </span>
                     <span className="rounded-lg border border-[var(--border-soft)] px-2 py-1">
-                      جلسه پیش‌رو: {r.upcomingMeetingsCount}
+                      {r.upcomingMeetingsCount} جلسه پیش‌رو
                     </span>
                   </div>
                   <div className="mt-3 flex flex-wrap gap-2">

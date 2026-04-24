@@ -38,7 +38,7 @@ export default function ProfileIndexPage() {
         {error ? (
           <p className="text-center text-sm font-semibold text-red-600">{error}</p>
         ) : (
-          <Spinner label="در حال بارگذاری پروفایل…" />
+          <Spinner label="در حال بارگذاری…" />
         )}
       </main>
     </AuthGate>
