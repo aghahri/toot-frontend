@@ -3,10 +3,7 @@
  * surfaces. Pure, dependency-free helpers — kept small on purpose so they
  * can be imported anywhere without pulling extra runtime weight.
  *
- * This file is referenced in the Claude Design handoff (see
- * docs/design/handoff/... §8). Only Round 1 consumers land here (digit
- * converter + clock time); the count/price/relative helpers will be added
- * when later rounds start using them.
+ * Referenced in the Claude Design handoff (see docs/design/handoff/... §8).
  */
 
 const FA_DIGITS = '۰۱۲۳۴۵۶۷۸۹';
@@ -27,4 +24,12 @@ export function formatTimeFa(iso: string): string {
   } catch {
     return '';
   }
+}
+
+/** Compact count: <1k → digits, <1M → "۱٫۲ هزار", else → "۳٫۴ میلیون". */
+export function formatCount(n: number): string {
+  if (!Number.isFinite(n) || n < 0) return toFaDigits(0);
+  if (n < 1000) return toFaDigits(n);
+  if (n < 1_000_000) return `${toFaDigits((n / 1000).toFixed(1))} هزار`;
+  return `${toFaDigits((n / 1_000_000).toFixed(1))} میلیون`;
 }

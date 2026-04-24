@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { AuthGate } from '@/components/AuthGate';
 import { apiFetch } from '@/lib/api';
+import { formatCount } from '@/lib/format';
 import { VITRIN_CATALOG } from '@/config/vitrinCatalog';
 
 function VitrinGlyph({ id }: { id: string }) {
@@ -79,17 +80,32 @@ export default function VitrinPage() {
   return (
     <AuthGate>
       <main className="mx-auto w-full max-w-md px-4 pb-6 pt-4" dir="rtl">
-        {loading ? <p className="mb-4 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-500">در حال بارگذاری ویترین…</p> : null}
-        {error ? <p className="mb-4 rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p> : null}
+        {error ? (
+          <p
+            className="mb-4 rounded-xl border border-[var(--line)] bg-[var(--surface)] px-3 py-2 text-sm font-semibold text-[var(--accent-hover)]"
+            role="alert"
+          >
+            {error}
+          </p>
+        ) : null}
 
         <section className="mb-6">
           <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-sm font-extrabold text-slate-900">سرویس‌های اصلی ویترین</h2>
-            <span className="rounded-full bg-indigo-50 px-2 py-1 text-[11px] font-bold text-indigo-700">
-              {coreLinks.length} مورد
+            <h2 className="text-sm font-extrabold text-[var(--ink)]">سرویس‌های اصلی ویترین</h2>
+            <span className="rounded-full bg-[var(--surface-2)] px-2 py-0.5 text-[11px] font-bold text-[var(--ink-3)]">
+              {formatCount(coreLinks.length)} مورد
             </span>
           </div>
-          {coreLinks.length === 0 ? (
+          {loading && coreLinks.length === 0 ? (
+            <ul className="grid grid-cols-2 gap-3" aria-hidden>
+              {[0, 1, 2, 3].map((i) => (
+                <li
+                  key={i}
+                  className="min-h-[8.5rem] animate-pulse rounded-2xl border border-[var(--line)] bg-[var(--surface-2)]"
+                />
+              ))}
+            </ul>
+          ) : coreLinks.length === 0 ? (
             <p className="rounded-2xl border border-[var(--line)] bg-[var(--surface)] px-4 py-3 text-xs text-[var(--ink-3)]">
               لینک‌های اصلی ویترین هنوز تنظیم نشده‌اند.
             </p>
@@ -129,9 +145,9 @@ export default function VitrinPage() {
 
         <section className="mb-6">
           <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-sm font-extrabold text-slate-900">اطلاعیه‌های زنده</h2>
-            <span className="rounded-full bg-sky-50 px-2 py-1 text-[11px] font-bold text-sky-700">
-              {publishedAnnouncements.length} مورد
+            <h2 className="text-sm font-extrabold text-[var(--ink)]">اطلاعیه‌های زنده</h2>
+            <span className="rounded-full bg-[var(--surface-2)] px-2 py-0.5 text-[11px] font-bold text-[var(--ink-3)]">
+              {formatCount(publishedAnnouncements.length)} مورد
             </span>
           </div>
           {publishedAnnouncements.length === 0 ? (
@@ -158,9 +174,9 @@ export default function VitrinPage() {
 
         <section className="mb-6">
           <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-sm font-extrabold text-slate-900">فضاهای برجسته</h2>
-            <span className="rounded-full bg-violet-50 px-2 py-1 text-[11px] font-bold text-violet-700">
-              {featuredNetworks.length + featuredGroups.length + featuredChannels.length} مورد
+            <h2 className="text-sm font-extrabold text-[var(--ink)]">فضاهای برجسته</h2>
+            <span className="rounded-full bg-[var(--surface-2)] px-2 py-0.5 text-[11px] font-bold text-[var(--ink-3)]">
+              {formatCount(featuredNetworks.length + featuredGroups.length + featuredChannels.length)} مورد
             </span>
           </div>
           <div className="space-y-3">
