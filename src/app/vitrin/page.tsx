@@ -78,9 +78,7 @@ export default function VitrinPage() {
 
   return (
     <AuthGate>
-      <main className="mx-auto w-full max-w-md px-4 pb-6 pt-2" dir="rtl">
-        <p className="mb-4 text-sm leading-relaxed text-slate-600">ویترین خدمات و پیشنهادها</p>
-
+      <main className="mx-auto w-full max-w-md px-4 pb-6 pt-4" dir="rtl">
         {loading ? <p className="mb-4 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-500">در حال بارگذاری ویترین…</p> : null}
         {error ? <p className="mb-4 rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p> : null}
 
