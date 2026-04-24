@@ -718,12 +718,12 @@ function HomePageInner() {
             </div>
           </section>
           {postTargetMissed ? (
-            <div className="mx-3 mb-3 rounded-2xl border border-amber-200/90 bg-amber-50/95 px-4 py-3 text-sm text-amber-950">
+            <div className="mx-3 mb-3 rounded-2xl border border-[var(--line)] bg-[var(--accent-soft)] px-4 py-3 text-sm text-[var(--ink)]">
               <p className="font-bold">پست پیدا نشد یا دیگر در دسترس نیست.</p>
               <button
                 type="button"
                 onClick={() => setPostTargetMissed(false)}
-                className="mt-2 text-xs font-bold text-amber-900 underline"
+                className="mt-2 text-xs font-bold text-[var(--accent-hover)] underline"
               >
                 بستن
               </button>
@@ -732,21 +732,21 @@ function HomePageInner() {
           {tab === 'for-you' ? (
             <>
               {suggestedFollows.length && !suggestedHidden ? (
-                <section className="mx-2 mt-2 rounded-xl border border-slate-200 bg-white px-2.5 py-2">
+                <section className="mx-2 mt-2 rounded-xl border border-[var(--line)] bg-[var(--surface)] px-2.5 py-2">
                   <div className="flex items-center justify-between gap-2">
-                    <p className="truncate text-[12px] font-extrabold text-slate-800">پیشنهاد دنبال‌کردن</p>
+                    <p className="truncate text-[12px] font-extrabold text-[var(--ink)]">پیشنهاد دنبال‌کردن</p>
                     <div className="flex items-center gap-1.5">
                       <button
                         type="button"
                         onClick={() => setSuggestedOpen((v) => !v)}
-                        className="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-bold text-slate-700 hover:bg-slate-200"
+                        className="rounded-full bg-[var(--surface-2)] px-2.5 py-1 text-[10px] font-bold text-[var(--ink-2)] hover:bg-[var(--surface-strong)]"
                       >
                         {suggestedOpen ? 'بستن' : 'نمایش'}
                       </button>
                       <button
                         type="button"
                         onClick={() => setSuggestedHidden(true)}
-                        className="rounded-full px-2 py-1 text-[10px] font-bold text-slate-500 hover:bg-slate-100"
+                        className="rounded-full px-2 py-1 text-[10px] font-bold text-[var(--ink-3)] hover:bg-[var(--surface-2)]"
                       >
                         بستن
                       </button>
@@ -757,11 +757,11 @@ function HomePageInner() {
                       {suggestedFollows.slice(0, 6).map((u) => (
                         <li
                           key={u.id}
-                          className="flex min-w-[12.25rem] shrink-0 items-center justify-between gap-2 rounded-xl border border-slate-200 bg-slate-50 px-2 py-2"
+                          className="flex min-w-[12.25rem] shrink-0 items-center justify-between gap-2 rounded-xl border border-[var(--line)] bg-[var(--surface-2)] px-2 py-2"
                         >
                           <Link href={`/profile/${u.id}`} className="min-w-0">
-                            <p className="truncate text-[12px] font-bold text-slate-900">{u.name}</p>
-                            <p className="truncate text-[10px] text-slate-500" dir="ltr">
+                            <p className="truncate text-[12px] font-bold text-[var(--ink)]">{u.name}</p>
+                            <p className="truncate text-[10px] text-[var(--ink-3)]" dir="ltr">
                               @{u.username}
                             </p>
                           </Link>
@@ -769,7 +769,7 @@ function HomePageInner() {
                             type="button"
                             onClick={() => void followSuggestedUser(u.id)}
                             disabled={followingBusyUserId === u.id}
-                            className="rounded-full bg-slate-900 px-2.5 py-1 text-[10px] font-bold text-white disabled:opacity-60"
+                            className="rounded-full bg-[var(--accent)] px-2.5 py-1 text-[10px] font-bold text-[var(--accent-contrast)] disabled:opacity-60"
                           >
                             دنبال کن
                           </button>
@@ -863,14 +863,14 @@ function HomePageInner() {
                     icon="◎"
                   />
                   {suggestedFollows.length ? (
-                    <section className="mx-2 mt-2 rounded-2xl border border-slate-200 bg-white p-3">
-                      <h3 className="text-sm font-extrabold text-slate-900">کاربران پیشنهادی</h3>
+                    <section className="mx-2 mt-2 rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-3">
+                      <h3 className="text-sm font-extrabold text-[var(--ink)]">کاربران پیشنهادی</h3>
                       <ul className="mt-2 space-y-2">
                         {suggestedFollows.slice(0, 5).map((u) => (
                           <li key={u.id} className="flex items-center justify-between gap-2">
                             <Link href={`/profile/${u.id}`} className="min-w-0">
-                              <p className="truncate text-sm font-bold text-slate-900">{u.name}</p>
-                              <p className="truncate text-[11px] text-slate-500" dir="ltr">
+                              <p className="truncate text-sm font-bold text-[var(--ink)]">{u.name}</p>
+                              <p className="truncate text-[11px] text-[var(--ink-3)]" dir="ltr">
                                 @{u.username}
                               </p>
                             </Link>
@@ -878,7 +878,7 @@ function HomePageInner() {
                               type="button"
                               onClick={() => void followSuggestedUser(u.id)}
                               disabled={followingBusyUserId === u.id}
-                              className="rounded-full bg-slate-900 px-3 py-1 text-[11px] font-bold text-white disabled:opacity-60"
+                              className="rounded-full bg-[var(--accent)] px-3 py-1 text-[11px] font-bold text-[var(--accent-contrast)] disabled:opacity-60"
                             >
                               دنبال کردن
                             </button>
