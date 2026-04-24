@@ -255,17 +255,15 @@ function ChannelDetailInner() {
             {id ? (
               <Link
                 href={`/channels/${encodeURIComponent(id)}/info`}
-                className="shrink-0 rounded-full px-2 py-1 text-[10px] font-extrabold text-[var(--accent-hover)] hover:underline"
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-slate-600 transition hover:bg-[var(--surface-soft)]"
+                aria-label="اطلاعات کانال"
+                title="اطلاعات کانال"
               >
-                اطلاعات
+                <span className="text-base" aria-hidden>
+                  ⓘ
+                </span>
               </Link>
             ) : null}
-            <Link
-              href="/spaces"
-              className="shrink-0 rounded-full px-1.5 py-1 text-[10px] font-extrabold text-[var(--accent-hover)] hover:underline"
-            >
-              فضاها
-            </Link>
           </CommunityWorkspaceHeaderBar>
 
           {error ? (
@@ -438,9 +436,13 @@ function ChannelDetailInner() {
             {id ? (
               <Link
                 href={`/channels/${encodeURIComponent(id)}/info`}
-                className="shrink-0 rounded-full px-2 py-1 text-[10px] font-extrabold text-[var(--accent-hover)] hover:underline"
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-slate-600 transition hover:bg-[var(--surface-soft)]"
+                aria-label="اطلاعات کانال"
+                title="اطلاعات کانال"
               >
-                اطلاعات
+                <span className="text-base" aria-hidden>
+                  ⓘ
+                </span>
               </Link>
             ) : null}
           </CommunityWorkspaceHeaderBar>
