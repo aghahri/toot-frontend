@@ -23,7 +23,6 @@ import {
   CommunityAvatarInitial,
   CommunityBackButton,
   CommunityReadOnlyComposerBar,
-  CommunityTimelineFrame,
   CommunityWorkspaceHeaderBar,
   CommunityWorkspaceShell,
 } from '@/components/community/CommunityWorkspace';
@@ -308,67 +307,63 @@ function ChannelDetailInner() {
                 </div>
               ) : null}
 
-              <CommunityTimelineFrame
-                title="انتشارات"
-                subtitle="پست‌های کانال"
-                className="mt-3 border-0 bg-transparent p-0 shadow-none"
-              >
+              <section className="mt-3" aria-label="پست‌های کانال">
                 {loadingMsgs ? (
-                  <p className="theme-text-secondary mt-3 px-1 text-xs">بارگذاری فید…</p>
+                  <p className="theme-text-secondary px-1 text-xs">بارگذاری فید…</p>
                 ) : messages.length === 0 ? (
-                  <div className="mt-3 rounded-2xl border border-dashed border-[var(--border-soft)] bg-[var(--surface-soft)]/90 px-4 py-8 text-center">
-                    <p className="text-[15px] font-black text-[var(--text-primary)]">{emptyCopy.title}</p>
-                    <p className="theme-text-secondary mt-2 text-[13px] leading-relaxed">{emptyCopy.subtitle}</p>
-                    {!canShowComposer ? (
-                      <p className="theme-text-secondary mt-4 text-[12px] font-medium">{emptyCopy.cta}</p>
+                  <div className="px-6 py-14 text-center" dir="rtl">
+                    <p className="text-base font-bold text-[var(--text-primary)]">{emptyCopy.title}</p>
+                    <p className="mx-auto mt-2 max-w-[18rem] text-sm leading-relaxed text-[var(--text-secondary)]">
+                      {emptyCopy.subtitle}
+                    </p>
+                    {!canShowComposer && emptyCopy.cta ? (
+                      <p className="mt-4 text-[12px] font-medium text-[var(--text-secondary)]">{emptyCopy.cta}</p>
                     ) : null}
                     {canShowComposer && emptyCopy.cta ? (
                       <p className="mt-4 text-[12px] font-black text-[var(--accent-hover)]">{emptyCopy.cta}</p>
                     ) : null}
                     {!canShowComposer && channel.postingMode !== 'ALL_MEMBERS' ? (
-                      <p className="theme-text-secondary mt-3 text-[11px]">
+                      <p className="mt-3 text-[11px] text-[var(--text-secondary)]">
                         فقط نقش‌های مجاز می‌توانند منتشر کنند؛ شما مخاطب فید هستید.
                       </p>
                     ) : null}
                   </div>
                 ) : (
-                  <div className="mt-3 pr-0.5">
-                    <ul className="space-y-4">
-                      {timelineMessages.map((m) => (
-                        <li key={m.id} id={`channel-msg-${m.id}`}>
-                          <ChannelPublicationCard
-                            message={m}
-                            variant="timeline"
-                            broadcastLabel="انتشار کانال"
-                            pinActionLabel={
-                              canManagePins ? (pinnedMessage?.id === m.id ? 'برداشتن سنجاق' : 'سنجاق کردن') : undefined
-                            }
-                            pinActionDisabled={pinBusyId === m.id}
-                            onPinAction={
-                              canManagePins
-                                ? (msg) => {
-                                    const token = getAccessToken();
-                                    if (!token || !id) return;
-                                    const targetId = pinnedMessage?.id === msg.id ? null : msg.id;
-                                    setPinBusyId(msg.id);
-                                    void apiFetch<{ message: ChannelMsg | null }>(`channels/${encodeURIComponent(id)}/pin`, {
-                                      method: 'POST',
-                                      token,
-                                      headers: { 'Content-Type': 'application/json' },
-                                      body: JSON.stringify({ messageId: targetId }),
-                                    })
-                                      .then((res) => setPinnedMessage(res?.message ?? null))
-                                      .finally(() => setPinBusyId(null));
-                                  }
-                                : undefined
-                            }
-                          />
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
+                  <ul className="space-y-2 pr-0.5">
+                    {timelineMessages.map((m) => (
+                      <li key={m.id} id={`channel-msg-${m.id}`} className="flex justify-start">
+                        <ChannelPublicationCard
+                          message={m}
+                          variant="timeline"
+                          broadcastLabel="انتشار کانال"
+                          pinActionLabel={
+                            canManagePins ? (pinnedMessage?.id === m.id ? 'برداشتن سنجاق' : 'سنجاق کردن') : undefined
+                          }
+                          pinActionDisabled={pinBusyId === m.id}
+                          onPinAction={
+                            canManagePins
+                              ? (msg) => {
+                                  const token = getAccessToken();
+                                  if (!token || !id) return;
+                                  const targetId = pinnedMessage?.id === msg.id ? null : msg.id;
+                                  setPinBusyId(msg.id);
+                                  void apiFetch<{ message: ChannelMsg | null }>(`channels/${encodeURIComponent(id)}/pin`, {
+                                    method: 'POST',
+                                    token,
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ messageId: targetId }),
+                                  })
+                                    .then((res) => setPinnedMessage(res?.message ?? null))
+                                    .finally(() => setPinBusyId(null));
+                                }
+                              : undefined
+                          }
+                        />
+                      </li>
+                    ))}
+                  </ul>
                 )}
-              </CommunityTimelineFrame>
+              </section>
             </div>
           </div>
 
