@@ -605,7 +605,7 @@ export default function DirectPage() {
                 title="جدید"
                 aria-expanded={plusMenuOpen}
                 aria-haspopup="menu"
-                className="flex h-11 w-11 items-center justify-center rounded-full bg-emerald-500 text-white shadow-md shadow-emerald-600/25 transition hover:bg-emerald-600 active:scale-95"
+                className="flex h-11 w-11 items-center justify-center rounded-full bg-[var(--accent)] text-[var(--accent-contrast)] shadow-md shadow-black/20 transition hover:bg-[var(--accent-hover)] active:scale-95"
               >
                 <IconPlus className="h-6 w-6 stroke-[2.5]" />
               </button>
