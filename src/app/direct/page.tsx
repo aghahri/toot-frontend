@@ -675,14 +675,14 @@ export default function DirectPage() {
               </p>
             </div>
           ) : mainItems.length === 0 && archivedItems.length === 0 ? (
-            <div className="px-6 py-10 text-center text-sm text-stone-500">نتیجه‌ای یافت نشد.</div>
+            <div className="px-6 py-10 text-center text-sm text-[var(--ink-3)]">نتیجه‌ای یافت نشد.</div>
           ) : (
-            <div className="divide-y divide-stone-100">
+            <div className="divide-y divide-[var(--line)]">
               {renderConversationRows(mainItems, rowCtx)}
               {archivedItems.length > 0 ? (
                 <>
                   <div
-                    className="bg-stone-100/90 px-4 py-2 text-[11px] font-bold uppercase tracking-wide text-stone-500"
+                    className="bg-[var(--surface-2)] px-4 py-2 text-[11px] font-bold uppercase tracking-wide text-[var(--ink-3)]"
                     dir="rtl"
                   >
                     بایگانی‌شده

@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { formatTimeFa, toFaDigits } from '@/lib/format';
 
 function initials(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);
@@ -9,15 +10,7 @@ function initials(name: string): string {
   return (parts[0].slice(0, 1) + parts[parts.length - 1].slice(0, 1)).toUpperCase();
 }
 
-function formatShortTime(iso: string): string {
-  try {
-    const d = new Date(iso);
-    if (Number.isNaN(d.getTime())) return '';
-    return d.toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit' });
-  } catch {
-    return '';
-  }
-}
+const formatShortTime = formatTimeFa;
 
 /** Optional delivery fields if API includes them on message objects. */
 function OutgoingStatus({
@@ -32,20 +25,20 @@ function OutgoingStatus({
   if (!isOutgoing) return null;
   if (seenAt) {
     return (
-      <span className="text-sky-500" aria-label="خوانده شد">
+      <span className="text-[var(--accent)]" aria-label="خوانده شد">
         ✓✓
       </span>
     );
   }
   if (deliveredAt) {
     return (
-      <span className="text-slate-400" aria-label="تحویل داده شد">
+      <span className="text-[var(--ink-4)]" aria-label="تحویل داده شد">
         ✓✓
       </span>
     );
   }
   return (
-    <span className="text-slate-400" aria-label="ارسال شد">
+    <span className="text-[var(--ink-4)]" aria-label="ارسال شد">
       ✓
     </span>
   );
@@ -128,34 +121,34 @@ export function DirectConversationRow({
 
   const previewClass =
     previewVariant === 'typing'
-      ? 'text-emerald-600'
+      ? 'text-[var(--success)]'
       : previewVariant === 'draft'
-        ? 'text-rose-600'
+        ? 'text-[var(--danger)]'
         : unreadEmphasis
-          ? 'font-semibold text-stone-800'
-          : 'text-stone-600';
+          ? 'font-semibold text-[var(--ink-2)]'
+          : 'text-[var(--ink-3)]';
 
-  const titleClass = unreadEmphasis ? 'font-black text-stone-950' : 'font-bold text-stone-900';
+  const titleClass = unreadEmphasis ? 'font-bold text-[var(--ink)]' : 'font-semibold text-[var(--ink)]';
 
   return (
     <div
-      className={`relative flex transition-colors active:bg-stone-50 min-[480px]:hover:bg-stone-50/80 ${
-        unreadEmphasis ? 'bg-emerald-50/40 ring-1 ring-inset ring-emerald-100/80' : 'bg-white'
+      className={`relative flex transition-colors active:bg-[var(--surface-2)] min-[480px]:hover:bg-[var(--surface-2)]/70 ${
+        unreadEmphasis ? 'bg-[var(--accent-soft)]/35' : 'bg-[var(--surface)]'
       }`}
     >
-      <Link href={href} className="min-w-0 flex-1 px-4 py-3.5 min-[480px]:py-4">
-        <div className="flex items-start gap-3.5">
-          <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-full bg-stone-200 ring-1 ring-stone-100">
+      <Link href={href} className="min-w-0 flex-1 px-4 py-3">
+        <div className="flex items-start gap-3">
+          <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-full bg-[var(--surface-2)] ring-1 ring-[var(--line)]">
             {peerAvatarUrl ? (
               <img src={peerAvatarUrl} alt="" className="h-full w-full object-cover" />
             ) : (
-              <span className="flex h-full w-full items-center justify-center text-sm font-extrabold text-stone-600">
+              <span className="flex h-full w-full items-center justify-center text-sm font-bold text-[var(--ink-2)]">
                 {initials(label)}
               </span>
             )}
             {peerOnline ? (
               <span
-                className="absolute bottom-0 left-0 z-[1] h-3 w-3 rounded-full border-[2px] border-white bg-emerald-500 shadow-sm"
+                className="absolute bottom-0 left-0 z-[1] h-3 w-3 rounded-full border-[2px] border-[var(--surface)] bg-[var(--success)] shadow-sm"
                 title="آنلاین"
                 aria-hidden
               />
@@ -163,60 +156,57 @@ export function DirectConversationRow({
           </div>
 
           <div className="min-w-0 flex-1">
-            <div className="flex items-baseline justify-between gap-2">
+            <div className="flex items-center justify-between gap-2">
               <div className="flex min-w-0 flex-1 items-center gap-1">
                 {inboxPinned ? (
-                  <span className="shrink-0 text-[12px] text-amber-600" title="سنجاق‌شده" aria-hidden>
+                  <span className="shrink-0 text-[12px] text-[var(--warning)]" title="سنجاق‌شده" aria-hidden>
                     📌
                   </span>
                 ) : null}
-                <div className={`min-w-0 truncate text-[15px] ${titleClass}`}>{label}</div>
+                <div className={`min-w-0 truncate text-[13px] leading-tight ${titleClass}`}>{label}</div>
                 {nameBadge ? (
                   <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-extrabold ${nameBadge.className}`}>
                     {nameBadge.label}
                   </span>
                 ) : null}
                 {inboxMuted ? (
-                  <span className="shrink-0 text-[12px] text-stone-400" title="بی‌صدا" aria-hidden>
+                  <span className="shrink-0 text-[12px] text-[var(--ink-4)]" title="بی‌صدا" aria-hidden>
                     🔕
                   </span>
                 ) : null}
               </div>
-              <div className="flex shrink-0 items-center gap-1.5">
-                {unread > 0 ? (
-                  <span
-                    className="inline-flex min-h-[1.25rem] min-w-[1.25rem] items-center justify-center rounded-full bg-emerald-500 px-1.5 text-[10px] font-extrabold text-white tabular-nums"
-                    aria-label={`${unread} پیام خوانده‌نشده`}
-                  >
-                    {unread > 99 ? '99+' : unread}
-                  </span>
-                ) : null}
-                {timeLabel ? (
-                  <time
-                    dateTime={previewTimeIso ?? undefined}
-                    className={`text-[11px] tabular-nums ${
-                      unread > 0 ? 'font-bold text-stone-600' : 'font-medium text-stone-400'
-                    }`}
-                  >
-                    {timeLabel}
-                  </time>
-                ) : null}
-              </div>
+              {timeLabel ? (
+                <time
+                  dateTime={previewTimeIso ?? undefined}
+                  className={`shrink-0 text-[11px] tabular-nums ${
+                    unread > 0 ? 'font-bold text-[var(--accent)]' : 'font-medium text-[var(--ink-3)]'
+                  }`}
+                >
+                  {timeLabel}
+                </time>
+              ) : null}
             </div>
-            <div className="mt-0.5 truncate text-[10px] text-stone-400" title={peerSubtitle}>
-              {peerSubtitle}
-            </div>
-            <div className="mt-2 flex items-end justify-between gap-2">
-              <p className={`line-clamp-2 min-h-[2.35rem] flex-1 text-[13px] leading-snug ${previewClass}`}>
+            <div className="mt-1.5 flex items-center justify-between gap-2">
+              <p className={`line-clamp-1 flex-1 text-[12px] leading-snug ${previewClass}`}>
                 {preview}
               </p>
-              <span className="shrink-0 pb-0.5 text-xs">
-                <OutgoingStatus
-                  isOutgoing={outgoing && previewVariant === 'default'}
-                  deliveredAt={lastMessage?.deliveredAt}
-                  seenAt={lastMessage?.seenAt}
-                />
-              </span>
+              <div className="flex shrink-0 items-center gap-1.5">
+                <span className="text-[11px]">
+                  <OutgoingStatus
+                    isOutgoing={outgoing && previewVariant === 'default'}
+                    deliveredAt={lastMessage?.deliveredAt}
+                    seenAt={lastMessage?.seenAt}
+                  />
+                </span>
+                {unread > 0 ? (
+                  <span
+                    className="inline-flex min-h-[1.125rem] min-w-[1.125rem] items-center justify-center rounded-full bg-[var(--accent)] px-1.5 text-[11px] font-bold text-[var(--accent-contrast)] tabular-nums"
+                    aria-label={`${unread} پیام خوانده‌نشده`}
+                  >
+                    {unread > 99 ? toFaDigits('99+') : toFaDigits(unread)}
+                  </span>
+                ) : null}
+              </div>
             </div>
           </div>
         </div>
