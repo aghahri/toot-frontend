@@ -243,17 +243,31 @@ export default function MeetingRoomPage() {
       setJoin(tok);
       setStatusText('در حال دریافت دسترسی میکروفون/دوربین…');
 
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
+      let stream: MediaStream;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
+      } catch (mediaError) {
+        // Safe fallback: keep join path alive with audio-only when camera capture fails.
+        stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+        setCamOn(false);
+        setStatusText('ورود با صدا انجام شد؛ دوربین در دسترس نیست');
+        logRtc('media_fallback_audio_only', {
+          reason: mediaError instanceof Error ? mediaError.name : 'unknown',
+        });
+      }
       localStreamRef.current = stream;
       if (localVideoRef.current) localVideoRef.current.srcObject = stream;
       stream.getAudioTracks().forEach((t) => {
         t.enabled = true;
       });
-      stream.getVideoTracks().forEach((t) => {
+      const videoTracks = stream.getVideoTracks();
+      videoTracks.forEach((t) => {
         t.enabled = true;
       });
       setMicOn(true);
-      setCamOn(true);
+      if (videoTracks.length > 0) {
+        setCamOn(true);
+      }
       setMediaReady(true);
       setStatusText('اتصال به اتاق…');
     } catch (e) {
