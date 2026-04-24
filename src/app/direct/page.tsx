@@ -669,10 +669,10 @@ export default function DirectPage() {
               </button>
             </div>
           ) : items.length === 0 ? (
-            <div className="px-6 py-14 text-center">
-              <p className="text-base font-bold text-stone-900">هنوز گفتگویی ندارید</p>
-              <p className="mx-auto mt-2 max-w-[17rem] text-sm leading-relaxed text-stone-500">
-                برای شروع روی دکمه <span className="font-bold text-emerald-600">+</span> بزنید.
+            <div className="px-6 py-14 text-center" dir="rtl">
+              <p className="text-base font-bold text-[var(--text-primary)]">هنوز گفتگویی ندارید</p>
+              <p className="mx-auto mt-2 max-w-[18rem] text-sm leading-relaxed text-[var(--text-secondary)]">
+                برای شروع روی دکمه <span className="font-bold text-[var(--accent-hover)]">+</span> بزنید.
               </p>
             </div>
           ) : mainItems.length === 0 && archivedItems.length === 0 ? (

@@ -299,11 +299,13 @@ export default function GroupsInboxPage() {
             <div className="px-4 py-10 text-center text-sm font-semibold text-red-800">{error}</div>
           ) : items.length === 0 ? (
             <div className="px-6 py-14 text-center" dir="rtl">
-              <p className="text-base font-bold text-stone-900">هنوز عضو هیچ گروهی نیستید</p>
-              <p className="mx-auto mt-2 max-w-[18rem] text-sm text-stone-500">از فضاها یک گروه انتخاب کنید.</p>
+              <p className="text-base font-bold text-[var(--text-primary)]">هنوز عضو هیچ گروهی نیستید</p>
+              <p className="mx-auto mt-2 max-w-[18rem] text-sm leading-relaxed text-[var(--text-secondary)]">
+                از فضاها یک گروه انتخاب کنید.
+              </p>
               <Link
                 href="/spaces"
-                className="mt-4 inline-block rounded-full bg-sky-600 px-4 py-2 text-sm font-bold text-white"
+                className="mt-4 inline-block rounded-full bg-[var(--accent)] px-4 py-2 text-sm font-bold text-[var(--accent-contrast)] transition hover:bg-[var(--accent-hover)]"
               >
                 مشاهده فضاها
               </Link>
