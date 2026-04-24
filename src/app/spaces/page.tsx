@@ -361,30 +361,77 @@ export default function SpacesOverviewPage() {
           <div className="flex flex-col gap-10">
             <section aria-label="فضاهای منتخب">
               {hasMySpaces ? (
-                <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                  {dashboardSpaces.map((k) => (
+                <div className="space-y-3">
+                  {dashboardSpaces.includes('neighborhood') ? (
                     <Link
-                      key={k}
-                      href={k === 'business' ? '/spaces/business' : `/spaces/${DETAIL_ROUTE[k]}`}
-                      className="flex flex-col items-center rounded-3xl border border-[var(--border-soft)] bg-[var(--card-bg)] px-3 py-5 text-center shadow-sm ring-1 ring-[var(--border-soft)] transition hover:shadow-md active:scale-[0.98]"
+                      href={`/spaces/${DETAIL_ROUTE.neighborhood}`}
+                      className="relative block overflow-hidden rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-4 transition hover:bg-[var(--surface-2)]/60 active:scale-[0.99]"
+                      aria-label="ورود به فضای محله"
                     >
-                      <span className="text-4xl leading-none" aria-hidden>
-                        {USER_SPACE_META[k].emoji}
-                      </span>
-                      <p className="mt-3 text-sm font-black text-[var(--text-primary)]">{USER_SPACE_META[k].labelFa}</p>
-                      <p className="mt-2 text-[10px] font-bold text-[var(--accent-hover)]">ورود</p>
+                      <span
+                        className="pointer-events-none absolute inset-y-0 start-0 w-1.5 bg-[var(--accent)]"
+                        aria-hidden
+                      />
+                      <div className="flex items-center gap-4 ps-3">
+                        <span
+                          className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-[var(--accent-soft)] text-3xl leading-none"
+                          aria-hidden
+                        >
+                          {USER_SPACE_META.neighborhood.emoji}
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-[11px] font-bold text-[var(--accent-hover)]">فضای ثابت تو</p>
+                          <p className="mt-0.5 text-lg font-black text-[var(--ink)]">
+                            {USER_SPACE_META.neighborhood.labelFa}
+                          </p>
+                          <p className="mt-1 line-clamp-1 text-xs text-[var(--ink-3)]">
+                            {EXPLORE_ONE_LINE.neighborhood}
+                          </p>
+                        </div>
+                        <span className="shrink-0 rounded-full bg-[var(--accent)] px-4 py-1.5 text-[11px] font-extrabold text-[var(--accent-contrast)]">
+                          ورود
+                        </span>
+                      </div>
                     </Link>
-                  ))}
+                  ) : null}
+                  {dashboardSpaces.filter((k) => k !== 'neighborhood').length > 0 ? (
+                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                      {dashboardSpaces
+                        .filter((k) => k !== 'neighborhood')
+                        .map((k) => (
+                          <Link
+                            key={k}
+                            href={k === 'business' ? '/spaces/business' : `/spaces/${DETAIL_ROUTE[k]}`}
+                            className="flex flex-col items-center rounded-2xl border border-[var(--line)] bg-[var(--surface)] px-3 py-4 text-center transition hover:bg-[var(--surface-2)]/60 active:scale-[0.98]"
+                          >
+                            <span className="text-3xl leading-none" aria-hidden>
+                              {USER_SPACE_META[k].emoji}
+                            </span>
+                            <p className="mt-2.5 text-[13px] font-extrabold text-[var(--ink)]">
+                              {USER_SPACE_META[k].labelFa}
+                            </p>
+                            <p className="mt-1 text-[10px] font-bold text-[var(--accent-hover)]">ورود</p>
+                          </Link>
+                        ))}
+                    </div>
+                  ) : null}
                 </div>
               ) : (
-                <div className="rounded-3xl border border-[var(--border-soft)] bg-[var(--card-bg)] px-4 py-10 text-center shadow-sm">
-                  <p className="text-sm font-extrabold text-[var(--text-primary)]">فضایی انتخاب نشده</p>
+                <div className="mx-auto flex max-w-xs flex-col items-center gap-3 rounded-2xl border border-[var(--line)] bg-[var(--surface)] px-4 py-12 text-center">
+                  <span
+                    className="flex h-16 w-16 items-center justify-center rounded-2xl bg-[var(--surface-2)] text-3xl"
+                    aria-hidden
+                  >
+                    🏘
+                  </span>
+                  <p className="text-sm font-extrabold text-[var(--ink)]">هنوز عضو فضایی نیستی</p>
+                  <p className="text-balance text-xs text-[var(--ink-3)]">چند فضا انتخاب کن تا اجتماع‌های نزدیک به سلیقه‌ات اینجا جمع شوند.</p>
                   <button
                     type="button"
                     onClick={() => setEditOpen(true)}
-                    className="mt-4 rounded-full bg-[var(--accent)] px-6 py-2.5 text-xs font-extrabold text-[var(--accent-contrast)] hover:bg-[var(--accent-hover)]"
+                    className="mt-1 rounded-full bg-[var(--accent)] px-5 py-2.5 text-xs font-extrabold text-[var(--accent-contrast)] hover:bg-[var(--accent-hover)]"
                   >
-                    انتخاب فضاها
+                    کشف فضاها
                   </button>
                 </div>
               )}
