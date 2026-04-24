@@ -343,16 +343,49 @@ export default function SpacesOverviewPage() {
         </div>
 
         {loading ? (
-          <div className="space-y-4" aria-busy>
-            <div className="h-24 animate-pulse rounded-3xl bg-[var(--surface-strong)]" />
-            <div className="h-32 animate-pulse rounded-3xl bg-[var(--surface-strong)]" />
+          <div className="space-y-6" aria-busy>
+            <div className="space-y-3">
+              <div className="h-[5.25rem] animate-pulse rounded-2xl border border-[var(--line)] bg-[var(--surface-2)]" />
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                {[0, 1, 2].map((i) => (
+                  <div
+                    key={i}
+                    className="h-[6.5rem] animate-pulse rounded-2xl border border-[var(--line)] bg-[var(--surface-2)]"
+                  />
+                ))}
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              {[0, 1, 2, 3].map((i) => (
+                <div
+                  key={i}
+                  className="h-[8.5rem] animate-pulse rounded-2xl border border-[var(--line)] bg-[var(--surface-2)]"
+                />
+              ))}
+            </div>
+            <ul className="space-y-2">
+              {[0, 1, 2].map((i) => (
+                <li
+                  key={i}
+                  className="h-14 animate-pulse rounded-2xl border border-[var(--line)] bg-[var(--surface-2)]"
+                />
+              ))}
+            </ul>
           </div>
         ) : error && !hasMySpaces ? (
-          <p className="text-sm font-semibold text-red-600">{error}</p>
+          <p
+            className="rounded-xl border border-[var(--line)] bg-[var(--surface)] px-3 py-2 text-sm font-semibold text-[var(--accent-hover)]"
+            role="alert"
+          >
+            {error}
+          </p>
         ) : null}
 
         {!loading && error && hasMySpaces ? (
-          <p className="mb-4 rounded-2xl border border-red-100 bg-red-50/80 px-3 py-2 text-center text-xs font-semibold text-red-700">
+          <p
+            className="mb-4 rounded-xl border border-[var(--line)] bg-[var(--surface)] px-3 py-2 text-center text-xs font-semibold text-[var(--accent-hover)]"
+            role="alert"
+          >
             {error}
           </p>
         ) : null}
