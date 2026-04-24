@@ -251,13 +251,9 @@ export default function GroupsInboxPage() {
     <AuthGate>
       <main className="theme-page-bg theme-text-primary mx-auto min-h-[60vh] w-full max-w-md pb-2">
         <div
-          className="theme-panel-bg theme-border-soft sticky top-0 z-10 flex items-center justify-between gap-3 border-b px-4 py-2.5 backdrop-blur-sm"
+          className="theme-panel-bg theme-border-soft sticky top-0 z-10 flex items-center justify-end gap-3 border-b px-4 py-2.5 backdrop-blur-sm"
           dir="rtl"
         >
-          <div>
-            <p className="text-sm font-semibold text-stone-700">گروه‌ها</p>
-            <p className="text-[10px] text-stone-500">گروه‌های چت و اجتماعی</p>
-          </div>
           <div className="flex shrink-0 items-center gap-1">
             <button
               type="button"
