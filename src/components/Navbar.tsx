@@ -15,7 +15,9 @@ export function Navbar() {
   const [tokenPresent, setTokenPresent] = useState(false);
   const [me, setMe] = useState<MeBrief | null>(null);
 
-  const onHome = pathname === '/home';
+  // pathname retained for future path-sensitive UI; search and notifications
+  // are always surfaced when the user is signed in.
+  void pathname;
 
   useEffect(() => {
     const sync = () => setTokenPresent(!!getAccessToken());
@@ -72,32 +74,28 @@ export function Navbar() {
 
         {tokenPresent ? (
           <div className="flex min-w-0 items-center gap-1 sm:gap-1.5">
-            {!onHome ? (
-              <>
-                <Link
-                  href="/search"
-                  className="theme-text-secondary flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition hover:bg-[var(--surface-soft)]"
-                  aria-label="جستجو"
-                >
-                  <svg
-                    className="h-[18px] w-[18px]"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    aria-hidden
-                  >
-                    <circle cx="11" cy="11" r="7" />
-                    <path d="M20 20l-3-3" strokeLinecap="round" />
-                  </svg>
-                </Link>
-                <NotificationsNavLink
-                  label="اعلان‌ها"
-                  buttonClassName="theme-text-secondary flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition hover:bg-[var(--surface-soft)]"
-                  iconClassName="h-[18px] w-[18px]"
-                />
-              </>
-            ) : null}
+            <Link
+              href="/search"
+              className="theme-text-secondary flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition hover:bg-[var(--surface-soft)]"
+              aria-label="جستجو"
+            >
+              <svg
+                className="h-[18px] w-[18px]"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                aria-hidden
+              >
+                <circle cx="11" cy="11" r="7" />
+                <path d="M20 20l-3-3" strokeLinecap="round" />
+              </svg>
+            </Link>
+            <NotificationsNavLink
+              label="اعلان‌ها"
+              buttonClassName="theme-text-secondary flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition hover:bg-[var(--surface-soft)]"
+              iconClassName="h-[18px] w-[18px]"
+            />
 
             <Link
               href="/profile"
