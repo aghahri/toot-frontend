@@ -1,7 +1,6 @@
 import './globals.css';
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
-import { Navbar } from '@/components/Navbar';
 import { AppShell } from '@/components/AppShell';
 import { DEFAULT_THEME_KEY, THEME_OPTIONS, THEME_STORAGE_KEY } from '@/lib/theme';
 
@@ -20,7 +19,6 @@ export default function RootLayout({ children }: { children: ReactNode }) {
       </head>
       <body>
         <div className="theme-page-bg theme-text-primary min-h-screen">
-          <Navbar />
           <AppShell>{children}</AppShell>
         </div>
       </body>

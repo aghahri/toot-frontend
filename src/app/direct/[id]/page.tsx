@@ -2236,14 +2236,14 @@ async function uploadSelectedFile(token: string): Promise<string | null> {
                   <Fragment key={msg.id}>
                     {showDayDivider ? (
                       <div className="flex justify-center py-2">
-                        <span className="rounded-full bg-white/85 px-3 py-1 text-[11px] font-semibold text-slate-600 shadow-sm ring-1 ring-slate-200/70">
+                        <span className="rounded-full bg-[var(--surface-2)] px-3 py-1 text-[11px] font-semibold text-[var(--ink-3)]">
                           {dayDividerLabelFa(msg.createdAt)}
                         </span>
                       </div>
                     ) : null}
                     {showUnreadDivider ? (
                       <div className="flex justify-center py-2">
-                        <span className="rounded-full bg-sky-600 px-3 py-1 text-[10px] font-bold text-white shadow-md">
+                        <span className="rounded-full bg-[var(--accent)] px-3 py-1 text-[10px] font-bold text-[var(--accent-contrast)] shadow-sm">
                           پیام‌های خوانده‌نشده
                         </span>
                       </div>
@@ -2308,27 +2308,29 @@ async function uploadSelectedFile(token: string): Promise<string | null> {
                     }}
                   >
                     <div
-                      className={`relative max-w-[88%] rounded-[1.15rem] px-3.5 ${
+                      className={`relative max-w-[78%] rounded-2xl ${
+                        mine ? 'rounded-tl-md' : 'rounded-tr-md'
+                      } px-3.5 ${
                         isConsecutiveFromSameSender ? 'py-2' : 'py-2.5'
-                      } shadow-[0_1px_2px_rgba(0,0,0,0.06)] ${
+                      } shadow-[0_1px_2px_rgba(17,21,26,0.04)] ${
                         deleted
                           ? mine
                             ? rowSelected
-                              ? 'bg-slate-800/75 text-white/85 ring-2 ring-sky-400 ring-offset-2 ring-offset-[var(--page-bg)]'
-                              : 'bg-slate-800/75 text-white/85 ring-1 ring-white/10'
+                              ? 'bg-[var(--accent-soft)]/70 text-[var(--accent-soft-ink)]/70 ring-2 ring-[var(--accent)] ring-offset-2 ring-offset-[var(--bg)]'
+                              : 'bg-[var(--accent-soft)]/70 text-[var(--accent-soft-ink)]/70 ring-1 ring-[var(--line)]'
                             : rowSelected
-                              ? 'bg-slate-200/60 text-slate-600 ring-2 ring-sky-500 ring-offset-2 ring-offset-[var(--page-bg)]'
-                              : 'bg-slate-200/60 text-slate-600 ring-1 ring-slate-300/50'
+                              ? 'bg-[var(--surface-2)] text-[var(--ink-3)] ring-2 ring-[var(--accent)] ring-offset-2 ring-offset-[var(--bg)]'
+                              : 'bg-[var(--surface-2)] text-[var(--ink-3)] ring-1 ring-[var(--line)]'
                           : mine
                             ? rowSelected
-                              ? 'bg-slate-900 text-white ring-2 ring-sky-400 ring-offset-2 ring-offset-[var(--page-bg)]'
-                              : 'bg-slate-900 text-white ring-1 ring-slate-800/40'
+                              ? 'bg-[var(--accent-soft)] text-[var(--accent-soft-ink)] ring-2 ring-[var(--accent)] ring-offset-2 ring-offset-[var(--bg)]'
+                              : 'bg-[var(--accent-soft)] text-[var(--accent-soft-ink)]'
                             : rowSelected
-                              ? 'bg-white text-slate-900 ring-2 ring-sky-500 ring-offset-2 ring-offset-[var(--page-bg)]'
-                              : 'bg-white text-slate-900 ring-1 ring-slate-200/80'
+                              ? 'bg-[var(--surface)] text-[var(--ink)] ring-2 ring-[var(--accent)] ring-offset-2 ring-offset-[var(--bg)]'
+                              : 'bg-[var(--surface)] text-[var(--ink)] ring-1 ring-[var(--line)]'
                       } ${
                         flashMessageId === msg.id
-                          ? 'ring-2 ring-amber-400 ring-offset-2 ring-offset-[var(--page-bg)]'
+                          ? 'ring-2 ring-[var(--warning)] ring-offset-2 ring-offset-[var(--bg)]'
                           : ''
                       }`}
                     >
@@ -2338,7 +2340,7 @@ async function uploadSelectedFile(token: string): Promise<string | null> {
                         {!isConsecutiveFromSameSender ? (
                           <span
                             className={`min-w-0 truncate font-medium ${
-                              mine ? 'text-white/75' : 'text-slate-500'
+                              mine ? 'text-[var(--accent-soft-ink)]/75' : 'text-[var(--ink-3)]'
                             }`}
                           >
                             {msg.sender.name}
@@ -2359,8 +2361,8 @@ async function uploadSelectedFile(token: string): Promise<string | null> {
                               }}
                               className={`flex h-9 min-h-[44px] min-w-[44px] items-center justify-center rounded-full text-lg leading-none transition ${
                                 mine
-                                  ? 'text-white/80 hover:bg-white/15 active:bg-white/20'
-                                  : 'text-slate-500 hover:bg-slate-100 active:bg-slate-200'
+                                  ? 'text-[var(--accent-soft-ink)]/70 hover:bg-[var(--accent-soft-ink)]/10 active:bg-[var(--accent-soft-ink)]/15'
+                                  : 'text-[var(--ink-3)] hover:bg-[var(--surface-2)] active:bg-[var(--line)]'
                               }`}
                             >
                               <span className="select-none" aria-hidden>
@@ -2653,18 +2655,12 @@ async function uploadSelectedFile(token: string): Promise<string | null> {
 
                       <div
                         className={`mt-2 flex flex-wrap items-center justify-end gap-x-2 gap-y-0.5 text-[10px] leading-none ${
-                          deleted
-                            ? mine
-                              ? 'text-white/45'
-                              : 'text-slate-500'
-                            : mine
-                              ? 'text-white/50'
-                              : 'text-slate-400'
+                          mine ? 'text-[var(--accent-soft-ink)]/65' : 'text-[var(--ink-3)]'
                         }`}
                         dir="rtl"
                       >
                         {msg.starredByMe ? (
-                          <span className="text-amber-300" title="ستاره‌دار" aria-hidden>
+                          <span className="text-[var(--warning)]" title="ستاره‌دار" aria-hidden>
                             ★
                           </span>
                         ) : null}
