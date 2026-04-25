@@ -41,6 +41,9 @@
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
+    <!-- Required at install on API ≤ 32; runtime-prompted on API 33+ via
+         PushNotifications.requestPermissions() in the JS bootstrap. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <!-- Keep install surface broad; camera/mic are requested at runtime for meetings. -->
     <uses-feature android:name="android.hardware.camera" android:required="false" />
