@@ -155,6 +155,19 @@ export function initNativePushOnLogin(): Promise<void> {
         platform: 'ANDROID',
       });
       writeStoredDeviceId(device.id);
+
+      // N2 — handle taps on incoming-call notifications. Capacitor buffers
+      // actionPerformed events emitted before listeners attach (cold start
+      // via tap), so attaching here is enough to catch both warm and cold
+      // launches. Anything we can't safely route is ignored.
+      plugin
+        .addListener('pushNotificationActionPerformed', (action) => {
+          handlePushAction(action.notification?.data);
+        })
+        .then((h) => activeListeners.push(h))
+        .catch(() => {
+          /* listener attach failure non-fatal */
+        });
     } catch {
       /* never propagate — push is non-essential to login */
     } finally {
@@ -162,6 +175,38 @@ export function initNativePushOnLogin(): Promise<void> {
     }
   })();
   return initInFlight;
+}
+
+/**
+ * Tap router. Called from inside the actionPerformed listener with the
+ * `notification.data` blob exactly as the backend sent it. Today only
+ * INCOMING_CALL is wired — anything else is a no-op so unrelated push types
+ * (direct, mention, reply) keep their default "open last route" behavior.
+ *
+ * Navigation uses window.location.assign because the Capacitor app loads from
+ * a remote origin and Next.js client routing isn't reliably reachable from
+ * outside React (this fires before/around React mount on cold start).
+ */
+function handlePushAction(data: unknown): void {
+  if (!data || typeof data !== 'object') return;
+  const d = data as Record<string, unknown>;
+  const type = typeof d.type === 'string' ? d.type : null;
+  if (type !== 'INCOMING_CALL') return;
+
+  const conversationId = typeof d.conversationId === 'string' ? d.conversationId : null;
+  if (!conversationId) return;
+
+  // Sanitize: only allow safe id chars (cuid / uuid alphabets) so a tampered
+  // payload can never escape the /direct/{id} route.
+  if (!/^[A-Za-z0-9_-]{1,64}$/.test(conversationId)) return;
+
+  try {
+    if (typeof window !== 'undefined') {
+      window.location.assign(`/direct/${conversationId}`);
+    }
+  } catch {
+    /* nothing more we can do */
+  }
 }
 
 /**
