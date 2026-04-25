@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { getAccessToken } from '@/lib/auth';
 import { apiFetch } from '@/lib/api';
+import { formatCount, toFaDigits } from '@/lib/format';
 import type { FeedPost, PostEngagementSnapshot } from './feed-types';
 import { MentionComposerField } from './MentionComposerField';
 import { renderPostTextWithLinks } from './render-post-text';
@@ -15,9 +16,9 @@ function formatFeedTime(iso: string): string {
   const diff = Math.max(0, now - d.getTime());
   const min = Math.floor(diff / 60_000);
   if (min < 1) return 'همین الان';
-  if (min < 60) return `${min} دقیقه`;
+  if (min < 60) return `${toFaDigits(min)} دقیقه`;
   const hr = Math.floor(min / 60);
-  if (hr < 24) return `${hr} ساعت`;
+  if (hr < 24) return `${toFaDigits(hr)} ساعت`;
   return d.toLocaleDateString('fa-IR', { month: 'short', day: 'numeric' });
 }
 
@@ -27,16 +28,9 @@ function initials(name: string): string {
   return t.slice(0, 1);
 }
 
-function formatCount(n: number): string {
-  const v = Math.max(0, n);
-  if (v < 1000) return String(v);
-  if (v < 1_000_000) {
-    const k = v / 1000;
-    return `${k >= 10 ? Math.round(k) : k.toFixed(1).replace(/\.0$/, '')}k`;
-  }
-  const m = v / 1_000_000;
-  return `${m >= 10 ? Math.round(m) : m.toFixed(1).replace(/\.0$/, '')}M`;
-}
+// Persian-numeral counts for the X-style action row come from the shared
+// formatCount() in src/lib/format.ts (imported above) — yields '۱٫۲ هزار' /
+// '۳٫۴ میلیون' for the >1k / >1M cases.
 
 type FeedPostCardProps = {
   post: FeedPost;
