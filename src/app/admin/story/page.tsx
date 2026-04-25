@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { apiFetch } from '@/lib/api';
 import { getAccessToken } from '@/lib/auth';
 import { formatCount, toFaDigits } from '@/lib/format';
@@ -186,7 +187,13 @@ export default function AdminStoryQueuePage() {
             بررسی و انتشار نامزدهای داستان از منابع داخلی و خارجی.
           </p>
         </div>
-        <div className="flex shrink-0 items-center gap-2">
+        <div className="flex shrink-0 flex-wrap items-center gap-2">
+          <Link
+            href="/admin/story/sources"
+            className="rounded-full border border-[var(--line)] bg-[var(--surface)] px-3 py-1.5 text-xs font-bold text-[var(--accent-hover)] hover:bg-[var(--surface-2)]"
+          >
+            مدیریت منابع
+          </Link>
           <button
             type="button"
             onClick={() => void load()}

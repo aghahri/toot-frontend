@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { apiFetch } from '@/lib/api';
 import { getAccessToken } from '@/lib/auth';
 import { toFaDigits } from '@/lib/format';
@@ -182,14 +183,22 @@ export default function AdminStorySourcesPage() {
             منابع معتبر برای دریافت نامزدهای داستان (RSS / وب / داخلی).
           </p>
         </div>
-        <button
-          type="button"
-          disabled={ingestingAll}
-          onClick={() => void ingestSource(undefined)}
-          className="rounded-full bg-[var(--accent)] px-3 py-1.5 text-xs font-extrabold text-[var(--accent-contrast)] hover:bg-[var(--accent-hover)] disabled:opacity-50"
-        >
-          {ingestingAll ? '…' : 'دریافت همه منابع فعال'}
-        </button>
+        <div className="flex shrink-0 flex-wrap items-center gap-2">
+          <Link
+            href="/admin/story"
+            className="rounded-full border border-[var(--line)] bg-[var(--surface)] px-3 py-1.5 text-xs font-bold text-[var(--accent-hover)] hover:bg-[var(--surface-2)]"
+          >
+            صف ویراستاری
+          </Link>
+          <button
+            type="button"
+            disabled={ingestingAll}
+            onClick={() => void ingestSource(undefined)}
+            className="rounded-full bg-[var(--accent)] px-3 py-1.5 text-xs font-extrabold text-[var(--accent-contrast)] hover:bg-[var(--accent-hover)] disabled:opacity-50"
+          >
+            {ingestingAll ? '…' : 'دریافت همه منابع فعال'}
+          </button>
+        </div>
       </div>
 
       {error ? (
