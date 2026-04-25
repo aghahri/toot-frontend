@@ -4,6 +4,7 @@ import type { ReactNode } from 'react';
 import { usePathname } from 'next/navigation';
 import { AppBottomNav } from '@/components/AppBottomNav';
 import { AppSectionHeader, getAppSectionTitle } from '@/components/AppSectionHeader';
+import { NativePushBootstrap } from '@/components/NativePushBootstrap';
 import { Navbar } from '@/components/Navbar';
 import { AppRealtimeProvider } from '@/context/AppRealtimeSocketContext';
 import { VoiceCallProvider } from '@/context/VoiceCallContext';
@@ -40,6 +41,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   return (
     <AppRealtimeProvider>
       <VoiceCallProvider>
+        <NativePushBootstrap />
         {showNavbar ? <Navbar /> : null}
         {showSectionHeader ? <AppSectionHeader /> : null}
         <div
