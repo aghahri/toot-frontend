@@ -13,4 +13,9 @@ ext {
     androidxJunitVersion = '1.1.5'
     androidxEspressoCoreVersion = '3.5.1'
     cordovaAndroidVersion = '10.1.1'
+    // Override @capacitor/push-notifications default (23.3.1) which 404s on
+    // Google Maven. The plugin reads rootProject.ext.firebaseMessagingVersion
+    // when present. 24.1.0 is the current stable line and resolves cleanly
+    // from google() under AGP 8.2.1 + google-services 4.4.0.
+    firebaseMessagingVersion = '24.1.0'
 }
