@@ -429,14 +429,14 @@ export function FeedPostCard({
                 <>
                   <button
                     type="button"
-                    className="rounded-full p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
+                    className="rounded-full p-1.5 text-[var(--ink-3)] transition hover:bg-[var(--surface-2)] hover:text-[var(--ink-2)]"
                     aria-label="گزینه‌های پست"
                     onClick={() => setMenuOpen((v) => !v)}
                   >
                     <span className="text-lg leading-none">⋯</span>
                   </button>
                   {menuOpen ? (
-                    <div className="absolute left-0 top-9 z-10 min-w-[9rem] overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg">
+                    <div className="absolute left-0 top-9 z-10 min-w-[9rem] overflow-hidden rounded-xl border border-[var(--line)] bg-[var(--surface)] shadow-lg">
                       <button
                         type="button"
                         onClick={() => {
@@ -444,7 +444,7 @@ export function FeedPostCard({
                           setMenuOpen(false);
                           setOwnerActionError(null);
                         }}
-                        className="block w-full px-3 py-2 text-right text-xs font-bold text-slate-700 transition hover:bg-slate-50"
+                        className="block w-full px-3 py-2 text-right text-xs font-bold text-[var(--ink)] transition hover:bg-[var(--surface-2)]"
                       >
                         ویرایش پست
                       </button>
@@ -452,7 +452,7 @@ export function FeedPostCard({
                         type="button"
                         disabled={deleteBusy}
                         onClick={() => void removePost()}
-                        className="block w-full px-3 py-2 text-right text-xs font-bold text-red-600 transition hover:bg-red-50 disabled:opacity-60"
+                        className="block w-full px-3 py-2 text-right text-xs font-bold text-[var(--accent-hover)] transition hover:bg-[var(--surface-2)] disabled:opacity-60"
                       >
                         حذف پست
                       </button>
@@ -462,7 +462,7 @@ export function FeedPostCard({
               ) : (
                 <button
                   type="button"
-                  className="rounded-full p-1.5 text-slate-300"
+                  className="rounded-full p-1.5 text-[var(--ink-4)]"
                   aria-label="گزینه‌های بیشتر"
                   disabled
                 >
@@ -473,11 +473,11 @@ export function FeedPostCard({
           </div>
 
           {editOpen ? (
-            <div className="mt-2.5 rounded-xl border border-slate-200 bg-slate-50/70 p-2.5">
+            <div className="mt-2.5 rounded-xl border border-[var(--line)] bg-[var(--surface-2)] p-2.5">
               <MentionComposerField
                 value={editText}
                 onChange={setEditText}
-                className="min-h-[5.5rem] w-full resize-y rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-200"
+                className="min-h-[5.5rem] w-full resize-y rounded-lg border border-[var(--line)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--ink)] outline-none focus:border-[var(--accent-ring)] focus:ring-2 focus:ring-[var(--accent-soft)]"
                 placeholder="متن پست"
                 rows={5}
               />
@@ -489,7 +489,7 @@ export function FeedPostCard({
                     setEditText(post.text ?? '');
                     setOwnerActionError(null);
                   }}
-                  className="rounded-full border border-slate-300 px-3 py-1.5 text-xs font-bold text-slate-700 transition hover:bg-slate-100"
+                  className="rounded-full border border-[var(--line)] px-3 py-1.5 text-xs font-bold text-[var(--ink-2)] transition hover:bg-[var(--surface)]"
                 >
                   انصراف
                 </button>
@@ -497,7 +497,7 @@ export function FeedPostCard({
                   type="button"
                   disabled={editBusy}
                   onClick={() => void saveEdit()}
-                  className="rounded-full bg-slate-900 px-3 py-1.5 text-xs font-bold text-white transition hover:bg-slate-800 disabled:opacity-60"
+                  className="rounded-full bg-[var(--accent)] px-3 py-1.5 text-xs font-bold text-[var(--accent-contrast)] transition hover:bg-[var(--accent-hover)] disabled:opacity-60"
                 >
                   {editBusy ? '...' : 'ذخیره'}
                 </button>
@@ -506,11 +506,11 @@ export function FeedPostCard({
           ) : null}
 
           {ownerActionError ? (
-            <p className="mt-2 text-xs font-semibold text-red-600">{ownerActionError}</p>
+            <p className="mt-2 text-xs font-semibold text-[var(--accent-hover)]">{ownerActionError}</p>
           ) : null}
 
           {p.text ? (
-            <div className="mt-1.5 whitespace-pre-wrap text-[15px] leading-[1.58] text-slate-800">
+            <div className="mt-1.5 whitespace-pre-wrap text-[15px] leading-[1.58] text-[var(--ink)]">
               {renderPostTextWithLinks(p.text)}
             </div>
           ) : null}
@@ -518,57 +518,57 @@ export function FeedPostCard({
           {p.quotedPost ? (
             <Link
               href={`/home?postId=${encodeURIComponent(p.quotedPost.id)}`}
-              className="mt-2 block rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 transition hover:bg-slate-100"
+              className="mt-2 block rounded-xl border border-[var(--line)] bg-[var(--surface-2)] px-3 py-2 transition hover:bg-[var(--surface-strong)]"
             >
-              <p className="text-[11px] font-bold text-slate-500" dir="ltr">
+              <p className="text-[11px] font-bold text-[var(--ink-3)]" dir="ltr">
                 @{p.quotedPost.user?.username ?? 'user'}
               </p>
-              <p className="mt-1 line-clamp-3 text-[13px] text-slate-700">
+              <p className="mt-1 line-clamp-3 text-[13px] text-[var(--ink-2)]">
                 {p.quotedPost.text || 'بدون متن'}
               </p>
             </Link>
           ) : null}
 
           {p.educationCourse ? (
-            <div className="mt-2 rounded-xl border border-violet-200 bg-violet-50/40 px-3 py-2">
-              <div className="flex items-center gap-1.5 text-[10px]">
+            <div className="mt-2 rounded-xl border border-[var(--line)] bg-[var(--surface-2)] px-3 py-2">
+              <div className="flex flex-wrap items-center gap-1.5 text-[10px]">
                 {scope === 'networks' ? (
-                  <span className="rounded-full bg-violet-500/15 px-2 py-0.5 font-extrabold text-violet-700">
+                  <span className="rounded-full bg-[var(--surface)] px-2 py-0.5 font-extrabold text-[var(--accent-hover)]">
                     دوره جدید
                   </span>
                 ) : (
-                  <span className="rounded-full bg-violet-500/15 px-2 py-0.5 font-extrabold text-violet-700">
+                  <span className="rounded-full bg-[var(--surface)] px-2 py-0.5 font-extrabold text-[var(--accent-hover)]">
                     دوره آموزشی
                   </span>
                 )}
-                <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 font-extrabold text-emerald-700">
+                <span className="rounded-full bg-[var(--surface)] px-2 py-0.5 font-extrabold text-[var(--success)]">
                   مدرس معتبر
                 </span>
                 {p.educationCourse.nextMeeting?.status === 'LIVE' ? (
-                  <span className="rounded-full bg-red-500/15 px-2 py-0.5 font-extrabold text-red-700">
+                  <span className="rounded-full bg-[var(--surface)] px-2 py-0.5 font-extrabold text-[var(--accent)]">
                     کلاس زنده
                   </span>
                 ) : null}
                 {scope === 'networks' && !p.educationCourse.isEnrolled ? (
-                  <span className="rounded-full bg-amber-500/15 px-2 py-0.5 font-extrabold text-amber-700">
+                  <span className="rounded-full bg-[var(--surface)] px-2 py-0.5 font-extrabold text-[var(--warning)]">
                     ثبت‌نام باز
                   </span>
                 ) : null}
                 {scope === 'local' ? (
-                  <span className="rounded-full bg-sky-500/15 px-2 py-0.5 font-extrabold text-sky-700">
+                  <span className="rounded-full bg-[var(--surface)] px-2 py-0.5 font-extrabold text-[var(--info)]">
                     نزدیک شما
                   </span>
                 ) : null}
               </div>
-              <p className="mt-1 line-clamp-2 text-[14px] font-extrabold text-slate-900">
+              <p className="mt-1 line-clamp-2 text-[14px] font-extrabold text-[var(--ink)]">
                 {p.educationCourse.title}
               </p>
-              <p className="mt-1 text-[11px] text-slate-600">
+              <p className="mt-1 text-[11px] text-[var(--ink-2)]">
                 مدرس: {p.educationCourse.owner.name}
                 {p.educationCourse.owner.username ? ` · @${p.educationCourse.owner.username}` : ''}
               </p>
-              <p className="mt-1 text-[11px] text-slate-600">
-                {p.educationCourse.enrollmentsCount} دانشجو
+              <p className="mt-1 text-[11px] text-[var(--ink-2)]">
+                {toFaDigits(p.educationCourse.enrollmentsCount)} دانشجو
                 {p.educationCourse.nextMeeting
                   ? ` · جلسه بعدی: ${formatFeedTime(p.educationCourse.nextMeeting.startsAt)}`
                   : ''}
@@ -576,14 +576,14 @@ export function FeedPostCard({
               <div className="mt-2 flex flex-wrap gap-2">
                 <Link
                   href={`/education/${p.educationCourse.id}`}
-                  className="rounded-lg bg-violet-700 px-2.5 py-1 text-[11px] font-extrabold text-white"
+                  className="rounded-lg bg-[var(--accent)] px-2.5 py-1 text-[11px] font-extrabold text-[var(--accent-contrast)]"
                 >
                   مشاهده دوره
                 </Link>
                 {!p.educationCourse.isEnrolled && viewerUserId !== p.educationCourse.ownerId ? (
                   <Link
                     href={`/education/${p.educationCourse.id}`}
-                    className="rounded-lg border border-slate-300 px-2.5 py-1 text-[11px] font-bold text-slate-700"
+                    className="rounded-lg border border-[var(--line)] px-2.5 py-1 text-[11px] font-bold text-[var(--ink-2)]"
                   >
                     ثبت‌نام
                   </Link>
@@ -593,7 +593,7 @@ export function FeedPostCard({
           ) : null}
 
           {p.media && p.media.length > 0 ? (
-            <div className="mt-3 overflow-hidden rounded-2xl border border-slate-200/80 bg-slate-50 shadow-sm">
+            <div className="mt-3 overflow-hidden rounded-2xl border border-[var(--line)] bg-[var(--surface-2)]">
               {p.media.map((m) =>
                 m.type === 'VIDEO' || m.mimeType?.startsWith('video/') ? (
                   <video
@@ -613,7 +613,7 @@ export function FeedPostCard({
               )}
             </div>
           ) : p.mediaUrl ? (
-            <div className="mt-3 overflow-hidden rounded-2xl border border-slate-200/80 shadow-sm">
+            <div className="mt-3 overflow-hidden rounded-2xl border border-[var(--line)]">
               <img
                 src={p.mediaUrl}
                 alt=""
@@ -623,13 +623,13 @@ export function FeedPostCard({
           ) : null}
 
           <div
-            className="mt-3.5 flex max-w-md min-h-[44px] items-stretch justify-between gap-1.5 border-t border-slate-100/80 pt-2 text-slate-500 sm:gap-2"
+            className="mt-3.5 flex max-w-md min-h-[44px] items-stretch justify-between gap-1.5 border-t border-[var(--line)] pt-2 text-[var(--ink-3)] sm:gap-2"
             dir="ltr"
           >
             <button
               type="button"
               onClick={() => onOpenReply(p)}
-              className="flex min-h-[44px] min-w-0 flex-1 items-center justify-center gap-1 rounded-xl text-sm font-semibold transition hover:bg-sky-50 hover:text-sky-700"
+              className="flex min-h-[44px] min-w-0 flex-1 items-center justify-center gap-1 rounded-xl text-sm font-semibold transition hover:bg-[var(--surface-2)] hover:text-[var(--accent-hover)]"
               aria-label="پاسخ"
             >
               <span className="text-base" aria-hidden>
@@ -646,8 +646,8 @@ export function FeedPostCard({
               disabled={repostBusy}
               className={`flex min-h-[44px] min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-xl px-0.5 py-1 text-sm font-semibold transition disabled:opacity-60 ${
                 reposted
-                  ? 'bg-emerald-50 text-emerald-700 ring-2 ring-emerald-500/45 hover:bg-emerald-100'
-                  : 'text-slate-500 hover:bg-emerald-50 hover:text-emerald-700'
+                  ? 'bg-[var(--surface-2)] text-[var(--success)] ring-2 ring-[color:var(--success)]/45'
+                  : 'text-[var(--ink-3)] hover:bg-[var(--surface-2)] hover:text-[var(--success)]'
               }`}
               aria-label={reposted ? 'حذف بازنشر' : 'بازنشر داخلی'}
               aria-pressed={reposted}
@@ -657,13 +657,13 @@ export function FeedPostCard({
                   ↻
                 </span>
                 <span
-                  className={`text-[10px] font-bold leading-none ${reposted ? 'text-emerald-800' : 'text-slate-500'}`}
+                  className={`text-[10px] font-bold leading-none ${reposted ? 'text-[var(--success)]' : 'text-[var(--ink-3)]'}`}
                 >
                   بازنشر
                 </span>
               </span>
               <span
-                className={`text-[11px] font-semibold tabular-nums leading-none ${reposted ? 'text-emerald-900' : 'text-slate-400'}`}
+                className={`text-[11px] font-semibold tabular-nums leading-none ${reposted ? 'text-[var(--success)]' : 'text-[var(--ink-4)]'}`}
               >
                 {formatCount(repostCount)}
               </span>
@@ -672,7 +672,7 @@ export function FeedPostCard({
               type="button"
               onClick={() => void createQuoteRepost()}
               disabled={quoteBusy}
-              className="flex min-h-[44px] min-w-0 flex-1 items-center justify-center gap-1 rounded-xl text-sm font-semibold text-slate-500 transition hover:bg-violet-50 hover:text-violet-700 disabled:opacity-60"
+              className="flex min-h-[44px] min-w-0 flex-1 items-center justify-center gap-1 rounded-xl text-sm font-semibold text-[var(--ink-3)] transition hover:bg-[var(--surface-2)] hover:text-[var(--accent-hover)] disabled:opacity-60"
               aria-label="نقل‌قول"
             >
               <span className="text-base" aria-hidden>
@@ -685,7 +685,9 @@ export function FeedPostCard({
               onClick={() => void toggleLike()}
               disabled={likeBusy}
               className={`flex min-h-[44px] min-w-0 flex-1 items-center justify-center gap-1 rounded-xl text-sm font-semibold transition disabled:opacity-60 ${
-                liked ? 'text-rose-600 hover:bg-rose-50' : 'hover:bg-rose-50 hover:text-rose-600'
+                liked
+                  ? 'text-[var(--accent)] hover:bg-[var(--accent-soft)]'
+                  : 'hover:bg-[var(--accent-soft)] hover:text-[var(--accent)]'
               }`}
               aria-label={liked ? 'لغو پسند' : 'پسند'}
             >
@@ -703,8 +705,8 @@ export function FeedPostCard({
               disabled={bookmarkBusy}
               className={`flex min-h-[44px] min-w-0 flex-1 items-center justify-center rounded-xl text-sm font-semibold transition disabled:opacity-60 ${
                 bookmarked
-                  ? 'text-amber-700 hover:bg-amber-50'
-                  : 'hover:bg-amber-50 hover:text-amber-700'
+                  ? 'text-[var(--warning)] hover:bg-[var(--surface-2)]'
+                  : 'hover:bg-[var(--surface-2)] hover:text-[var(--warning)]'
               }`}
               aria-label={bookmarked ? 'حذف نشان' : 'نشان‌گذاری'}
             >
@@ -715,7 +717,7 @@ export function FeedPostCard({
             </button>
           </div>
           {repostFeedback ? (
-            <p className="mt-2 text-center text-xs font-bold text-emerald-700" role="status">
+            <p className="mt-2 text-center text-xs font-bold text-[var(--success)]" role="status">
               {repostFeedback}
             </p>
           ) : null}
