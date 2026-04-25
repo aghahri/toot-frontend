@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { apiFetch } from '@/lib/api';
 import { getAccessToken } from '@/lib/auth';
+import { toFaDigits } from '@/lib/format';
 
 type StorySource = {
   id: string;
@@ -14,10 +15,39 @@ type StorySource = {
   trustScore: number;
   regionScope: 'GLOBAL' | 'COUNTRY' | 'CITY' | 'LOCAL';
   createdAt: string;
+  updatedAt: string;
 };
 
 const typeOptions: StorySource['type'][] = ['RSS', 'WEB', 'INTERNAL'];
 const regionOptions: StorySource['regionScope'][] = ['GLOBAL', 'COUNTRY', 'CITY', 'LOCAL'];
+
+const REGION_FA: Record<StorySource['regionScope'], string> = {
+  GLOBAL: 'جهانی',
+  COUNTRY: 'کشور',
+  CITY: 'شهر',
+  LOCAL: 'محله',
+};
+
+const TYPE_FA: Record<StorySource['type'], string> = {
+  RSS: 'RSS',
+  WEB: 'وب',
+  INTERNAL: 'داخلی',
+};
+
+function fmtDate(iso: string | null | undefined): string {
+  if (!iso) return '—';
+  try {
+    return new Date(iso).toLocaleString('fa-IR', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  } catch {
+    return iso;
+  }
+}
 
 export default function AdminStorySourcesPage() {
   const [rows, setRows] = useState<StorySource[]>([]);
@@ -26,6 +56,7 @@ export default function AdminStorySourcesPage() {
   const [ingestSummary, setIngestSummary] = useState<string | null>(null);
   const [ingestingSourceId, setIngestingSourceId] = useState<string | null>(null);
   const [ingestingAll, setIngestingAll] = useState(false);
+  const [creating, setCreating] = useState(false);
   const [form, setForm] = useState({
     name: '',
     type: 'RSS' as StorySource['type'],
@@ -44,7 +75,7 @@ export default function AdminStorySourcesPage() {
       const data = await apiFetch<StorySource[]>('admin/story/sources', { method: 'GET', token });
       setRows(data);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to load sources');
+      setError(e instanceof Error ? e.message : 'بارگذاری منابع شکست خورد');
     } finally {
       setLoading(false);
     }
@@ -57,6 +88,8 @@ export default function AdminStorySourcesPage() {
   const createSource = async () => {
     const token = getAccessToken();
     if (!token) return;
+    setCreating(true);
+    setError(null);
     try {
       await apiFetch('admin/story/sources', {
         method: 'POST',
@@ -82,7 +115,9 @@ export default function AdminStorySourcesPage() {
       });
       await load();
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Create failed');
+      setError(e instanceof Error ? e.message : 'ایجاد منبع شکست خورد');
+    } finally {
+      setCreating(false);
     }
   };
 
@@ -109,12 +144,12 @@ export default function AdminStorySourcesPage() {
       const sourceCount = result.sourceCount ?? (sourceId ? 1 : 0);
       setIngestSummary(
         sourceId
-          ? `Fetch done: ${imported} imported, ${skipped} duplicates/skipped.`
-          : `Fetched ${sourceCount} sources: ${imported} imported, ${skipped} duplicates/skipped.`,
+          ? `دریافت انجام شد: ${toFaDigits(imported)} نامزد جدید، ${toFaDigits(skipped)} تکراری/رد.`
+          : `از ${toFaDigits(sourceCount)} منبع دریافت شد: ${toFaDigits(imported)} جدید، ${toFaDigits(skipped)} تکراری/رد.`,
       );
       await load();
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Ingestion failed');
+      setError(e instanceof Error ? e.message : 'دریافت از منبع شکست خورد');
     } finally {
       setIngestingSourceId(null);
       setIngestingAll(false);
@@ -124,6 +159,7 @@ export default function AdminStorySourcesPage() {
   const toggleActive = async (row: StorySource) => {
     const token = getAccessToken();
     if (!token) return;
+    setError(null);
     try {
       await apiFetch(`admin/story/sources/${row.id}`, {
         method: 'PATCH',
@@ -133,133 +169,202 @@ export default function AdminStorySourcesPage() {
       });
       await load();
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Update failed');
+      setError(e instanceof Error ? e.message : 'به‌روزرسانی شکست خورد');
     }
   };
 
   return (
-    <div>
-      <h1 className="text-2xl font-bold text-white">Story Sources</h1>
-      <p className="mt-1 text-sm text-slate-400">Trusted sources for candidate ingestion.</p>
-
-      {error ? (
-        <p className="mt-4 rounded-lg border border-red-900/50 bg-red-950/30 px-3 py-2 text-sm text-red-300">
-          {error}
-        </p>
-      ) : null}
-      {ingestSummary ? (
-        <p className="mt-3 rounded-lg border border-emerald-900/50 bg-emerald-950/30 px-3 py-2 text-sm text-emerald-300">
-          {ingestSummary}
-        </p>
-      ) : null}
-
-      <section className="mt-5 rounded-xl border border-slate-800 bg-slate-900/60 p-4">
-        <h2 className="text-sm font-bold text-slate-200">Add source</h2>
-        <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-          <input
-            value={form.name}
-            onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
-            placeholder="Source name"
-            className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-none focus:border-sky-600"
-          />
-          <select
-            value={form.type}
-            onChange={(e) => setForm((p) => ({ ...p, type: e.target.value as StorySource['type'] }))}
-            className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-none"
-          >
-            {typeOptions.map((opt) => (
-              <option key={opt} value={opt}>
-                {opt}
-              </option>
-            ))}
-          </select>
-          <input
-            value={form.baseUrl}
-            onChange={(e) => setForm((p) => ({ ...p, baseUrl: e.target.value }))}
-            placeholder="https://example.com/feed"
-            className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-none focus:border-sky-600"
-          />
-          <input
-            value={form.category}
-            onChange={(e) => setForm((p) => ({ ...p, category: e.target.value }))}
-            placeholder="Category"
-            className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-none focus:border-sky-600"
-          />
-          <input
-            type="number"
-            min={0}
-            max={100}
-            value={form.trustScore}
-            onChange={(e) => setForm((p) => ({ ...p, trustScore: Number(e.target.value) || 0 }))}
-            placeholder="Trust score"
-            className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-none focus:border-sky-600"
-          />
-          <select
-            value={form.regionScope}
-            onChange={(e) =>
-              setForm((p) => ({ ...p, regionScope: e.target.value as StorySource['regionScope'] }))
-            }
-            className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-none"
-          >
-            {regionOptions.map((opt) => (
-              <option key={opt} value={opt}>
-                {opt}
-              </option>
-            ))}
-          </select>
+    <div dir="rtl">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-extrabold text-[var(--ink)]">منابع استوری</h1>
+          <p className="mt-1 text-sm text-[var(--ink-3)]">
+            منابع معتبر برای دریافت نامزدهای داستان (RSS / وب / داخلی).
+          </p>
         </div>
-        <button
-          type="button"
-          disabled={!form.name.trim()}
-          onClick={() => void createSource()}
-          className="mt-3 rounded-lg bg-sky-600 px-3 py-2 text-xs font-semibold text-white hover:bg-sky-500 disabled:opacity-50"
-        >
-          Add source
-        </button>
         <button
           type="button"
           disabled={ingestingAll}
           onClick={() => void ingestSource(undefined)}
-          className="ms-2 mt-3 rounded-lg border border-sky-800 bg-sky-950/40 px-3 py-2 text-xs font-semibold text-sky-300 hover:bg-sky-900/40 disabled:opacity-50"
+          className="rounded-full bg-[var(--accent)] px-3 py-1.5 text-xs font-extrabold text-[var(--accent-contrast)] hover:bg-[var(--accent-hover)] disabled:opacity-50"
         >
-          {ingestingAll ? 'Fetching…' : 'Fetch all active sources'}
+          {ingestingAll ? '…' : 'دریافت همه منابع فعال'}
         </button>
+      </div>
+
+      {error ? (
+        <p
+          role="alert"
+          className="mt-4 rounded-xl border border-[var(--line)] bg-[var(--surface)] px-3 py-2 text-sm font-semibold text-[var(--accent-hover)]"
+        >
+          {error}
+        </p>
+      ) : null}
+      {ingestSummary ? (
+        <p
+          role="status"
+          className="mt-3 rounded-xl border border-[var(--line)] bg-[var(--accent-soft)] px-3 py-2 text-sm font-semibold text-[var(--accent-hover)]"
+        >
+          {ingestSummary}
+        </p>
+      ) : null}
+
+      <section className="mt-5 rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-4">
+        <h2 className="mb-3 text-sm font-extrabold text-[var(--ink)]">افزودن منبع جدید</h2>
+        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+          <label className="text-xs font-bold text-[var(--ink-2)]">
+            نام منبع
+            <input
+              value={form.name}
+              onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
+              placeholder="مثلاً خبرگزاری ایرنا"
+              className="mt-1 h-10 w-full rounded-xl border border-[var(--line)] bg-[var(--surface)] px-3 text-sm text-[var(--ink)] outline-none focus:border-[var(--accent-ring)]"
+            />
+          </label>
+          <label className="text-xs font-bold text-[var(--ink-2)]">
+            نوع
+            <select
+              value={form.type}
+              onChange={(e) =>
+                setForm((p) => ({ ...p, type: e.target.value as StorySource['type'] }))
+              }
+              className="mt-1 h-10 w-full rounded-xl border border-[var(--line)] bg-[var(--surface)] px-3 text-sm text-[var(--ink)] outline-none focus:border-[var(--accent-ring)]"
+            >
+              {typeOptions.map((opt) => (
+                <option key={opt} value={opt}>
+                  {TYPE_FA[opt]}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="text-xs font-bold text-[var(--ink-2)] sm:col-span-2">
+            آدرس پایه
+            <input
+              value={form.baseUrl}
+              onChange={(e) => setForm((p) => ({ ...p, baseUrl: e.target.value }))}
+              placeholder="https://example.com/feed"
+              dir="ltr"
+              className="mt-1 h-10 w-full rounded-xl border border-[var(--line)] bg-[var(--surface)] px-3 text-sm text-[var(--ink)] outline-none focus:border-[var(--accent-ring)]"
+            />
+          </label>
+          <label className="text-xs font-bold text-[var(--ink-2)]">
+            دسته‌بندی
+            <input
+              value={form.category}
+              onChange={(e) => setForm((p) => ({ ...p, category: e.target.value }))}
+              placeholder="مثلاً اقتصاد"
+              className="mt-1 h-10 w-full rounded-xl border border-[var(--line)] bg-[var(--surface)] px-3 text-sm text-[var(--ink)] outline-none focus:border-[var(--accent-ring)]"
+            />
+          </label>
+          <label className="text-xs font-bold text-[var(--ink-2)]">
+            امتیاز اعتماد ({toFaDigits(form.trustScore)}/۱۰۰)
+            <input
+              type="number"
+              min={0}
+              max={100}
+              value={form.trustScore}
+              onChange={(e) => setForm((p) => ({ ...p, trustScore: Number(e.target.value) || 0 }))}
+              className="mt-1 h-10 w-full rounded-xl border border-[var(--line)] bg-[var(--surface)] px-3 text-sm text-[var(--ink)] outline-none focus:border-[var(--accent-ring)]"
+            />
+          </label>
+          <label className="text-xs font-bold text-[var(--ink-2)]">
+            دامنه جغرافیایی
+            <select
+              value={form.regionScope}
+              onChange={(e) =>
+                setForm((p) => ({
+                  ...p,
+                  regionScope: e.target.value as StorySource['regionScope'],
+                }))
+              }
+              className="mt-1 h-10 w-full rounded-xl border border-[var(--line)] bg-[var(--surface)] px-3 text-sm text-[var(--ink)] outline-none focus:border-[var(--accent-ring)]"
+            >
+              {regionOptions.map((opt) => (
+                <option key={opt} value={opt}>
+                  {REGION_FA[opt]}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+        <div className="mt-3 flex items-center gap-2">
+          <button
+            type="button"
+            disabled={!form.name.trim() || creating}
+            onClick={() => void createSource()}
+            className="rounded-full bg-[var(--accent)] px-4 py-1.5 text-xs font-extrabold text-[var(--accent-contrast)] hover:bg-[var(--accent-hover)] disabled:opacity-50"
+          >
+            {creating ? '…' : 'افزودن منبع'}
+          </button>
+          <button
+            type="button"
+            onClick={() => void load()}
+            className="rounded-full border border-[var(--line)] bg-[var(--surface)] px-3 py-1.5 text-xs font-bold text-[var(--ink-2)] hover:bg-[var(--surface-2)]"
+          >
+            تازه‌سازی
+          </button>
+        </div>
       </section>
 
       {loading ? (
-        <p className="mt-6 text-sm text-slate-400">Loading sources…</p>
+        <p className="mt-6 text-sm text-[var(--ink-3)]">در حال بارگذاری…</p>
+      ) : rows.length === 0 ? (
+        <p className="mt-6 rounded-2xl border border-[var(--line)] bg-[var(--surface)] px-4 py-6 text-center text-sm text-[var(--ink-3)]">
+          هنوز منبعی ثبت نشده. اولین منبع را از فرم بالا اضافه کنید.
+        </p>
       ) : (
         <ul className="mt-5 space-y-2">
           {rows.map((row) => (
-            <li key={row.id} className="rounded-xl border border-slate-800 bg-slate-900/60 p-4">
-              <div className="flex items-center justify-between gap-3">
+            <li
+              key={row.id}
+              className="rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-4"
+            >
+              <div className="flex flex-wrap items-start justify-between gap-3">
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-semibold text-slate-100">
-                    {row.name} <span className="text-slate-500">({row.type})</span>
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <p className="truncate text-sm font-extrabold text-[var(--ink)]">{row.name}</p>
+                    <span className="rounded-full bg-[var(--surface-2)] px-2 py-0.5 text-[10px] font-bold text-[var(--ink-3)]">
+                      {TYPE_FA[row.type]}
+                    </span>
+                    <span className="rounded-full bg-[var(--surface-2)] px-2 py-0.5 text-[10px] font-bold text-[var(--ink-3)]">
+                      {REGION_FA[row.regionScope]}
+                    </span>
+                    {row.category ? (
+                      <span className="rounded-full bg-[var(--surface-2)] px-2 py-0.5 text-[10px] font-bold text-[var(--ink-3)]">
+                        {row.category}
+                      </span>
+                    ) : null}
+                  </div>
+                  <p className="mt-1 truncate text-[11px] text-[var(--ink-3)]" dir="ltr">
+                    {row.baseUrl || '—'}
                   </p>
-                  <p className="mt-1 truncate text-[11px] text-slate-500">
-                    {row.baseUrl || 'No base URL'} · {row.regionScope} · trust {row.trustScore}
+                  <p className="mt-1 text-[11px] text-[var(--ink-3)]">
+                    اعتماد {toFaDigits(row.trustScore)}/۱۰۰ · ساخت{' '}
+                    <span dir="ltr">{fmtDate(row.createdAt)}</span> · آخرین تغییر{' '}
+                    <span dir="ltr">{fmtDate(row.updatedAt)}</span>
                   </p>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => void toggleActive(row)}
-                  className={`rounded-lg border px-2.5 py-1.5 text-xs font-semibold ${
-                    row.isActive
-                      ? 'border-emerald-700 bg-emerald-950/40 text-emerald-300'
-                      : 'border-slate-700 bg-slate-900 text-slate-300'
-                  }`}
-                >
-                  {row.isActive ? 'Active' : 'Inactive'}
-                </button>
-                <button
-                  type="button"
-                  disabled={ingestingSourceId === row.id}
-                  onClick={() => void ingestSource(row.id)}
-                  className="rounded-lg border border-sky-800 bg-sky-950/40 px-2.5 py-1.5 text-xs font-semibold text-sky-300 hover:bg-sky-900/40 disabled:opacity-50"
-                >
-                  {ingestingSourceId === row.id ? 'Fetching…' : 'Fetch items'}
-                </button>
+                <div className="flex shrink-0 items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => void toggleActive(row)}
+                    className={`rounded-full px-3 py-1.5 text-xs font-extrabold transition ${
+                      row.isActive
+                        ? 'bg-[var(--accent-soft)] text-[var(--accent-hover)] hover:bg-[var(--surface-strong)]'
+                        : 'border border-[var(--line)] bg-[var(--surface-2)] text-[var(--ink-3)] hover:bg-[var(--surface-strong)]'
+                    }`}
+                  >
+                    {row.isActive ? 'فعال' : 'غیرفعال'}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={ingestingSourceId === row.id || row.type === 'INTERNAL' || !row.baseUrl}
+                    onClick={() => void ingestSource(row.id)}
+                    className="rounded-full bg-[var(--accent)] px-3 py-1.5 text-xs font-extrabold text-[var(--accent-contrast)] hover:bg-[var(--accent-hover)] disabled:opacity-40"
+                  >
+                    {ingestingSourceId === row.id ? '…' : 'دریافت'}
+                  </button>
+                </div>
               </div>
             </li>
           ))}
