@@ -1,7 +1,9 @@
 'use client';
 
 import Link from 'next/link';
+import { useEffect, useRef } from 'react';
 import { toFaDigits } from '@/lib/format';
+import { apiFetch } from '@/lib/api';
 
 /**
  * Curated story rail mounted above the home feed.
@@ -67,6 +69,21 @@ function isInternalRoute(url: string): boolean {
   return url.startsWith('/');
 }
 
+/**
+ * Best-effort telemetry ping. Always returns void; never throws into the
+ * caller, never blocks navigation. The backend short-circuits silently for
+ * non-PUBLISHED or unknown ids, so even a stale id is safe to call.
+ */
+function recordTelemetry(candidateId: string, kind: 'view' | 'click'): void {
+  void apiFetch(`story/candidates/${encodeURIComponent(candidateId)}/telemetry`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ kind }),
+  }).catch(() => {
+    /* swallow — telemetry is non-essential */
+  });
+}
+
 export function StoryCuratedRail({
   scope,
   loading,
@@ -76,6 +93,19 @@ export function StoryCuratedRail({
   loading: boolean;
   items: StoryItem[];
 }) {
+  // Send one 'view' ping per candidate id per session. We don't try to be
+  // clever about visibility — the rail is mounted at the top of /home and
+  // the user always sees it on render.
+  const viewedRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    if (loading) return;
+    for (const item of items) {
+      if (!item.id || viewedRef.current.has(item.id)) continue;
+      viewedRef.current.add(item.id);
+      recordTelemetry(item.id, 'view');
+    }
+  }, [items, loading]);
+
   return (
     <section className="mx-2 mt-2.5">
       <div className="overflow-hidden rounded-2xl border border-[var(--line)] bg-[var(--surface)]">
@@ -185,7 +215,13 @@ export function StoryCuratedRail({
                 }
                 if (internal) {
                   return (
-                    <Link key={item.id} href={href} prefetch={false} className={cardCls}>
+                    <Link
+                      key={item.id}
+                      href={href}
+                      prefetch={false}
+                      className={cardCls}
+                      onClick={() => recordTelemetry(item.id, 'click')}
+                    >
                       {inner}
                     </Link>
                   );
@@ -197,6 +233,8 @@ export function StoryCuratedRail({
                     target="_blank"
                     rel="noreferrer noopener"
                     className={cardCls}
+                    onClick={() => recordTelemetry(item.id, 'click')}
+                    onAuxClick={() => recordTelemetry(item.id, 'click')}
                   >
                     {inner}
                   </a>
