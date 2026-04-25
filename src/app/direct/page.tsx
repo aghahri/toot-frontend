@@ -581,8 +581,9 @@ export default function DirectPage() {
   return (
     <AuthGate>
       <main className="theme-page-bg theme-text-primary mx-auto min-h-[60vh] w-full max-w-md pb-2">
+        <div className="theme-panel-bg theme-border-soft sticky top-0 z-10 border-b backdrop-blur-sm">
         <div
-          className="theme-panel-bg theme-border-soft sticky top-0 z-10 flex items-center justify-end gap-3 border-b px-4 py-2.5 backdrop-blur-sm"
+          className="flex items-center justify-end gap-3 px-4 py-2.5"
           dir="rtl"
         >
           <div className="flex shrink-0 items-center gap-1">
@@ -642,16 +643,18 @@ export default function DirectPage() {
         </div>
 
         {!loading && items.length > 0 ? (
-          <div className="mt-2 px-3" dir="rtl">
+          <div className="px-3 pb-2.5" dir="rtl">
             <input
               value={listFilterQuery}
               onChange={(e) => setListFilterQuery(e.target.value)}
               placeholder="جستجو در گفتگوها…"
-              className="w-full rounded-xl border border-stone-200 bg-white px-3 py-2.5 text-sm outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
+              className="h-11 w-full rounded-xl border border-[var(--line)] bg-[var(--surface-2)] px-3 text-sm text-[var(--ink)] placeholder:text-[var(--ink-3)] outline-none transition focus:border-[var(--accent-ring)] focus:ring-2 focus:ring-[var(--accent-soft)]"
               autoComplete="off"
+              aria-label="جستجو در گفتگوها"
             />
           </div>
         ) : null}
+        </div>
 
         <div className="theme-card-bg theme-border-soft relative mt-1 overflow-hidden rounded-2xl border shadow-sm">
           {loading ? (
