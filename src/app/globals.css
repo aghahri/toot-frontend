@@ -13,6 +13,7 @@
 :root {
   /* Handoff surfaces */
   --bg:          #F7F7F5;
+  --bg-page:     #E9E8E3;
   --surface:     #FFFFFF;
   --surface-2:   #F1F0EC;
   --overlay:     rgba(15, 18, 20, 0.45);
