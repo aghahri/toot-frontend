@@ -147,6 +147,7 @@ export default function SpacesOverviewPage() {
   const [localReady, setLocalReady] = useState(false);
   const [personalized, setPersonalized] = useState<PersonalizedResponse | null>(null);
   const [trending, setTrending] = useState<Array<TrendingGroupRow & { tag: string }>>([]);
+  const [filter, setFilter] = useState<'followed' | 'suggested' | 'new'>('suggested');
   const [discoverLoading, setDiscoverLoading] = useState(true);
   const [joiningId, setJoiningId] = useState<string | null>(null);
 
@@ -470,7 +471,33 @@ export default function SpacesOverviewPage() {
               )}
             </section>
 
-            {getAccessToken() && recommendations.length > 0 ? (
+            <div role="tablist" aria-label="فیلتر فضاها" className="-mx-1 flex flex-wrap items-center gap-2 px-1">
+              {([
+                { id: 'followed', label: 'دنبال‌شده' },
+                { id: 'suggested', label: 'پیشنهادی' },
+                { id: 'new', label: 'جدید' },
+              ] as const).map((c) => {
+                const active = filter === c.id;
+                return (
+                  <button
+                    key={c.id}
+                    type="button"
+                    role="tab"
+                    aria-selected={active}
+                    onClick={() => setFilter(c.id)}
+                    className={`rounded-full px-3.5 py-1.5 text-[12px] font-bold transition ${
+                      active
+                        ? 'bg-[var(--ink)] text-white'
+                        : 'bg-[var(--surface-2)] text-[var(--ink-2)] hover:bg-[var(--surface-strong)]'
+                    }`}
+                  >
+                    {c.label}
+                  </button>
+                );
+              })}
+            </div>
+
+            {filter !== 'new' && getAccessToken() && recommendations.length > 0 ? (
               <section aria-labelledby="rec-heading">
                 <h2 id="rec-heading" className="mb-3 text-xs font-extrabold text-[var(--ink-3)]">
                   پیشنهاد برای شما
@@ -498,7 +525,7 @@ export default function SpacesOverviewPage() {
               </section>
             ) : null}
 
-            {discoveryBlueprints.length > 0 ? (
+            {filter !== 'new' && discoveryBlueprints.length > 0 ? (
             <section aria-labelledby="explore-heading">
               <h2 id="explore-heading" className="mb-3 text-xs font-extrabold text-[var(--ink-3)]">
                 فضاهای بیشتر
@@ -549,6 +576,7 @@ export default function SpacesOverviewPage() {
             </section>
             ) : null}
 
+            {filter !== 'followed' ? (
             <section aria-labelledby="trend-heading">
               <h2 id="trend-heading" className="mb-3 text-xs font-extrabold text-[var(--ink-3)]">
                 اجتماع‌های داغ
@@ -602,6 +630,7 @@ export default function SpacesOverviewPage() {
                 </ul>
               )}
             </section>
+            ) : null}
           </div>
         ) : null}
 
