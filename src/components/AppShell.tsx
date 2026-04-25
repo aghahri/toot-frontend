@@ -8,6 +8,7 @@ import { NativePushBootstrap } from '@/components/NativePushBootstrap';
 import { Navbar } from '@/components/Navbar';
 import { AppRealtimeProvider } from '@/context/AppRealtimeSocketContext';
 import { VoiceCallProvider } from '@/context/VoiceCallContext';
+import { useUnreadDirect } from '@/lib/useUnreadDirect';
 
 function shouldShowBottomNav(pathname: string): boolean {
   if (pathname === '/') return false;
@@ -37,6 +38,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const showSectionHeader = sectionTitle !== null;
   const channelThreadFixed = isChannelThreadPath(pathname);
   const showNavbar = !isDirectThreadPath(pathname);
+  const hasUnreadDirect = useUnreadDirect();
 
   return (
     <AppRealtimeProvider>
@@ -53,7 +55,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         >
           {children}
         </div>
-        {showNav ? <AppBottomNav /> : null}
+        {showNav ? <AppBottomNav hasUnreadDirect={hasUnreadDirect} /> : null}
       </VoiceCallProvider>
     </AppRealtimeProvider>
   );
