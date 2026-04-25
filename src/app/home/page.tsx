@@ -9,6 +9,7 @@ import { apiFetch } from '@/lib/api';
 import { FeedTabs } from '@/components/home/FeedTabs';
 import { FeedPostCard } from '@/components/home/FeedPostCard';
 import { FeedEmptyState } from '@/components/home/FeedEmptyState';
+import { StoryCuratedRail } from '@/components/home/StoryCuratedRail';
 import { HomeComposeSheet } from '@/components/home/HomeComposeSheet';
 import { PostReplySheet } from '@/components/home/PostReplySheet';
 import { TrendingTopicsRow, type TrendChip } from '@/components/home/TrendingTopicsRow';
@@ -218,6 +219,7 @@ function HomePageInner() {
   const [emphasizePostId, setEmphasizePostId] = useState<string | null>(null);
   const [postTargetMissed, setPostTargetMissed] = useState(false);
   const [storyItems, setStoryItems] = useState<StoryItem[]>([]);
+  const [loadingStories, setLoadingStories] = useState(false);
   const [joinedNetworks, setJoinedNetworks] = useState<NetworkMembership[]>([]);
   const [trendsBundle, setTrendsBundle] = useState<TrendsBundleResponse | null>(null);
   const [suggestedFollows, setSuggestedFollows] = useState<SuggestedFollowUser[]>([]);
@@ -299,17 +301,18 @@ function HomePageInner() {
   useEffect(() => {
     const token = getAccessToken();
     if (!token) return;
-    if (tab !== 'local' && tab !== 'networks') {
-      setStoryItems([]);
-      return;
-    }
-    const scope = tab === 'local' ? 'local' : 'networks';
+    // Map every tab to a scope so the rail (above the feed) and the in-stream
+    // injection (only for local / networks) share one fetch path.
+    const scope =
+      tab === 'local' ? 'local' : tab === 'networks' ? 'networks' : 'today';
+    setLoadingStories(true);
     void apiFetch<StoryItem[]>(`story/published?scope=${scope}&limit=6`, {
       method: 'GET',
       token,
     })
       .then((data) => setStoryItems(data))
-      .catch(() => setStoryItems([]));
+      .catch(() => setStoryItems([]))
+      .finally(() => setLoadingStories(false));
   }, [tab]);
 
   useEffect(() => {
@@ -703,6 +706,13 @@ function HomePageInner() {
         </div>
 
         <main className="theme-surface-soft mx-auto min-h-[40dvh] w-full max-w-lg pb-28">
+          {loadingStories || storyItems.length > 0 ? (
+            <StoryCuratedRail
+              scope={tab === 'local' ? 'local' : tab === 'networks' ? 'networks' : 'today'}
+              loading={loadingStories}
+              items={storyItems}
+            />
+          ) : null}
           <section className="theme-card-bg theme-border-soft mx-2 mt-2.5 rounded-2xl border px-3.5 py-3 shadow-sm">
             <div className="flex items-start justify-between gap-2" dir="rtl">
               <div className="min-w-0">
