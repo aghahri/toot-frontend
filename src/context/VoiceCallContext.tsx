@@ -54,6 +54,15 @@ export type VoiceCallContextValue = {
   dismissEnded: () => void;
   /** Redial using the last conversation or profile target (if any). */
   retryLastCall: () => void;
+  /** Push-tap recovery: rebuilds 'incoming' state from a server-validated
+   *  session payload when the cold-started WebView missed the original
+   *  socket call_invite event. No-op when phase != 'idle'. */
+  recoverIncomingFromPush: (payload: {
+    sessionId: string;
+    callType: string;
+    conversationId: string;
+    caller: VoicePeer;
+  }) => void;
 };
 
 const VoiceCallContext = createContext<VoiceCallContextValue | null>(null);
@@ -1086,6 +1095,40 @@ export function VoiceCallProvider({ children }: { children: ReactNode }) {
     window.setTimeout(() => startCall(o), 0);
   }, [startCall, teardownMedia]);
 
+  /**
+   * Push-tap recovery: rebuilds the same internal state the socket
+   * 'call_invite' handler would have set, so the existing answer/reject UI
+   * mounts even though the cold-started WebView never received the original
+   * event. Caller passes the already-validated session payload returned from
+   * GET /calls/sessions/:sessionId.
+   *
+   * Refuses to clobber a non-idle phase (so it can't disrupt an in-flight
+   * call). Treats this as the same kind of best-effort entry as onInvite.
+   */
+  const recoverIncomingFromPush = useCallback(
+    (payload: {
+      sessionId: string;
+      callType: string;
+      conversationId: string;
+      caller: VoicePeer;
+    }) => {
+      if (phaseRef.current !== 'idle') return;
+      lastCallOptsRef.current = { conversationId: payload.conversationId };
+      sessionIdRef.current = payload.sessionId;
+      conversationIdRef.current = payload.conversationId;
+      roleRef.current = 'callee';
+      callerMediaStartedRef.current = false;
+      calleeMediaStartedRef.current = false;
+      setPeer(payload.caller);
+      setIncomingActionBusy(false);
+      setPhase('incoming');
+      phaseRef.current = 'incoming';
+      pendingOfferSdpRef.current = null;
+      setEndedReason(null);
+    },
+    [],
+  );
+
   const acceptIncoming = useCallback(async () => {
     const sid = sessionIdRef.current;
     const s = socketRef.current;
@@ -1291,6 +1334,7 @@ export function VoiceCallProvider({ children }: { children: ReactNode }) {
       toggleMute,
       dismissEnded,
       retryLastCall,
+      recoverIncomingFromPush,
     }),
     [
       acceptIncoming,
@@ -1302,6 +1346,7 @@ export function VoiceCallProvider({ children }: { children: ReactNode }) {
       muted,
       peer,
       phase,
+      recoverIncomingFromPush,
       rejectIncoming,
       retryLastCall,
       startCall,
