@@ -224,7 +224,7 @@ export function DirectConversationRow({
               e.stopPropagation();
               onMenuToggle();
             }}
-            className="flex h-10 w-9 items-center justify-center rounded-lg text-stone-500 transition hover:bg-stone-100"
+            className="flex h-10 w-9 items-center justify-center rounded-lg text-[var(--ink-3)] transition hover:bg-[var(--surface-2)]"
             aria-expanded={menuOpen}
             aria-haspopup="menu"
             aria-label="منوی گفتگو"
@@ -233,7 +233,7 @@ export function DirectConversationRow({
           </button>
           {menuOpen ? (
             <div
-              className="absolute left-0 top-11 z-20 min-w-[10.5rem] rounded-xl border border-stone-200 bg-white py-1 shadow-lg"
+              className="absolute left-0 top-11 z-20 min-w-[10.5rem] rounded-xl border border-[var(--line)] bg-[var(--surface)] py-1 shadow-lg"
               role="menu"
               dir="rtl"
               onClick={(e) => e.stopPropagation()}
@@ -241,7 +241,7 @@ export function DirectConversationRow({
               <button
                 type="button"
                 role="menuitem"
-                className="block w-full px-3 py-2.5 text-right text-sm font-semibold text-stone-800 hover:bg-stone-50"
+                className="block w-full px-3 py-2.5 text-right text-sm font-semibold text-[var(--ink)] hover:bg-[var(--surface-2)]"
                 onClick={() => {
                   onPin();
                   onMenuToggle();
@@ -252,7 +252,7 @@ export function DirectConversationRow({
               <button
                 type="button"
                 role="menuitem"
-                className="block w-full px-3 py-2.5 text-right text-sm font-semibold text-stone-800 hover:bg-stone-50"
+                className="block w-full px-3 py-2.5 text-right text-sm font-semibold text-[var(--ink)] hover:bg-[var(--surface-2)]"
                 onClick={() => {
                   onArchiveToggle();
                   onMenuToggle();
@@ -263,7 +263,7 @@ export function DirectConversationRow({
               <button
                 type="button"
                 role="menuitem"
-                className="block w-full px-3 py-2.5 text-right text-sm font-semibold text-stone-800 hover:bg-stone-50"
+                className="block w-full px-3 py-2.5 text-right text-sm font-semibold text-[var(--ink)] hover:bg-[var(--surface-2)]"
                 onClick={() => {
                   onMuteToggle();
                   onMenuToggle();
