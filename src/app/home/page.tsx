@@ -698,14 +698,14 @@ function HomePageInner() {
 
   return (
     <AuthGate>
-      <div className="theme-page-bg theme-text-primary relative min-h-[60dvh] w-full min-w-0 max-w-[100vw]" dir="rtl">
-        <div className="theme-panel-bg theme-border-soft sticky top-14 z-[15] w-full min-w-0 max-w-[100vw] overflow-x-hidden border-b shadow-[0_1px_0_rgba(15,23,42,0.06)] backdrop-blur-md">
+      <div className="relative min-h-[60dvh] w-full min-w-0 max-w-[100vw] bg-[var(--bg-page)] text-[var(--ink)]" dir="rtl">
+        <div className="sticky top-14 z-[15] w-full min-w-0 max-w-[100vw] overflow-x-hidden border-b border-[var(--line)] bg-[var(--surface)]/95 backdrop-blur-md">
           <div className="mx-auto w-full min-w-0 max-w-lg">
             <FeedTabs active={tab} onChange={setTab} />
           </div>
         </div>
 
-        <main className="theme-surface-soft mx-auto min-h-[40dvh] w-full max-w-lg pb-28">
+        <main className="mx-auto min-h-[40dvh] w-full max-w-lg pb-28">
           {/* StoryCuratedRail intentionally off by default on /home — the
               product home for curated stories is /vitrin. Set
               NEXT_PUBLIC_ENABLE_HOME_STORY_RAIL=true at build time to bring
@@ -719,10 +719,10 @@ function HomePageInner() {
               items={storyItems}
             />
           ) : null}
-          <section className="theme-card-bg theme-border-soft mx-2 mt-2.5 rounded-2xl border px-3.5 py-3 shadow-sm">
+          <section className="mx-2 mt-2.5 rounded-2xl border border-[var(--line)] bg-[var(--surface)] px-3.5 py-3">
             <div className="flex items-start justify-between gap-2" dir="rtl">
               <div className="min-w-0">
-                <p className="theme-text-primary truncate text-sm font-extrabold">{tabFrame.title}</p>
+                <p className="truncate text-sm font-extrabold text-[var(--ink)]">{tabFrame.title}</p>
               </div>
               <button
                 type="button"
@@ -823,7 +823,7 @@ function HomePageInner() {
                   icon="✦"
                 />
               ) : (
-                <div className="theme-card-bg mx-2 mt-2 overflow-hidden rounded-xl">
+                <div className="mx-2 mt-2 overflow-hidden rounded-xl border border-[var(--line)] bg-[var(--surface)]">
                   {posts.map((p) => (
                     <FeedPostCard
                       key={
@@ -905,7 +905,7 @@ function HomePageInner() {
                   ) : null}
                 </div>
               ) : (
-                <div className="theme-card-bg mx-2 mt-2 overflow-hidden rounded-xl">
+                <div className="mx-2 mt-2 overflow-hidden rounded-xl border border-[var(--line)] bg-[var(--surface)]">
                   {followingPosts.map((p) => (
                     <FeedPostCard
                       key={p.id}
@@ -945,7 +945,7 @@ function HomePageInner() {
                 />
               ) : null}
               {localStream.length > 0 ? (
-                <div className="theme-card-bg mx-2 mt-2 overflow-hidden rounded-xl">
+                <div className="mx-2 mt-2 overflow-hidden rounded-xl border border-[var(--line)] bg-[var(--surface)]">
                   {localStream.map((item, idx) => {
                     if (item.kind === 'post') {
                       return (
@@ -984,7 +984,7 @@ function HomePageInner() {
                 />
               ) : null}
               {networkStream.length > 0 ? (
-                <div className="theme-card-bg mx-2 mt-2 overflow-hidden rounded-xl">
+                <div className="mx-2 mt-2 overflow-hidden rounded-xl border border-[var(--line)] bg-[var(--surface)]">
                   {networkStream.map((item, idx) => {
                     if (item.kind === 'post') {
                       return (
@@ -1054,7 +1054,7 @@ function InlineCuratedStoryCard({ item }: { item: StoryItem }) {
   return (
     <Root
       {...(href ? { href, target: '_blank', rel: 'noreferrer noopener' } : {})}
-      className="theme-surface-soft theme-border-soft mx-2 my-2.5 block rounded-2xl border p-3 shadow-[0_4px_14px_rgba(15,23,42,0.06)] transition hover:border-[var(--accent-ring)]"
+      className="mx-2 my-2.5 block rounded-2xl border border-[var(--line)] bg-[var(--surface-2)] p-3 transition hover:border-[var(--accent-ring)]"
     >
       <div className="flex items-center gap-1.5">
         <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${kindCls}`}>{kindLabel}</span>
@@ -1080,7 +1080,7 @@ export default function HomePage() {
   return (
     <Suspense
       fallback={
-        <div className="theme-page-bg theme-text-secondary flex min-h-[40dvh] items-center justify-center px-4 text-sm">
+        <div className="flex min-h-[40dvh] items-center justify-center bg-[var(--bg-page)] px-4 text-sm text-[var(--ink-3)]">
           در حال بارگذاری…
         </div>
       }
