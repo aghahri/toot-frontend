@@ -1992,9 +1992,9 @@ async function uploadSelectedFile(token: string): Promise<string | null> {
   return (
     <AuthGate>
       <IncomingCallHint />
-      <main className="theme-page-bg theme-text-primary mx-auto flex min-h-[100dvh] w-full max-w-md flex-col bg-[linear-gradient(180deg,var(--surface-soft)_0%,var(--page-bg)_28%)]">
+      <main className="mx-auto flex min-h-[100dvh] w-full max-w-md flex-col bg-[var(--bg-page)] text-[var(--ink)]">
         <header
-          className="theme-panel-bg theme-border-soft sticky top-0 z-30 border-b shadow-[0_1px_0_rgba(0,0,0,0.04)] backdrop-blur-md"
+          className="sticky top-0 z-30 border-b border-[var(--line)] bg-[var(--surface)]/95 backdrop-blur-md"
           dir="rtl"
         >
           {isSelectionMode ? (
@@ -2003,7 +2003,7 @@ async function uploadSelectedFile(token: string): Promise<string | null> {
                 <button
                   type="button"
                   onClick={exitSelectionMode}
-                  className="theme-text-primary flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition hover:bg-[var(--surface-soft)] active:bg-[var(--surface-strong)]"
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-[var(--ink)] transition hover:bg-[var(--surface-2)] active:bg-[var(--surface-strong)]"
                   aria-label="لغو انتخاب"
                 >
                   <span className="text-xl font-semibold leading-none text-slate-800" aria-hidden>
@@ -2055,7 +2055,7 @@ async function uploadSelectedFile(token: string): Promise<string | null> {
             <div className="flex items-center gap-2 px-2.5 py-1.5">
               <Link
                 href="/direct"
-                className="theme-text-primary flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition hover:bg-[var(--surface-soft)] active:bg-[var(--surface-strong)]"
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[var(--ink)] transition hover:bg-[var(--surface-2)] active:bg-[var(--surface-strong)]"
                 aria-label="بازگشت"
               >
                 <span className="text-xl font-semibold leading-none text-slate-800" aria-hidden>
@@ -2078,7 +2078,7 @@ async function uploadSelectedFile(token: string): Promise<string | null> {
               </div>
 
               <div className="min-w-0 flex-1 text-right">
-                <h1 className="theme-text-primary truncate text-[15px] font-bold leading-tight">
+                <h1 className="truncate text-[15px] font-bold leading-tight text-[var(--ink)]">
                   {peerDisplay.name}
                 </h1>
                 <p className={`mt-0.5 truncate text-[11px] ${headerStatusLine.className}`}>
@@ -2096,7 +2096,7 @@ async function uploadSelectedFile(token: string): Promise<string | null> {
                 aria-label="تماس صوتی"
                 disabled={!canStartVoiceCall}
                 onClick={() => startVoiceCall({ conversationId })}
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-slate-600 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40"
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[var(--ink-2)] transition hover:bg-[var(--surface-2)] disabled:cursor-not-allowed disabled:opacity-40"
               >
                 <span className="text-lg" aria-hidden>
                   📞
@@ -2110,7 +2110,7 @@ async function uploadSelectedFile(token: string): Promise<string | null> {
                   setSearchQuery('');
                   setSearchHits([]);
                 }}
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-slate-600 transition hover:bg-slate-100"
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[var(--ink-2)] transition hover:bg-[var(--surface-2)]"
               >
                 <span className="text-base" aria-hidden>
                   🔍
@@ -2123,7 +2123,7 @@ async function uploadSelectedFile(token: string): Promise<string | null> {
                   setStarredSheetOpen(true);
                   void loadStarredSheet();
                 }}
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-slate-600 transition hover:bg-slate-100"
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[var(--ink-2)] transition hover:bg-[var(--surface-2)]"
               >
                 <span className="text-base" aria-hidden>
                   ★
@@ -2137,7 +2137,7 @@ async function uploadSelectedFile(token: string): Promise<string | null> {
                   void loadMessages();
                 }}
                 disabled={loading}
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-slate-600 transition hover:bg-slate-100 disabled:opacity-40"
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[var(--ink-2)] transition hover:bg-[var(--surface-2)] disabled:opacity-40"
               >
                 <span className={`text-lg ${loading ? 'animate-pulse' : ''}`} aria-hidden>
                   ↻
@@ -2191,7 +2191,7 @@ async function uploadSelectedFile(token: string): Promise<string | null> {
           </div>
         ) : null}
 
-        <div className="theme-surface-soft flex-1 space-y-2.5 px-2.5 py-3 sm:px-3">
+        <div className="flex-1 space-y-2.5 bg-[var(--bg-page)] px-2.5 py-3 sm:px-3">
           {loading ? (
             <Card>
               <div className="text-sm text-slate-700">در حال دریافت پیام‌ها...</div>
@@ -2742,7 +2742,7 @@ async function uploadSelectedFile(token: string): Promise<string | null> {
         ) : null}
 
         <div
-          className="theme-panel-bg theme-border-soft sticky bottom-0 z-20 border-t px-2.5 pt-2 shadow-[0_-1px_8px_rgba(0,0,0,0.05)] backdrop-blur-md"
+          className="sticky bottom-0 z-20 border-t border-[var(--line)] bg-[var(--surface)]/95 px-2.5 pt-2 backdrop-blur-md"
           style={{
             paddingBottom: `calc(max(0.75rem, env(safe-area-inset-bottom)) + ${composerKeyboardInset}px)`,
           }}
@@ -3058,7 +3058,7 @@ async function uploadSelectedFile(token: string): Promise<string | null> {
                 placeholder="پیام…"
                 rows={1}
                 disabled={sending || voicePhase === 'recording' || isSelectionMode}
-                className="theme-card-bg theme-border-soft theme-text-primary min-h-[2.625rem] max-h-32 min-w-0 flex-1 resize-none rounded-xl border px-3 py-2 text-[15px] leading-normal shadow-sm outline-none ring-0 transition placeholder:text-[var(--text-secondary)] focus:border-[var(--accent-ring)] focus:ring-2 focus:ring-[var(--accent-ring)] sm:min-h-[2.75rem] sm:rounded-2xl sm:px-3.5 sm:py-2.5"
+                className="min-h-[2.625rem] max-h-32 min-w-0 flex-1 resize-none rounded-xl border border-[var(--line)] bg-[var(--surface)] px-3 py-2 text-[15px] leading-normal text-[var(--ink)] outline-none ring-0 transition placeholder:text-[var(--ink-3)] focus:border-[var(--accent-ring)] focus:ring-2 focus:ring-[var(--accent-soft)] sm:min-h-[2.75rem] sm:rounded-2xl sm:px-3.5 sm:py-2.5"
               />
 
               <button
