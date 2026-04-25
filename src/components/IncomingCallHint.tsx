@@ -14,10 +14,16 @@ import { useVoiceCall } from '@/context/VoiceCallContext';
  *
  *   1. Snapshots the params on the first render that has them.
  *   2. Fetches GET /calls/sessions/:sessionId (auth-scoped to participants).
- *   3. If status===RINGING and the JWT-resolved viewerRole==='callee', calls
- *      VoiceCallContext.recoverIncomingFromPush — which mounts the existing
- *      answer/reject sheet exactly as the socket path would have.
- *   4. Otherwise shows a one-shot "تماس از دست رفت" chip for a few seconds.
+ *   3. Branches on the response:
+ *        RINGING/INITIATED + viewerRole='callee' → recoverIncomingFromPush
+ *          and hide the chip; the existing answer/reject sheet mounts.
+ *        ACCEPTED + viewerRole='callee' (likely picked up on another device)
+ *          → silent hide, no missed-call chip.
+ *        viewerRole='caller' (user tapped their own outgoing ring)
+ *          → silent hide.
+ *        ENDED / REJECTED / MISSED / FAILED / BUSY (definitively over)
+ *          → 'تماس از دست رفت' chip for ~4 s.
+ *        Network / 404 → same missed-call chip (best closure we can offer).
  *
  * No auto-accept. We never invent state — we only restore what the server
  * confirms still exists.
@@ -26,8 +32,8 @@ import { useVoiceCall } from '@/context/VoiceCallContext';
  * window.history.replaceState while the recovery is in flight. Next 14.1+
  * integrates replaceState with the router state, which causes
  * useSearchParams to re-resolve and the consume-effect to cleanup-cancel
- * its own fetch. URL clean-up (so a manual refresh doesn't replay) happens
- * at the very end of the recovery, after the decision is already made.
+ * its own fetch. URL clean-up happens at the very end of the recovery,
+ * after the decision is already made.
  */
 
 type FetchedSession = {
@@ -47,6 +53,13 @@ type HintState = 'hidden' | 'connecting' | 'missed';
 const ID_PATTERN = /^[A-Za-z0-9_-]{1,64}$/;
 const MISSED_DISPLAY_MS = 4_000;
 const MAX_CONNECTING_MS = 30_000;
+
+/** Diagnostic logger — visible in `chrome://inspect` while we're stabilising
+ *  the push-recovery path. Cheap and confined to this module. */
+function diag(...parts: unknown[]) {
+  // eslint-disable-next-line no-console
+  console.info('[push-recovery]', ...parts);
+}
 
 function stripIncomingCallParams() {
   if (typeof window === 'undefined') return;
@@ -86,17 +99,17 @@ export function IncomingCallHint() {
     const sessionId = sessionIdRaw && ID_PATTERN.test(sessionIdRaw) ? sessionIdRaw : null;
 
     consumedRef.current = true;
+    diag('consume', { sessionId, phase });
     setState('connecting');
 
     timerRef.current = window.setTimeout(() => {
+      diag('ceiling-timeout-30s', { phase });
       setState((prev) => (prev === 'connecting' ? 'hidden' : prev));
       stripIncomingCallParams();
     }, MAX_CONNECTING_MS);
 
     if (!sessionId) {
-      // No session id in payload — nothing to fetch. The 30 s timeout above
-      // will hide the chip; the existing socket call_invite path handles the
-      // ring if it eventually arrives.
+      diag('no-sessionId — waiting for socket call_invite');
       return;
     }
 
@@ -106,19 +119,29 @@ export function IncomingCallHint() {
           `calls/sessions/${encodeURIComponent(sessionId)}`,
           { method: 'GET' },
         );
+        diag('fetch ok', {
+          sessionId: session.id,
+          status: session.status,
+          viewerRole: session.viewerRole,
+          conversationId: session.conversationId,
+          phase,
+        });
 
-        const stillRinging = session.status === 'RINGING' || session.status === 'INITIATED';
-        const userIsCallee = session.viewerRole === 'callee';
+        const isRinging = session.status === 'RINGING' || session.status === 'INITIATED';
+        const isCallee = session.viewerRole === 'callee';
+        const isCaller = session.viewerRole === 'caller';
 
-        if (stillRinging && userIsCallee && session.caller) {
+        // Happy path: caller is still ringing and we're the callee. Mount the
+        // ring sheet (no-ops if VoiceCallContext already has it from socket
+        // call_invite — that's fine, the sheet is already up).
+        if (isRinging && isCallee && session.caller) {
+          diag('recover → mounting ring sheet', { sessionId, phaseBefore: phase });
           recoverIncomingFromPush({
             sessionId: session.id,
             callType: session.callType,
             conversationId: session.conversationId,
             caller: session.caller,
           });
-          // Existing in-app sheet now owns the surface. The phase-watcher
-          // effect below also handles this, but be explicit.
           setState('hidden');
           if (timerRef.current != null) {
             window.clearTimeout(timerRef.current);
@@ -128,18 +151,47 @@ export function IncomingCallHint() {
           return;
         }
 
-        // Anything else (ENDED, REJECTED, MISSED, FAILED, BUSY, ACCEPTED-by-
-        // someone-else, or viewer is the caller) → brief "missed" pill, then
-        // disappear. We never show stale "ringing" affordances.
+        // Already accepted somewhere else (multi-device user) → no useful
+        // affordance to surface; just clean up silently. Showing 'missed'
+        // here would be misleading.
+        if (session.status === 'ACCEPTED' && isCallee) {
+          diag('already accepted on another device — silent hide');
+          setState('hidden');
+          if (timerRef.current != null) {
+            window.clearTimeout(timerRef.current);
+            timerRef.current = null;
+          }
+          stripIncomingCallParams();
+          return;
+        }
+
+        // The viewer is the caller (e.g. tapped a stale FCM for an outgoing
+        // ring) — nothing to mount. Silent hide; existing outgoing UI on the
+        // caller's side is the source of truth.
+        if (isCaller) {
+          diag('viewer is caller — silent hide');
+          setState('hidden');
+          if (timerRef.current != null) {
+            window.clearTimeout(timerRef.current);
+            timerRef.current = null;
+          }
+          stripIncomingCallParams();
+          return;
+        }
+
+        // Definitively over (ENDED / REJECTED / MISSED / FAILED / BUSY) —
+        // brief 'تماس از دست رفت' so the user gets closure.
+        diag('terminal status — show missed', { status: session.status });
         setState('missed');
         if (timerRef.current != null) window.clearTimeout(timerRef.current);
         timerRef.current = window.setTimeout(() => {
           setState('hidden');
           stripIncomingCallParams();
         }, MISSED_DISPLAY_MS);
-      } catch {
+      } catch (err) {
         // 404 from the server (not a participant, or session pruned) → fall
         // back to missed-call chip so the user gets some closure.
+        diag('fetch failed → missed', err instanceof Error ? err.message : err);
         setState('missed');
         if (timerRef.current != null) window.clearTimeout(timerRef.current);
         timerRef.current = window.setTimeout(() => {
@@ -151,12 +203,13 @@ export function IncomingCallHint() {
 
     // No cleanup that cancels the in-flight fetch. The consume-once semantic
     // means re-renders MUST NOT abort a recovery that already started.
-  }, [search, recoverIncomingFromPush]);
+  }, [search, recoverIncomingFromPush, phase]);
 
   // The actual ring sheet has taken over (recoverIncomingFromPush succeeded
   // or a parallel socket invite arrived) — vacate the chip.
   useEffect(() => {
     if (phase !== 'idle' && state !== 'hidden') {
+      diag('phase-watcher: phase=', phase, '→ hide chip');
       setState('hidden');
       if (timerRef.current != null) {
         window.clearTimeout(timerRef.current);
