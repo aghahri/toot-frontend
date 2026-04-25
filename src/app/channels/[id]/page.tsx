@@ -459,14 +459,21 @@ function ChannelDetailInner() {
                   ) : null}
                 </div>
               </div>
-              {error ? <p className="mt-3 text-center text-[11px] font-semibold text-red-700">{error}</p> : null}
+              {error ? (
+                <p
+                  className="mt-3 text-center text-[11px] font-semibold text-[var(--accent-hover)]"
+                  role="alert"
+                >
+                  {error}
+                </p>
+              ) : null}
               <button
                 type="button"
                 disabled={joining}
                 onClick={() => void joinChannel()}
-                className="mt-4 w-full rounded-xl bg-violet-700 px-4 py-3 text-sm font-bold text-white shadow-md transition hover:bg-violet-800 disabled:opacity-50"
+                className="mt-4 w-full rounded-xl bg-[var(--accent)] px-4 py-3 text-sm font-extrabold text-[var(--accent-contrast)] shadow-md transition hover:bg-[var(--accent-hover)] disabled:opacity-50"
               >
-                {joining ? '…' : 'پیوستن به کانال'}
+                {joining ? '…' : 'عضو شدن در کانال'}
               </button>
             </div>
           </div>
@@ -478,9 +485,9 @@ function ChannelDetailInner() {
           <CommunityWorkspaceHeaderBar>
             <CommunityBackButton onClick={() => router.back()} />
           </CommunityWorkspaceHeaderBar>
-          <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50/90 p-4 text-sm text-amber-950">
+          <div className="mt-4 rounded-2xl border border-[var(--line)] bg-[var(--accent-soft)] p-4 text-sm text-[var(--ink)]">
             <p className="font-bold">دسترسی به کانال</p>
-            <p className="mt-2 text-xs leading-relaxed">
+            <p className="mt-2 text-xs leading-relaxed text-[var(--ink-2)]">
               احتمالاً هنوز عضو شبکه این کانال نیستید. ابتدا عضو شوید.
             </p>
             <Link
