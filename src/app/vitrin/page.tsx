@@ -6,6 +6,20 @@ import { AuthGate } from '@/components/AuthGate';
 import { apiFetch } from '@/lib/api';
 import { formatCount } from '@/lib/format';
 import { VITRIN_CATALOG } from '@/config/vitrinCatalog';
+import { StoryCuratedRail } from '@/components/home/StoryCuratedRail';
+
+type VitrinStoryItem = {
+  id: string;
+  title: string;
+  summary: string | null;
+  category: string | null;
+  url: string | null;
+  imageUrl?: string | null;
+  publishedAt: string | null;
+  storyKind?: 'TODAY' | 'LOCAL' | 'NETWORK';
+  trustLabel?: string;
+  source: { name: string };
+};
 
 function VitrinGlyph({ id }: { id: string }) {
   const common = 'h-5 w-5 text-white';
@@ -47,6 +61,8 @@ export default function VitrinPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<ShowcasePayload | null>(null);
+  const [storyLoading, setStoryLoading] = useState(true);
+  const [storyItems, setStoryItems] = useState<VitrinStoryItem[]>([]);
 
   useEffect(() => {
     let active = true;
@@ -62,6 +78,27 @@ export default function VitrinPage() {
         if (active) setLoading(false);
       }
     })();
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  // Compact, scope='today'-only story rail. Fetches independently of the
+  // showcase payload so a slow story endpoint never delays the rest of the
+  // page; stays silent when no published stories exist.
+  useEffect(() => {
+    let active = true;
+    setStoryLoading(true);
+    void apiFetch<VitrinStoryItem[]>('story/published?scope=today&limit=6', { method: 'GET' })
+      .then((rows) => {
+        if (active) setStoryItems(rows);
+      })
+      .catch(() => {
+        if (active) setStoryItems([]);
+      })
+      .finally(() => {
+        if (active) setStoryLoading(false);
+      });
     return () => {
       active = false;
     };
@@ -171,6 +208,14 @@ export default function VitrinPage() {
             </ul>
           )}
         </section>
+
+        {/* Compact Story rail (scope='today') — the rail provides its own
+            Persian heading + warm-token chrome, so no outer section wrapper. */}
+        {storyLoading || storyItems.length > 0 ? (
+          <div className="mb-6 -mx-2">
+            <StoryCuratedRail scope="today" loading={storyLoading} items={storyItems} />
+          </div>
+        ) : null}
 
         <section className="mb-6">
           <div className="mb-3 flex items-center justify-between">

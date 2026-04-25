@@ -706,7 +706,13 @@ function HomePageInner() {
         </div>
 
         <main className="theme-surface-soft mx-auto min-h-[40dvh] w-full max-w-lg pb-28">
-          {loadingStories || storyItems.length > 0 ? (
+          {/* StoryCuratedRail intentionally off by default on /home — the
+              product home for curated stories is /vitrin. Set
+              NEXT_PUBLIC_ENABLE_HOME_STORY_RAIL=true at build time to bring
+              it back here for testing. The fetch above still runs because
+              storyItems are also injected into the local/networks feed. */}
+          {process.env.NEXT_PUBLIC_ENABLE_HOME_STORY_RAIL === 'true' &&
+          (loadingStories || storyItems.length > 0) ? (
             <StoryCuratedRail
               scope={tab === 'local' ? 'local' : tab === 'networks' ? 'networks' : 'today'}
               loading={loadingStories}
