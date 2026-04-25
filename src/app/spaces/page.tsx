@@ -326,17 +326,33 @@ export default function SpacesOverviewPage() {
   const dashboardSpaces = preferredSpaces.slice(0, MAX_SPACES);
   const hasMySpaces = dashboardSpaces.length > 0;
 
+  // Cover-gradient palette per the handoff `.space-item.{v2,v3,v4}` variants.
+  // Picked deterministically by hash of the row's id so the same item keeps
+  // the same color across refreshes.
+  const COVER_GRADIENTS = [
+    'linear-gradient(135deg,#C8B8A5,#9A8475)',
+    'linear-gradient(135deg,#B4C5A5,#7A9875)',
+    'linear-gradient(135deg,#D1BA9E,#A58262)',
+    'linear-gradient(135deg,#E0C9A0,#B48A5F)',
+  ] as const;
+  const pickCover = (key: string) => {
+    let h = 0;
+    for (let i = 0; i < key.length; i += 1) h = (h * 31 + key.charCodeAt(i)) | 0;
+    return COVER_GRADIENTS[Math.abs(h) % COVER_GRADIENTS.length];
+  };
+
   return (
     <AuthGate>
       <main
-        className="theme-page-bg theme-text-primary mx-auto w-full max-w-lg px-4 pb-28 pt-5 sm:max-w-xl sm:pb-16"
+        className="mx-auto min-h-[100dvh] w-full max-w-md px-3 pb-28 pt-3 bg-[var(--bg-page)] sm:max-w-xl sm:pb-16"
         dir="rtl"
       >
-        <div className="mb-4 flex justify-end">
+        <div className="mb-3 flex items-center justify-between px-1">
+          <h1 className="text-[15px] font-extrabold text-[var(--ink)]">فضاها</h1>
           <button
             type="button"
             onClick={() => setEditOpen(true)}
-            className="shrink-0 rounded-2xl border border-[var(--border-soft)] bg-[var(--card-bg)] px-3 py-2.5 text-xs font-extrabold text-[var(--accent-hover)] shadow-sm transition hover:bg-[var(--surface-soft)] active:scale-[0.99]"
+            className="rounded-full bg-[var(--surface)] border border-[var(--line)] px-3 py-1.5 text-[11px] font-extrabold text-[var(--accent-hover)] transition active:scale-[0.97]"
             aria-label="ویرایش فضاهای منتخب"
           >
             ویرایش
@@ -344,23 +360,13 @@ export default function SpacesOverviewPage() {
         </div>
 
         {loading ? (
-          <div className="space-y-6" aria-busy>
-            <div className="space-y-3">
-              <div className="h-[5.25rem] animate-pulse rounded-2xl border border-[var(--line)] bg-[var(--surface-2)]" />
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-                {[0, 1, 2].map((i) => (
-                  <div
-                    key={i}
-                    className="h-[6.5rem] animate-pulse rounded-2xl border border-[var(--line)] bg-[var(--surface-2)]"
-                  />
-                ))}
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              {[0, 1, 2, 3].map((i) => (
+          <div className="space-y-4" aria-busy>
+            <div className="h-[180px] animate-pulse rounded-2xl border border-[var(--line)] bg-[var(--surface-2)]" />
+            <div className="flex gap-2">
+              {[0, 1, 2].map((i) => (
                 <div
                   key={i}
-                  className="h-[8.5rem] animate-pulse rounded-2xl border border-[var(--line)] bg-[var(--surface-2)]"
+                  className="h-7 w-20 animate-pulse rounded-full border border-[var(--line)] bg-[var(--surface-2)]"
                 />
               ))}
             </div>
@@ -368,7 +374,7 @@ export default function SpacesOverviewPage() {
               {[0, 1, 2].map((i) => (
                 <li
                   key={i}
-                  className="h-14 animate-pulse rounded-2xl border border-[var(--line)] bg-[var(--surface-2)]"
+                  className="h-[88px] animate-pulse rounded-2xl border border-[var(--line)] bg-[var(--surface-2)]"
                 />
               ))}
             </ul>
@@ -384,7 +390,7 @@ export default function SpacesOverviewPage() {
 
         {!loading && error && hasMySpaces ? (
           <p
-            className="mb-4 rounded-xl border border-[var(--line)] bg-[var(--surface)] px-3 py-2 text-center text-xs font-semibold text-[var(--accent-hover)]"
+            className="mb-3 rounded-xl border border-[var(--line)] bg-[var(--surface)] px-3 py-2 text-center text-xs font-semibold text-[var(--accent-hover)]"
             role="alert"
           >
             {error}
@@ -392,86 +398,104 @@ export default function SpacesOverviewPage() {
         ) : null}
 
         {!loading ? (
-          <div className="flex flex-col gap-10">
-            <section aria-label="فضاهای منتخب">
-              {hasMySpaces ? (
-                <div className="space-y-3">
-                  {dashboardSpaces.includes('neighborhood') ? (
-                    <Link
-                      href={`/spaces/${DETAIL_ROUTE.neighborhood}`}
-                      className="relative block overflow-hidden rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-4 transition hover:bg-[var(--surface-2)]/60 active:scale-[0.99]"
-                      aria-label="ورود به فضای محله"
-                    >
-                      <span
-                        className="pointer-events-none absolute inset-y-0 start-0 w-1.5 bg-[var(--accent)]"
-                        aria-hidden
-                      />
-                      <div className="flex items-center gap-4 ps-3">
-                        <span
-                          className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-[var(--accent-soft)] text-3xl leading-none"
-                          aria-hidden
-                        >
-                          {USER_SPACE_META.neighborhood.emoji}
-                        </span>
-                        <div className="min-w-0 flex-1">
-                          <p className="text-[11px] font-bold text-[var(--accent-hover)]">فضای ثابت تو</p>
-                          <p className="mt-0.5 text-lg font-black text-[var(--ink)]">
-                            {USER_SPACE_META.neighborhood.labelFa}
-                          </p>
-                          <p className="mt-1 line-clamp-1 text-xs text-[var(--ink-3)]">
-                            {EXPLORE_ONE_LINE.neighborhood}
-                          </p>
-                        </div>
-                        <span className="shrink-0 rounded-full bg-[var(--accent)] px-4 py-1.5 text-[11px] font-extrabold text-[var(--accent-contrast)]">
-                          ورود
-                        </span>
-                      </div>
-                    </Link>
-                  ) : null}
-                  {dashboardSpaces.filter((k) => k !== 'neighborhood').length > 0 ? (
-                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-                      {dashboardSpaces
-                        .filter((k) => k !== 'neighborhood')
-                        .map((k) => (
-                          <Link
-                            key={k}
-                            href={k === 'business' ? '/spaces/business' : `/spaces/${DETAIL_ROUTE[k]}`}
-                            className="flex flex-col items-center rounded-2xl border border-[var(--line)] bg-[var(--surface)] px-3 py-4 text-center transition hover:bg-[var(--surface-2)]/60 active:scale-[0.98]"
-                          >
-                            <span className="text-3xl leading-none" aria-hidden>
-                              {USER_SPACE_META[k].emoji}
-                            </span>
-                            <p className="mt-2.5 text-[13px] font-extrabold text-[var(--ink)]">
-                              {USER_SPACE_META[k].labelFa}
-                            </p>
-                            <p className="mt-1 text-[10px] font-bold text-[var(--accent-hover)]">ورود</p>
-                          </Link>
-                        ))}
-                    </div>
-                  ) : null}
-                </div>
-              ) : (
-                <div className="mx-auto flex max-w-xs flex-col items-center gap-3 rounded-2xl border border-[var(--line)] bg-[var(--surface)] px-4 py-12 text-center">
-                  <span
-                    className="flex h-16 w-16 items-center justify-center rounded-2xl bg-[var(--surface-2)] text-3xl"
-                    aria-hidden
-                  >
-                    🏘
+          <div className="flex flex-col gap-4">
+            {/* 1. Neighborhood hero — handoff .neighborhood-hero */}
+            {hasMySpaces && dashboardSpaces.includes('neighborhood') ? (
+              <article className="overflow-hidden rounded-2xl border border-[var(--line)] bg-[var(--surface)]">
+                <div
+                  className="relative h-20"
+                  style={{
+                    background:
+                      'linear-gradient(135deg, #E0C9A0 0%, #B48A5F 60%, #8B4E1E 100%)',
+                  }}
+                  aria-hidden
+                >
+                  <span className="absolute bottom-2.5 start-3.5 text-[16px] font-extrabold tracking-tight text-white">
+                    {USER_SPACE_META.neighborhood.labelFa}
                   </span>
-                  <p className="text-sm font-extrabold text-[var(--ink)]">هنوز عضو فضایی نیستی</p>
-                  <p className="text-balance text-xs text-[var(--ink-3)]">چند فضا انتخاب کن تا اجتماع‌های نزدیک به سلیقه‌ات اینجا جمع شوند.</p>
+                </div>
+                <div className="flex gap-2 p-3">
+                  <Link
+                    href={`/spaces/${DETAIL_ROUTE.neighborhood}`}
+                    className="flex-1 rounded-xl bg-[var(--accent)] px-3 py-2.5 text-center text-[12.5px] font-extrabold text-white"
+                  >
+                    ورود به محله
+                  </Link>
+                  <Link
+                    href="/spaces/neighborhood/bulletin"
+                    className="flex-1 rounded-xl bg-[var(--surface-2)] px-3 py-2.5 text-center text-[12.5px] font-extrabold text-[var(--ink)]"
+                  >
+                    اعلان‌ها
+                  </Link>
+                </div>
+              </article>
+            ) : null}
+
+            {/* 2. Section title + dashboard tiles */}
+            {hasMySpaces ? (
+              <section aria-labelledby="my-spaces-heading">
+                <div className="mb-2 flex items-baseline justify-between px-1">
+                  <h2 id="my-spaces-heading" className="text-[15px] font-extrabold text-[var(--ink)]">
+                    فضاهای من
+                  </h2>
                   <button
                     type="button"
                     onClick={() => setEditOpen(true)}
-                    className="mt-1 rounded-full bg-[var(--accent)] px-5 py-2.5 text-xs font-extrabold text-[var(--accent-contrast)] hover:bg-[var(--accent-hover)]"
+                    className="text-[12px] font-bold text-[var(--accent-hover)]"
                   >
-                    کشف فضاها
+                    کشف بیشتر
                   </button>
                 </div>
-              )}
-            </section>
+                {dashboardSpaces.filter((k) => k !== 'neighborhood').length > 0 ? (
+                  <ul className="grid grid-cols-3 gap-2.5">
+                    {dashboardSpaces
+                      .filter((k) => k !== 'neighborhood')
+                      .map((k) => (
+                        <li key={k}>
+                          <Link
+                            href={k === 'business' ? '/spaces/business' : `/spaces/${DETAIL_ROUTE[k]}`}
+                            className="flex h-full flex-col items-center gap-1.5 rounded-2xl border border-[var(--line)] bg-[var(--surface)] px-2 py-3 text-center transition active:scale-[0.97]"
+                          >
+                            <span className="text-2xl leading-none" aria-hidden>
+                              {USER_SPACE_META[k].emoji}
+                            </span>
+                            <p className="line-clamp-1 text-[12px] font-extrabold text-[var(--ink)]">
+                              {USER_SPACE_META[k].labelFa}
+                            </p>
+                          </Link>
+                        </li>
+                      ))}
+                  </ul>
+                ) : null}
+              </section>
+            ) : (
+              <div className="mx-auto flex max-w-xs flex-col items-center gap-3 rounded-2xl border border-[var(--line)] bg-[var(--surface)] px-4 py-12 text-center">
+                <span
+                  className="flex h-16 w-16 items-center justify-center rounded-2xl bg-[var(--surface-2)] text-3xl"
+                  aria-hidden
+                >
+                  🏘
+                </span>
+                <p className="text-sm font-extrabold text-[var(--ink)]">هنوز عضو فضایی نیستی</p>
+                <p className="text-balance text-xs text-[var(--ink-3)]">
+                  چند فضا انتخاب کن تا اجتماع‌های نزدیک به سلیقه‌ات اینجا جمع شوند.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setEditOpen(true)}
+                  className="mt-1 rounded-full bg-[var(--accent)] px-5 py-2.5 text-xs font-extrabold text-[var(--accent-contrast)]"
+                >
+                  کشف فضاها
+                </button>
+              </div>
+            )}
 
-            <div role="tablist" aria-label="فیلتر فضاها" className="-mx-1 flex flex-wrap items-center gap-2 px-1">
+            {/* 3. Filter chip row — handoff .chip-row + .chip / .chip.active */}
+            <div
+              role="tablist"
+              aria-label="فیلتر فضاها"
+              className="-mx-3 flex gap-2 overflow-x-auto px-3 pb-1 [&::-webkit-scrollbar]:hidden"
+            >
               {([
                 { id: 'followed', label: 'دنبال‌شده' },
                 { id: 'suggested', label: 'پیشنهادی' },
@@ -485,10 +509,10 @@ export default function SpacesOverviewPage() {
                     role="tab"
                     aria-selected={active}
                     onClick={() => setFilter(c.id)}
-                    className={`rounded-full px-3.5 py-1.5 text-[12px] font-bold transition ${
+                    className={`shrink-0 whitespace-nowrap rounded-full px-3.5 py-1.5 text-[12px] font-bold transition ${
                       active
-                        ? 'bg-[var(--ink)] text-white'
-                        : 'bg-[var(--surface-2)] text-[var(--ink-2)] hover:bg-[var(--surface-strong)]'
+                        ? 'bg-[var(--ink)] text-white border border-[var(--ink)]'
+                        : 'bg-[var(--surface)] text-[var(--ink-2)] border border-[var(--line)]'
                     }`}
                   >
                     {c.label}
@@ -497,139 +521,155 @@ export default function SpacesOverviewPage() {
               })}
             </div>
 
-            {filter !== 'new' && getAccessToken() && recommendations.length > 0 ? (
-              <section aria-labelledby="rec-heading">
-                <h2 id="rec-heading" className="mb-3 text-xs font-extrabold text-[var(--ink-3)]">
-                  پیشنهاد برای شما
-                </h2>
-                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-                  {recommendations.map((item, idx) => (
-                    <Link
-                      key={`${item.kind}-${item.id}-${idx}`}
-                      href={
-                        item.kind === 'network'
-                          ? `/networks/${item.id}`
-                          : item.kind === 'group'
-                            ? `/groups/${item.id}`
-                            : `/channels/${item.id}?network=${encodeURIComponent(item.networkId)}`
-                      }
-                      className="rounded-2xl border border-[var(--line)] bg-[var(--surface)] px-3 py-3 transition hover:bg-[var(--surface-2)]/60"
-                    >
-                      <p className="inline-flex rounded-full bg-[var(--accent-soft)] px-2 py-0.5 text-[10px] font-bold text-[var(--accent-hover)]">
-                        {item.kind === 'network' ? 'شبکه' : item.kind === 'group' ? 'گروه' : 'کانال'}
-                      </p>
-                      <p className="mt-2 line-clamp-2 text-sm font-extrabold text-[var(--ink)]">{item.name}</p>
-                    </Link>
-                  ))}
-                </div>
-              </section>
-            ) : null}
-
-            {filter !== 'new' && discoveryBlueprints.length > 0 ? (
-            <section aria-labelledby="explore-heading">
-              <h2 id="explore-heading" className="mb-3 text-xs font-extrabold text-[var(--ink-3)]">
-                فضاهای بیشتر
-              </h2>
-              <div className="grid grid-cols-2 gap-3">
-                {discoveryBlueprints.map((bp) => {
-                  const title = EXPLORE_TITLE_FA[bp.id];
-                  const line = EXPLORE_ONE_LINE[bp.id];
-                  const emoji =
-                    bp.id === 'neighborhood'
-                      ? '🏘'
-                      : bp.id === 'education'
-                        ? '🎓'
-                        : bp.id === 'sports'
-                          ? '⚽'
-                          : bp.id === 'gaming'
-                            ? '🎮'
-                            : '💼';
-                  return (
-                    <Link
-                      key={bp.id}
-                      href={
-                        bp.id === 'business'
-                          ? '/spaces/business'
-                          : bp.id === 'education'
-                            ? '/spaces/education'
-                            : `/spaces/${bp.mappedCategory}`
-                      }
-                      className="group flex h-full min-h-[8.5rem] flex-col overflow-hidden rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-3 transition hover:bg-[var(--surface-2)]/60 active:scale-[0.99]"
-                    >
-                      <span
-                        className="mb-2 flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--surface-2)] text-2xl leading-none"
-                        aria-hidden
-                      >
-                        {emoji}
-                      </span>
-                      <p className="line-clamp-2 text-[14px] font-extrabold leading-snug text-[var(--ink)]">
-                        {title}
-                      </p>
-                      <p className="mt-1 line-clamp-2 text-[11px] leading-relaxed text-[var(--ink-3)]">
-                        {line}
-                      </p>
-                      <p className="mt-auto pt-2 text-[11px] font-bold text-[var(--accent-hover)]">مشاهده</p>
-                    </Link>
-                  );
-                })}
-              </div>
-            </section>
-            ) : null}
-
+            {/* 4. Unified .space-list — recommendations + discovery for
+                'suggested', trending for 'new'; hidden for 'followed'. */}
             {filter !== 'followed' ? (
-            <section aria-labelledby="trend-heading">
-              <h2 id="trend-heading" className="mb-3 text-xs font-extrabold text-[var(--ink-3)]">
-                اجتماع‌های داغ
-              </h2>
-              {trending.length === 0 && !discoverLoading ? (
-                <p className="rounded-2xl border border-[var(--line)] bg-[var(--surface)] px-3 py-6 text-center text-xs text-[var(--ink-3)]">
-                  به‌زودی
-                </p>
-              ) : (
+              <section aria-label="فهرست فضاها">
                 <ul className="space-y-2">
-                  {trending.map((g) => (
-                    <li
-                      key={g.id}
-                      className="flex flex-col gap-2 rounded-2xl border border-[var(--line)] bg-[var(--surface)] px-3 py-3 sm:flex-row sm:items-center sm:justify-between"
-                    >
-                      <div className="min-w-0 flex-1">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <Link
-                            href={`/groups/${g.id}`}
-                            className="truncate text-sm font-extrabold text-[var(--ink)] hover:underline"
-                          >
-                            {g.name}
-                          </Link>
-                          <span className="rounded-full bg-[var(--surface-2)] px-2 py-0.5 text-[10px] font-bold text-[var(--ink-3)]">
-                            {g.tag}
-                          </span>
-                        </div>
-                        {g.description ? (
-                          <p className="mt-0.5 line-clamp-1 text-[11px] text-[var(--ink-3)]">{g.description}</p>
-                        ) : null}
-                      </div>
-                      {g.joinable ? (
-                        <button
-                          type="button"
-                          disabled={joiningId === g.id}
-                          onClick={() => void joinTrendingGroup(g.id)}
-                          className="shrink-0 rounded-full bg-[var(--accent)] px-4 py-2 text-[11px] font-extrabold text-[var(--accent-contrast)] hover:bg-[var(--accent-hover)] disabled:opacity-50"
-                        >
-                          {joiningId === g.id ? '…' : 'پیوستن'}
-                        </button>
-                      ) : (
-                        <Link
-                          href={`/groups/${g.id}`}
-                          className="shrink-0 rounded-full border border-[var(--line)] px-4 py-2 text-center text-[11px] font-extrabold text-[var(--ink)] hover:bg-[var(--surface-2)]"
-                        >
-                          مشاهده
-                        </Link>
-                      )}
-                    </li>
-                  ))}
+                  {filter === 'suggested' && getAccessToken()
+                    ? recommendations.map((item, idx) => {
+                        const key = `rec-${item.kind}-${item.id}-${idx}`;
+                        const href =
+                          item.kind === 'network'
+                            ? `/networks/${item.id}`
+                            : item.kind === 'group'
+                              ? `/groups/${item.id}`
+                              : `/channels/${item.id}?network=${encodeURIComponent(item.networkId)}`;
+                        const cat =
+                          item.kind === 'network' ? 'شبکه' : item.kind === 'group' ? 'گروه' : 'کانال';
+                        return (
+                          <li key={key}>
+                            <Link
+                              href={href}
+                              className="flex items-start gap-3 rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-3 transition active:scale-[0.99]"
+                            >
+                              <span
+                                className="h-[52px] w-[52px] shrink-0 rounded-xl"
+                                style={{ background: pickCover(item.id) }}
+                                aria-hidden
+                              />
+                              <div className="min-w-0 flex-1">
+                                <p className="line-clamp-1 text-[13.5px] font-bold leading-tight text-[var(--ink)]">
+                                  {item.name}
+                                </p>
+                                <p className="mt-0.5 text-[10.5px] font-bold text-[var(--accent-hover)]">{cat}</p>
+                                {item.description ? (
+                                  <p className="mt-1 line-clamp-2 text-[11.5px] leading-relaxed text-[var(--ink-3)]">
+                                    {item.description}
+                                  </p>
+                                ) : null}
+                              </div>
+                              <span className="self-center shrink-0 rounded-full bg-[var(--accent-soft)] px-3 py-1.5 text-[11px] font-extrabold text-[var(--accent-soft-ink)]">
+                                مشاهده
+                              </span>
+                            </Link>
+                          </li>
+                        );
+                      })
+                    : null}
+
+                  {filter === 'suggested'
+                    ? discoveryBlueprints.map((bp) => {
+                        const href =
+                          bp.id === 'business'
+                            ? '/spaces/business'
+                            : bp.id === 'education'
+                              ? '/spaces/education'
+                              : `/spaces/${bp.mappedCategory}`;
+                        const title = EXPLORE_TITLE_FA[bp.id];
+                        const line = EXPLORE_ONE_LINE[bp.id];
+                        return (
+                          <li key={`bp-${bp.id}`}>
+                            <Link
+                              href={href}
+                              className="flex items-start gap-3 rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-3 transition active:scale-[0.99]"
+                            >
+                              <span
+                                className="h-[52px] w-[52px] shrink-0 rounded-xl"
+                                style={{ background: pickCover(bp.id) }}
+                                aria-hidden
+                              />
+                              <div className="min-w-0 flex-1">
+                                <p className="line-clamp-1 text-[13.5px] font-bold leading-tight text-[var(--ink)]">
+                                  {title}
+                                </p>
+                                <p className="mt-0.5 text-[10.5px] font-bold text-[var(--accent-hover)]">پیشنهادی</p>
+                                <p className="mt-1 line-clamp-2 text-[11.5px] leading-relaxed text-[var(--ink-3)]">
+                                  {line}
+                                </p>
+                              </div>
+                              <span className="self-center shrink-0 rounded-full bg-[var(--accent-soft)] px-3 py-1.5 text-[11px] font-extrabold text-[var(--accent-soft-ink)]">
+                                ورود
+                              </span>
+                            </Link>
+                          </li>
+                        );
+                      })
+                    : null}
+
+                  {filter === 'new'
+                    ? trending.map((g) => (
+                        <li key={`tr-${g.id}`}>
+                          <div className="flex items-start gap-3 rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-3">
+                            <Link
+                              href={`/groups/${g.id}`}
+                              className="contents"
+                              aria-label={g.name}
+                            >
+                              <span
+                                className="h-[52px] w-[52px] shrink-0 rounded-xl"
+                                style={{ background: pickCover(g.id) }}
+                                aria-hidden
+                              />
+                              <div className="min-w-0 flex-1">
+                                <p className="line-clamp-1 text-[13.5px] font-bold leading-tight text-[var(--ink)]">
+                                  {g.name}
+                                </p>
+                                <p className="mt-0.5 text-[10.5px] font-bold text-[var(--accent-hover)]">{g.tag}</p>
+                                {g.description ? (
+                                  <p className="mt-1 line-clamp-2 text-[11.5px] leading-relaxed text-[var(--ink-3)]">
+                                    {g.description}
+                                  </p>
+                                ) : null}
+                              </div>
+                            </Link>
+                            {g.joinable ? (
+                              <button
+                                type="button"
+                                disabled={joiningId === g.id}
+                                onClick={() => void joinTrendingGroup(g.id)}
+                                className="self-center shrink-0 rounded-full bg-[var(--accent-soft)] px-3 py-1.5 text-[11px] font-extrabold text-[var(--accent-soft-ink)] disabled:opacity-50"
+                              >
+                                {joiningId === g.id ? '…' : 'پیوستن'}
+                              </button>
+                            ) : (
+                              <Link
+                                href={`/groups/${g.id}`}
+                                className="self-center shrink-0 rounded-full bg-[var(--surface-2)] px-3 py-1.5 text-[11px] font-extrabold text-[var(--ink-3)]"
+                              >
+                                عضو
+                              </Link>
+                            )}
+                          </div>
+                        </li>
+                      ))
+                    : null}
                 </ul>
-              )}
-            </section>
+
+                {/* Empty state per filter — only render when both buckets are empty. */}
+                {filter === 'suggested' &&
+                recommendations.length === 0 &&
+                discoveryBlueprints.length === 0 ? (
+                  <p className="mt-2 rounded-2xl border border-[var(--line)] bg-[var(--surface)] px-3 py-6 text-center text-xs text-[var(--ink-3)]">
+                    فعلاً پیشنهاد جدیدی برای شما نیست.
+                  </p>
+                ) : null}
+                {filter === 'new' && trending.length === 0 && !discoverLoading ? (
+                  <p className="mt-2 rounded-2xl border border-[var(--line)] bg-[var(--surface)] px-3 py-6 text-center text-xs text-[var(--ink-3)]">
+                    به‌زودی
+                  </p>
+                ) : null}
+              </section>
             ) : null}
           </div>
         ) : null}
