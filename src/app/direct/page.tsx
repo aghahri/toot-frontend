@@ -580,92 +580,119 @@ export default function DirectPage() {
 
   return (
     <AuthGate>
-      <main className="theme-page-bg theme-text-primary mx-auto min-h-[60vh] w-full max-w-md pb-2">
-        <div className="theme-panel-bg theme-border-soft sticky top-0 z-10 border-b backdrop-blur-sm">
-        <div
-          className="flex items-center justify-end gap-3 px-4 py-2.5"
-          dir="rtl"
-        >
-          <div className="flex shrink-0 items-center gap-1">
-            <button
-              type="button"
-              onClick={() => void loadMeAndConversations()}
-              disabled={loading}
-              title="رفرش"
-              className="flex h-10 w-10 items-center justify-center rounded-full text-stone-600 transition hover:bg-stone-200/80 disabled:opacity-40"
-            >
-              <span className={`text-lg ${loading ? 'animate-pulse' : ''}`} aria-hidden>
-                ↻
-              </span>
-            </button>
-            <div className="relative" ref={plusMenuRef}>
+      <main className="mx-auto min-h-[100dvh] w-full max-w-md bg-[var(--bg-page)] pb-24">
+        {/* Sticky header — handoff topbar pattern: brand on the start side,
+            top-actions group on the end side. Refresh button + plus menu
+            keep their existing handlers. */}
+        <div className="sticky top-0 z-10 border-b border-[var(--line)] bg-[var(--surface)]/95 backdrop-blur-sm">
+          <div
+            className="flex items-center justify-between gap-3 px-3 py-2.5"
+            dir="rtl"
+          >
+            <h1 className="text-[15px] font-extrabold text-[var(--ink)]">گفتگو</h1>
+            <div className="flex shrink-0 items-center gap-1.5">
               <button
                 type="button"
-                onClick={() => setPlusMenuOpen((v) => !v)}
-                title="جدید"
-                aria-expanded={plusMenuOpen}
-                aria-haspopup="menu"
-                className="flex h-11 w-11 items-center justify-center rounded-full bg-[var(--accent)] text-[var(--accent-contrast)] shadow-md shadow-black/20 transition hover:bg-[var(--accent-hover)] active:scale-95"
+                onClick={() => void loadMeAndConversations()}
+                disabled={loading}
+                title="رفرش"
+                className="flex h-9 w-9 items-center justify-center rounded-full text-[var(--ink-2)] transition hover:bg-[var(--surface-2)] disabled:opacity-40"
               >
-                <IconPlus className="h-6 w-6 stroke-[2.5]" />
+                <span className={`text-base ${loading ? 'animate-pulse' : ''}`} aria-hidden>
+                  ↻
+                </span>
               </button>
-              {plusMenuOpen ? (
-                <div
-                  role="menu"
-                  className="absolute end-0 top-full z-30 mt-1 min-w-[11rem] overflow-hidden rounded-xl border border-stone-200 bg-white py-1 shadow-lg ring-1 ring-stone-900/5"
+              <div className="relative" ref={plusMenuRef}>
+                <button
+                  type="button"
+                  onClick={() => setPlusMenuOpen((v) => !v)}
+                  title="جدید"
+                  aria-expanded={plusMenuOpen}
+                  aria-haspopup="menu"
+                  className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--accent)] text-[var(--accent-contrast)] transition hover:bg-[var(--accent-hover)] active:scale-95"
                 >
-                  <button
-                    type="button"
-                    role="menuitem"
-                    className="flex w-full px-4 py-3 text-right text-sm font-bold text-stone-800 transition hover:bg-stone-100"
-                    onClick={() => {
-                      setPlusMenuOpen(false);
-                      setNewChatOpen(true);
-                      setError(null);
-                      setSearchQuery('');
-                      setSearchHits([]);
-                    }}
+                  <IconPlus className="h-5 w-5 stroke-[2.5]" />
+                </button>
+                {plusMenuOpen ? (
+                  <div
+                    role="menu"
+                    className="absolute end-0 top-full z-30 mt-1 min-w-[11rem] overflow-hidden rounded-xl border border-[var(--line)] bg-[var(--surface)] py-1 shadow-lg"
                   >
-                    گفتگوی جدید
-                  </button>
-                  <Link
-                    href="/groups/new?kind=chat&returnTo=direct"
-                    role="menuitem"
-                    className="flex w-full px-4 py-3 text-right text-sm font-bold text-stone-800 transition hover:bg-stone-100"
-                    onClick={() => setPlusMenuOpen(false)}
-                  >
-                    ایجاد گروه چت
-                  </Link>
-                </div>
-              ) : null}
+                    <button
+                      type="button"
+                      role="menuitem"
+                      className="flex w-full px-4 py-3 text-right text-sm font-bold text-[var(--ink)] transition hover:bg-[var(--surface-2)]"
+                      onClick={() => {
+                        setPlusMenuOpen(false);
+                        setNewChatOpen(true);
+                        setError(null);
+                        setSearchQuery('');
+                        setSearchHits([]);
+                      }}
+                    >
+                      گفتگوی جدید
+                    </button>
+                    <Link
+                      href="/groups/new?kind=chat&returnTo=direct"
+                      role="menuitem"
+                      className="flex w-full px-4 py-3 text-right text-sm font-bold text-[var(--ink)] transition hover:bg-[var(--surface-2)]"
+                      onClick={() => setPlusMenuOpen(false)}
+                    >
+                      ایجاد گروه چت
+                    </Link>
+                  </div>
+                ) : null}
+              </div>
             </div>
           </div>
+
+          {/* Search bar — handoff .search-bar: surface-2 pill with leading
+              magnifier glyph. The input itself is invisible chrome on top
+              of the pill so the visual matches but functionality (filter
+              state) is preserved. */}
+          {!loading && items.length > 0 ? (
+            <div className="px-3 pb-2.5" dir="rtl">
+              <div className="flex h-10 items-center gap-2 rounded-xl bg-[var(--surface-2)] px-3 text-[var(--ink-3)]">
+                <svg
+                  viewBox="0 0 24 24"
+                  className="h-4 w-4 shrink-0"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden
+                >
+                  <circle cx="11" cy="11" r="7" />
+                  <path d="M20 20l-3.5-3.5" />
+                </svg>
+                <input
+                  value={listFilterQuery}
+                  onChange={(e) => setListFilterQuery(e.target.value)}
+                  placeholder="جستجو در گفتگوها"
+                  className="h-full w-full bg-transparent text-[13px] text-[var(--ink)] placeholder:text-[var(--ink-3)] outline-none"
+                  autoComplete="off"
+                  aria-label="جستجو در گفتگوها"
+                />
+              </div>
+            </div>
+          ) : null}
         </div>
 
-        {!loading && items.length > 0 ? (
-          <div className="px-3 pb-2.5" dir="rtl">
-            <input
-              value={listFilterQuery}
-              onChange={(e) => setListFilterQuery(e.target.value)}
-              placeholder="جستجو در گفتگوها…"
-              className="h-11 w-full rounded-xl border border-[var(--line)] bg-[var(--surface-2)] px-3 text-sm text-[var(--ink)] placeholder:text-[var(--ink-3)] outline-none transition focus:border-[var(--accent-ring)] focus:ring-2 focus:ring-[var(--accent-soft)]"
-              autoComplete="off"
-              aria-label="جستجو در گفتگوها"
-            />
-          </div>
-        ) : null}
-        </div>
-
-        <div className="theme-card-bg theme-border-soft relative mt-1 overflow-hidden rounded-2xl border shadow-sm">
+        {/* Flat list — handoff drops the wrapping card; rows divided by
+            1px var(--line) lines, sitting directly on the page surface.
+            DirectConversationRow itself is shared with /groups and is
+            intentionally unchanged in this pass. */}
+        <div className="bg-[var(--surface)]">
           {loading ? (
             <ConversationListSkeleton />
           ) : error && items.length === 0 ? (
             <div className="px-4 py-10 text-center">
-              <p className="text-sm font-semibold text-red-800">{error}</p>
+              <p className="text-sm font-semibold text-[var(--accent-hover)]">{error}</p>
               <button
                 type="button"
                 onClick={() => void loadMeAndConversations()}
-                className="mt-3 text-xs font-bold text-emerald-700 underline"
+                className="mt-3 text-xs font-bold text-[var(--accent-hover)] underline-offset-2 hover:underline"
               >
                 تلاش دوباره
               </button>
@@ -713,7 +740,7 @@ export default function DirectPage() {
         </div>
 
         {error && items.length > 0 ? (
-          <div className="mx-4 mt-3 rounded-xl border border-red-100 bg-red-50/90 px-3 py-2 text-center text-xs font-semibold text-red-800">
+          <div className="mx-3 mt-3 rounded-xl border border-[var(--line)] bg-[var(--surface)] px-3 py-2 text-center text-xs font-semibold text-[var(--accent-hover)]">
             {error}
           </div>
         ) : null}
@@ -721,13 +748,13 @@ export default function DirectPage() {
         <div className="mt-4 px-4 text-center">
           <Link
             href="/groups"
-            className="mb-3 block rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-800"
+            className="mb-3 block rounded-xl border border-[var(--line)] bg-[var(--surface)] px-3 py-2 text-xs font-bold text-[var(--ink-2)] hover:bg-[var(--surface-2)]"
           >
             مشاهده گروه‌های چت و اجتماعی
           </Link>
           <Link
             href="/home"
-            className="text-xs font-semibold text-stone-500 underline-offset-2 hover:text-stone-700 hover:underline"
+            className="text-xs font-semibold text-[var(--ink-3)] underline-offset-2 hover:text-[var(--accent-hover)] hover:underline"
           >
             بازگشت به خانه
           </Link>
