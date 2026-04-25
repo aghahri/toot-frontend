@@ -717,6 +717,15 @@ export default function DirectPage() {
             بازگشت به خانه
           </Link>
         </div>
+
+        <button
+          type="button"
+          onClick={() => setNewChatOpen(true)}
+          aria-label="گفتگوی جدید"
+          className="fixed bottom-[calc(4.75rem+env(safe-area-inset-bottom,0px))] start-4 z-30 flex h-14 w-14 items-center justify-center rounded-full bg-[var(--accent)] text-2xl font-light text-[var(--accent-contrast)] shadow-lg transition hover:bg-[var(--accent-hover)] hover:shadow-xl active:scale-95"
+        >
+          <span aria-hidden>+</span>
+        </button>
       </main>
 
       {newChatOpen ? (
