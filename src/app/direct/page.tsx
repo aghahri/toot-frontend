@@ -671,11 +671,26 @@ export default function DirectPage() {
               </button>
             </div>
           ) : items.length === 0 ? (
-            <div className="px-6 py-14 text-center" dir="rtl">
-              <p className="text-base font-bold text-[var(--text-primary)]">هنوز گفتگویی ندارید</p>
-              <p className="mx-auto mt-2 max-w-[18rem] text-sm leading-relaxed text-[var(--text-secondary)]">
-                برای شروع روی دکمه <span className="font-bold text-[var(--accent-hover)]">+</span> بزنید.
+            <div className="mx-auto flex max-w-xs flex-col items-center gap-3 px-6 py-16 text-center" dir="rtl">
+              <span
+                aria-hidden
+                className="flex h-16 w-16 items-center justify-center rounded-2xl bg-[var(--surface-2)]"
+              >
+                <svg viewBox="0 0 24 24" className="h-8 w-8 text-[var(--ink-3)]" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M21 11.5a8.4 8.4 0 0 1-3.6 6.9L20 21l-3.5-1.5A8.4 8.4 0 1 1 21 11.5Z" />
+                </svg>
+              </span>
+              <p className="text-sm font-extrabold text-[var(--ink)]">هنوز گفتگویی نداری</p>
+              <p className="text-balance text-xs leading-relaxed text-[var(--ink-3)]">
+                از دکمه «گفتگوی جدید» شروع کن و با کسی که می‌خواهی پیام بفرست.
               </p>
+              <button
+                type="button"
+                onClick={() => setNewChatOpen(true)}
+                className="mt-1 rounded-full bg-[var(--accent)] px-5 py-2.5 text-xs font-extrabold text-[var(--accent-contrast)] hover:bg-[var(--accent-hover)]"
+              >
+                شروع گفتگو
+              </button>
             </div>
           ) : mainItems.length === 0 && archivedItems.length === 0 ? (
             <div className="px-6 py-10 text-center text-sm text-[var(--ink-3)]">نتیجه‌ای یافت نشد.</div>
