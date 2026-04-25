@@ -25,6 +25,10 @@ const DEVICE_ID_STORAGE_KEY = 'toot:push-device-id';
 
 let initInFlight: Promise<void> | null = null;
 let activeListeners: PluginListenerHandle[] = [];
+/** Action listener handle is tracked separately so logout's detachListeners()
+ *  doesn't take it down — we want incoming-call taps routable across logins. */
+let actionListenerHandle: PluginListenerHandle | null = null;
+let actionListenerAttachInFlight: Promise<void> | null = null;
 
 interface CapacitorRuntime {
   isNativePlatform: () => boolean;
@@ -82,6 +86,45 @@ async function detachListeners(): Promise<void> {
       }
     }),
   );
+}
+
+/**
+ * Attach the `pushNotificationActionPerformed` listener immediately at app
+ * boot, decoupled from the auth-gated registration handshake.
+ *
+ * Why this matters: when the user cold-starts the app by tapping an FCM
+ * notification, Capacitor emits the action event very early — usually before
+ * the registration `register()` Promise resolves and certainly before any
+ * `await registerDevice(...)` round-trip. The previous design attached this
+ * listener at the tail of `initNativePushOnLogin`, racing with the action
+ * event and frequently losing it on cold start. This boot-time hook removes
+ * the race entirely.
+ *
+ * Idempotent — calling twice is a no-op so it can be invoked from any
+ * mount-time effect without coordination.
+ */
+export function attachActionListenerOnce(): Promise<void> {
+  if (actionListenerHandle) return Promise.resolve();
+  if (actionListenerAttachInFlight) return actionListenerAttachInFlight;
+  actionListenerAttachInFlight = (async () => {
+    try {
+      const cap = await loadCapacitor();
+      if (!isAndroidNative(cap)) return;
+      const plugin = (await import('@capacitor/push-notifications')).PushNotifications;
+      const handle = await plugin.addListener(
+        'pushNotificationActionPerformed',
+        (action) => {
+          handlePushAction(action.notification?.data);
+        },
+      );
+      actionListenerHandle = handle;
+    } catch {
+      /* listener attach failure non-fatal */
+    } finally {
+      actionListenerAttachInFlight = null;
+    }
+  })();
+  return actionListenerAttachInFlight;
 }
 
 /**
@@ -156,18 +199,9 @@ export function initNativePushOnLogin(): Promise<void> {
       });
       writeStoredDeviceId(device.id);
 
-      // N2 — handle taps on incoming-call notifications. Capacitor buffers
-      // actionPerformed events emitted before listeners attach (cold start
-      // via tap), so attaching here is enough to catch both warm and cold
-      // launches. Anything we can't safely route is ignored.
-      plugin
-        .addListener('pushNotificationActionPerformed', (action) => {
-          handlePushAction(action.notification?.data);
-        })
-        .then((h) => activeListeners.push(h))
-        .catch(() => {
-          /* listener attach failure non-fatal */
-        });
+      // The pushNotificationActionPerformed listener is attached separately
+      // at app boot (see attachActionListenerOnce). Doing it here would race
+      // with cold-start tap events.
     } catch {
       /* never propagate — push is non-essential to login */
     } finally {
@@ -187,6 +221,8 @@ export function initNativePushOnLogin(): Promise<void> {
  * a remote origin and Next.js client routing isn't reliably reachable from
  * outside React (this fires before/around React mount on cold start).
  */
+const ID_PATTERN = /^[A-Za-z0-9_-]{1,64}$/;
+
 function handlePushAction(data: unknown): void {
   if (!data || typeof data !== 'object') return;
   const d = data as Record<string, unknown>;
@@ -194,15 +230,19 @@ function handlePushAction(data: unknown): void {
   if (type !== 'INCOMING_CALL') return;
 
   const conversationId = typeof d.conversationId === 'string' ? d.conversationId : null;
-  if (!conversationId) return;
+  if (!conversationId || !ID_PATTERN.test(conversationId)) return;
 
-  // Sanitize: only allow safe id chars (cuid / uuid alphabets) so a tampered
-  // payload can never escape the /direct/{id} route.
-  if (!/^[A-Za-z0-9_-]{1,64}$/.test(conversationId)) return;
+  // sessionId is optional — only forwarded when it passes the same id-shape
+  // sanitizer. Anything sketchier is dropped silently rather than coerced.
+  const sessionId =
+    typeof d.sessionId === 'string' && ID_PATTERN.test(d.sessionId) ? d.sessionId : null;
+
+  const params = new URLSearchParams({ incomingCall: '1' });
+  if (sessionId) params.set('sessionId', sessionId);
 
   try {
     if (typeof window !== 'undefined') {
-      window.location.assign(`/direct/${conversationId}`);
+      window.location.assign(`/direct/${conversationId}?${params.toString()}`);
     }
   } catch {
     /* nothing more we can do */

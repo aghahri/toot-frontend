@@ -25,6 +25,7 @@ import { formatFileSize } from '@/lib/format-file-size';
 import type { Socket } from 'socket.io-client';
 import { useAppRealtime } from '@/context/AppRealtimeSocketContext';
 import { useVoiceCall } from '@/context/VoiceCallContext';
+import { IncomingCallHint } from '@/components/IncomingCallHint';
 import {
   FormEvent,
   Fragment,
@@ -1990,6 +1991,7 @@ async function uploadSelectedFile(token: string): Promise<string | null> {
 
   return (
     <AuthGate>
+      <IncomingCallHint />
       <main className="theme-page-bg theme-text-primary mx-auto flex min-h-[100dvh] w-full max-w-md flex-col bg-[linear-gradient(180deg,var(--surface-soft)_0%,var(--page-bg)_28%)]">
         <header
           className="theme-panel-bg theme-border-soft sticky top-0 z-30 border-b shadow-[0_1px_0_rgba(0,0,0,0.04)] backdrop-blur-md"

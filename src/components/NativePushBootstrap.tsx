@@ -2,7 +2,11 @@
 
 import { useEffect, useRef } from 'react';
 import { getAccessToken } from '@/lib/auth';
-import { disposeNativePushOnLogout, initNativePushOnLogin } from '@/lib/native-push';
+import {
+  attachActionListenerOnce,
+  disposeNativePushOnLogout,
+  initNativePushOnLogin,
+} from '@/lib/native-push';
 
 /**
  * Mounts once per app session. Listens for `toot-auth-token-changed` —
@@ -23,6 +27,11 @@ export function NativePushBootstrap() {
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
+
+    // Attach the actionPerformed listener immediately, regardless of auth
+    // state. Cold-start taps deliver the event very early — sometimes before
+    // auth state is even known — and the listener has to be in place by then.
+    void attachActionListenerOnce();
 
     const evaluate = () => {
       const isAuthed = !!getAccessToken();
