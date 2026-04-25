@@ -2150,14 +2150,14 @@ async function uploadSelectedFile(token: string): Promise<string | null> {
         {pinnedPreview && !pinnedPreview.isDeleted ? (
           <div
             dir="rtl"
-            className="sticky top-[3.25rem] z-20 flex w-full items-center gap-1 border-b border-amber-200/80 bg-amber-50/95 px-2 py-2 text-start text-xs font-semibold text-amber-950 shadow-sm backdrop-blur-sm"
+            className="sticky top-[3.25rem] z-20 flex w-full items-center gap-1 border-b border-[var(--line)] bg-[var(--accent-soft)] px-2 py-2 text-start text-xs font-semibold text-[var(--ink-2)] shadow-sm backdrop-blur-sm"
           >
             <button
               type="button"
               onClick={() => scrollToMessageAndFlash(pinnedPreview.id)}
               className="flex min-w-0 flex-1 items-center gap-2 text-start"
             >
-              <span className="shrink-0 text-amber-600" aria-hidden>
+              <span className="shrink-0 text-[var(--accent)]" aria-hidden>
                 📌
               </span>
               <span className="min-w-0 truncate">{replySnippetForMessage(pinnedPreview)}</span>
@@ -2167,7 +2167,7 @@ async function uploadSelectedFile(token: string): Promise<string | null> {
               title="برداشتن سنجاق"
               disabled={starPinSubmitting}
               onClick={() => void pinMessageOnServer(null)}
-              className="shrink-0 rounded-full px-2 py-1 text-[11px] font-bold text-amber-800 hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-50"
+              className="shrink-0 rounded-full px-2 py-1 text-[11px] font-bold text-[var(--accent-hover)] hover:bg-[var(--surface-2)] disabled:cursor-not-allowed disabled:opacity-50"
             >
               ✕
             </button>
