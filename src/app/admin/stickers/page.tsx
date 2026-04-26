@@ -23,6 +23,8 @@ type StickerItem = {
   media?: { url?: string | null; mimeType?: string | null } | null;
 };
 
+const MAX_STICKER_UPLOAD_BYTES = 500 * 1024;
+
 function parseMediaId(rawMediaId: string, rawMediaUrl: string): string {
   const direct = rawMediaId.trim();
   if (direct) return direct;
@@ -60,6 +62,8 @@ export default function AdminStickersPage() {
     sortOrder: 0,
     isActive: true,
   });
+  const [uploadingSticker, setUploadingSticker] = useState(false);
+  const [uploadedPreviewUrl, setUploadedPreviewUrl] = useState<string | null>(null);
 
   const selectedPack = useMemo(
     () => packs.find((p) => p.id === selectedPackId) ?? null,
@@ -231,6 +235,44 @@ export default function AdminStickersPage() {
     }
   }
 
+  async function uploadStickerWebp(file: File) {
+    const token = getAccessToken();
+    if (!token) return;
+    if (file.type.toLowerCase() !== 'image/webp') {
+      setError('فقط فایل WebP مجاز است');
+      return;
+    }
+    if (file.size > MAX_STICKER_UPLOAD_BYTES) {
+      setError('حجم فایل زیاد است');
+      return;
+    }
+    setUploadingSticker(true);
+    setError(null);
+    setMessage(null);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const uploaded = await apiFetch<{
+        media?: { id?: string; url?: string | null; mimeType?: string; size?: number };
+      }>('media/upload', {
+        method: 'POST',
+        token,
+        body: formData,
+      });
+      const mediaId = uploaded.media?.id?.trim() ?? '';
+      if (!mediaId) {
+        throw new Error('missing media id');
+      }
+      setNewItem((v) => ({ ...v, mediaId }));
+      setUploadedPreviewUrl(uploaded.media?.url ?? null);
+      setMessage('آپلود موفق بود؛ Media ID به‌صورت خودکار پر شد');
+    } catch {
+      setError('آپلود ناموفق بود');
+    } finally {
+      setUploadingSticker(false);
+    }
+  }
+
   async function updateItem(
     itemId: string,
     patch: Partial<Pick<StickerItem, 'label' | 'isActive' | 'sortOrder'>>,
@@ -399,9 +441,36 @@ export default function AdminStickersPage() {
               <div className="rounded-lg border border-slate-800 bg-slate-950/30 p-3">
                 <h3 className="text-xs font-bold text-slate-300">افزودن استیکر</h3>
                 <form onSubmit={createItem} className="mt-2 grid gap-2">
+                  <div className="rounded border border-slate-700 bg-slate-950/40 p-2">
+                    <label className="block text-xs font-semibold text-slate-300">آپلود WebP استیکر</label>
+                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                      <input
+                        type="file"
+                        accept="image/webp"
+                        disabled={uploadingSticker || saving}
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (!file) return;
+                          void uploadStickerWebp(file);
+                          e.currentTarget.value = '';
+                        }}
+                        className="max-w-full rounded border border-slate-700 bg-slate-950 px-2 py-1.5 text-xs text-slate-200"
+                      />
+                      <span className="text-[11px] text-slate-500">حداکثر 500KB</span>
+                    </div>
+                    {uploadedPreviewUrl ? (
+                      <div className="mt-2">
+                        <img
+                          src={uploadedPreviewUrl}
+                          alt="sticker upload preview"
+                          className="h-16 w-16 rounded border border-slate-700 object-contain"
+                        />
+                      </div>
+                    ) : null}
+                  </div>
                   <input
                     className="rounded border border-slate-700 bg-slate-950 px-2 py-2 text-sm text-white"
-                    placeholder="Media ID (WebP)"
+                    placeholder="Media ID دستی (اختیاری برای تست)"
                     value={newItem.mediaId}
                     onChange={(e) => setNewItem((v) => ({ ...v, mediaId: e.target.value }))}
                   />
@@ -447,7 +516,7 @@ export default function AdminStickersPage() {
                     disabled={saving}
                     className="rounded bg-emerald-600 px-3 py-2 text-sm font-semibold text-white disabled:opacity-50"
                   >
-                    افزودن استیکر
+                    {uploadingSticker ? 'در حال آپلود…' : 'افزودن استیکر'}
                   </button>
                 </form>
               </div>
