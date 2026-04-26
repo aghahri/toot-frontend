@@ -2053,14 +2053,14 @@ async function uploadSelectedFile(token: string): Promise<string | null> {
               </div>
             </div>
           ) : (
-            <div className="flex items-center gap-2 px-2.5 py-1.5">
+            <div className="flex min-w-0 items-center gap-2 px-2.5 py-1.5" dir="ltr">
               <Link
                 href="/direct"
                 className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[var(--ink)] transition hover:bg-[var(--surface-2)] active:bg-[var(--surface-strong)]"
                 aria-label="بازگشت"
               >
                 <span className="text-xl font-semibold leading-none text-slate-800" aria-hidden>
-                  ›
+                  ‹
                 </span>
               </Link>
 
@@ -2078,11 +2078,11 @@ async function uploadSelectedFile(token: string): Promise<string | null> {
                 )}
               </div>
 
-              <div className="min-w-0 flex-1 text-right">
-                <h1 className="truncate text-[15px] font-bold leading-tight text-[var(--ink)]">
+              <div className="min-w-0 flex-1 text-start">
+                <h1 className="truncate text-[15px] font-bold leading-tight text-[var(--ink)]" dir="rtl">
                   {peerDisplay.name}
                 </h1>
-                <p className={`mt-0.5 truncate text-[11px] ${headerStatusLine.className}`}>
+                <p className={`mt-0.5 truncate text-[11px] ${headerStatusLine.className}`} dir="rtl">
                   {headerStatusLine.text}
                 </p>
               </div>
@@ -2337,7 +2337,7 @@ async function uploadSelectedFile(token: string): Promise<string | null> {
                           : ''
                       }`}
                     >
-                      <div className={`flex items-center justify-between gap-2 text-[11px] ${
+                      <div className={`flex min-w-0 items-center justify-between gap-2 text-[11px] ${
                         isConsecutiveFromSameSender ? 'mb-1' : 'mb-1.5'
                       }`}>
                         {!isConsecutiveFromSameSender ? (
@@ -2598,7 +2598,7 @@ async function uploadSelectedFile(token: string): Promise<string | null> {
                       ) : null}
 
                       {deleted ? (
-                        <div className="text-sm font-medium italic opacity-80">
+                        <div className="text-sm font-medium italic opacity-80 break-words [overflow-wrap:anywhere]">
                           این پیام حذف شده است
                         </div>
                       ) : msg.messageType === 'LOCATION' && msg.metadata ? (
@@ -2915,7 +2915,7 @@ async function uploadSelectedFile(token: string): Promise<string | null> {
               </div>
             ) : null}
 
-            <div className="flex min-w-0 items-end gap-1.5 sm:gap-2">
+            <div className="flex min-w-0 items-end gap-1.5 sm:gap-2" dir="ltr">
               <button
                 type="button"
                 disabled={sending || editMode || isSelectionMode}
@@ -2923,14 +2923,14 @@ async function uploadSelectedFile(token: string): Promise<string | null> {
                 aria-label="پیوست"
                 aria-expanded={attachmentSheetOpen}
                 onClick={() => setAttachmentSheetOpen((v) => !v)}
-                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-slate-200/90 bg-white text-slate-600 shadow-sm transition hover:bg-slate-50 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40 sm:h-11 sm:w-11 sm:rounded-2xl"
+                className="order-1 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-slate-200/90 bg-white text-slate-600 shadow-sm transition hover:bg-slate-50 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40 sm:h-11 sm:w-11 sm:rounded-2xl"
               >
                 <span className="text-xl font-bold leading-none">+</span>
               </button>
 
               {editMode ? null : voicePhase === 'recording' ? (
                 <div
-                  className="flex min-w-0 flex-1 items-center justify-between gap-2 rounded-2xl border border-red-200/90 bg-red-50 px-3 py-2 shadow-sm"
+                  className="order-4 flex min-w-0 flex-1 items-center justify-between gap-2 rounded-2xl border border-red-200/90 bg-red-50 px-3 py-2 shadow-sm"
                   dir="rtl"
                 >
                   <div className="flex min-w-0 items-center gap-2">
@@ -2962,7 +2962,7 @@ async function uploadSelectedFile(token: string): Promise<string | null> {
                 </div>
               ) : voicePhase === 'sending' ? (
                 <div
-                  className="flex min-w-0 flex-1 items-center justify-between gap-2 rounded-2xl border border-emerald-200/90 bg-emerald-50 px-3 py-2 shadow-sm"
+                  className="order-4 flex min-w-0 flex-1 items-center justify-between gap-2 rounded-2xl border border-emerald-200/90 bg-emerald-50 px-3 py-2 shadow-sm"
                   dir="rtl"
                 >
                   <div className="text-xs font-semibold text-emerald-800">در حال ارسال پیام صوتی…</div>
@@ -2974,7 +2974,7 @@ async function uploadSelectedFile(token: string): Promise<string | null> {
                   disabled={sending || !!file || voicePhase !== 'idle' || isSelectionMode}
                   title="پیام صوتی"
                   onClick={() => void startVoiceRecording()}
-                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-slate-200/90 bg-white text-slate-600 shadow-sm transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40 sm:h-11 sm:w-11 sm:rounded-2xl"
+                  className="order-4 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-slate-200/90 bg-white text-slate-600 shadow-sm transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40 sm:h-11 sm:w-11 sm:rounded-2xl"
                 >
                   <svg
                     className="h-5 w-5"
@@ -2992,7 +2992,7 @@ async function uploadSelectedFile(token: string): Promise<string | null> {
                 disabled={sending || editMode || voicePhase !== 'idle' || isSelectionMode}
                 title="Camera"
                 onClick={() => cameraInputRef.current?.click()}
-                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-slate-200/90 bg-white text-slate-600 shadow-sm transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40 sm:h-11 sm:w-11 sm:rounded-2xl"
+                className="order-3 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-slate-200/90 bg-white text-slate-600 shadow-sm transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40 sm:h-11 sm:w-11 sm:rounded-2xl"
               >
                 <span className="text-lg" aria-hidden>
                   📷
@@ -3001,6 +3001,7 @@ async function uploadSelectedFile(token: string): Promise<string | null> {
 
               <textarea
                 ref={composeTextareaRef}
+                dir="rtl"
                 value={text}
                 onCompositionStart={() => {
                   isComposingRef.current = true;
@@ -3059,7 +3060,7 @@ async function uploadSelectedFile(token: string): Promise<string | null> {
                 placeholder="پیام…"
                 rows={1}
                 disabled={sending || voicePhase === 'recording' || isSelectionMode}
-                className="min-h-[2.625rem] max-h-32 min-w-0 flex-1 resize-none rounded-xl border border-[var(--line)] bg-[var(--surface)] px-3 py-2 text-[15px] leading-normal text-[var(--ink)] outline-none ring-0 transition placeholder:text-[var(--ink-3)] focus:border-[var(--accent-ring)] focus:ring-2 focus:ring-[var(--accent-soft)] sm:min-h-[2.75rem] sm:rounded-2xl sm:px-3.5 sm:py-2.5"
+                className="order-2 min-h-[2.625rem] max-h-32 min-w-0 flex-1 resize-none rounded-xl border border-[var(--line)] bg-[var(--surface)] px-3 py-2 text-[15px] leading-normal text-[var(--ink)] outline-none ring-0 transition placeholder:text-[var(--ink-3)] focus:border-[var(--accent-ring)] focus:ring-2 focus:ring-[var(--accent-soft)] sm:min-h-[2.75rem] sm:rounded-2xl sm:px-3.5 sm:py-2.5"
               />
 
               <button
@@ -3073,7 +3074,7 @@ async function uploadSelectedFile(token: string): Promise<string | null> {
                 }
                 aria-busy={sending}
                 aria-label={editMode ? 'ذخیره ویرایش' : 'ارسال پیام'}
-                className={`inline-flex h-10 shrink-0 items-center justify-center rounded-full bg-[var(--accent)] text-[var(--accent-contrast)] shadow-sm transition hover:bg-[var(--accent-hover)] disabled:cursor-not-allowed disabled:opacity-50 sm:h-11 ${
+                className={`order-5 inline-flex h-10 shrink-0 items-center justify-center rounded-full bg-[var(--accent)] text-[var(--accent-contrast)] shadow-sm transition hover:bg-[var(--accent-hover)] disabled:cursor-not-allowed disabled:opacity-50 sm:h-11 ${
                   editMode ? 'min-w-[4.25rem] px-3.5 sm:min-w-[4.5rem] sm:px-4' : 'w-10 sm:w-11'
                 }`}
               >

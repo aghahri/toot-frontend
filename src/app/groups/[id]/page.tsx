@@ -1170,14 +1170,14 @@ export default function GroupThreadPage() {
               </div>
             </div>
           ) : (
-            <div className="flex flex-wrap items-center gap-1.5 px-2.5 py-1.5 sm:gap-2">
+            <div className="flex min-w-0 flex-wrap items-center gap-1.5 px-2.5 py-1.5 sm:gap-2" dir="ltr">
               <Link
                 href={backHref}
                 className="theme-text-primary flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition hover:bg-[var(--surface-soft)] active:bg-[var(--surface-strong)]"
                 aria-label="بازگشت"
               >
                 <span className="text-xl font-semibold leading-none text-slate-800" aria-hidden>
-                  ›
+                  ‹
                 </span>
               </Link>
 
@@ -1187,14 +1187,15 @@ export default function GroupThreadPage() {
                 </span>
               </div>
 
-              <Link href={`/groups/${groupId}/info`} className="min-w-0 flex-1 text-right">
-                <h1 className="theme-text-primary truncate text-[15px] font-bold leading-tight">
+              <Link href={`/groups/${groupId}/info`} className="min-w-0 flex-1 text-start">
+                <h1 className="theme-text-primary truncate text-[15px] font-bold leading-tight" dir="rtl">
                   {groupName || 'گروه'}
                 </h1>
                 <p
                   className={`mt-0.5 truncate text-[11px] ${
                     otherTyping ? 'font-semibold text-emerald-600' : 'text-stone-500'
                   }`}
+                  dir="rtl"
                 >
                   {otherTyping
                     ? 'در حال تایپ…'
@@ -1432,7 +1433,7 @@ export default function GroupThreadPage() {
                           : ''
                       }`}
                     >
-                      <div className={`flex items-center justify-between gap-2 text-[11px] ${
+                      <div className={`flex min-w-0 items-center justify-between gap-2 text-[11px] ${
                         isConsecutiveFromSameSender ? 'mb-1' : 'mb-1.5'
                       }`}>
                         {!isConsecutiveFromSameSender ? (
@@ -1645,7 +1646,7 @@ export default function GroupThreadPage() {
                       ) : null}
 
                       {deleted ? (
-                        <div className="text-sm font-medium italic opacity-80">این پیام حذف شده است</div>
+                        <div className="text-sm font-medium italic opacity-80 break-words [overflow-wrap:anywhere]">این پیام حذف شده است</div>
                       ) : m.content ? (
                         <MessageText
                           text={m.content}
@@ -1830,7 +1831,7 @@ export default function GroupThreadPage() {
               </div>
             ) : null}
 
-            <div className="flex min-w-0 items-end gap-1.5 sm:gap-2">
+            <div className="flex min-w-0 items-end gap-1.5 sm:gap-2" dir="ltr">
               <button
                 type="button"
                 disabled={sending || !!editingId || isSelectionMode}
@@ -1838,14 +1839,14 @@ export default function GroupThreadPage() {
                 aria-label="پیوست"
                 aria-expanded={attachmentSheetOpen}
                 onClick={() => setAttachmentSheetOpen((v) => !v)}
-                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-slate-200/90 bg-white text-slate-600 shadow-sm transition hover:bg-slate-50 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40 sm:h-11 sm:w-11 sm:rounded-2xl"
+                className="order-1 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-slate-200/90 bg-white text-slate-600 shadow-sm transition hover:bg-slate-50 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40 sm:h-11 sm:w-11 sm:rounded-2xl"
               >
                 <span className="text-xl font-bold leading-none">+</span>
               </button>
 
               {editingId ? null : voicePhase === 'recording' ? (
                 <div
-                  className="flex min-w-0 flex-1 items-center justify-between gap-2 rounded-2xl border border-red-200/90 bg-red-50 px-3 py-2 shadow-sm"
+                  className="order-4 flex min-w-0 flex-1 items-center justify-between gap-2 rounded-2xl border border-red-200/90 bg-red-50 px-3 py-2 shadow-sm"
                   dir="rtl"
                 >
                   <div className="flex min-w-0 items-center gap-2">
@@ -1877,7 +1878,7 @@ export default function GroupThreadPage() {
                 </div>
               ) : voicePhase === 'sending' ? (
                 <div
-                  className="flex min-w-0 flex-1 items-center justify-between gap-2 rounded-2xl border border-emerald-200/90 bg-emerald-50 px-3 py-2 shadow-sm"
+                  className="order-4 flex min-w-0 flex-1 items-center justify-between gap-2 rounded-2xl border border-emerald-200/90 bg-emerald-50 px-3 py-2 shadow-sm"
                   dir="rtl"
                 >
                   <div className="text-xs font-semibold text-emerald-800">در حال ارسال پیام صوتی…</div>
@@ -1889,7 +1890,7 @@ export default function GroupThreadPage() {
                   disabled={sending || !!file || voicePhase !== 'idle' || isSelectionMode}
                   title="پیام صوتی"
                   onClick={() => void startVoiceRecording()}
-                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-slate-200/90 bg-white text-slate-600 shadow-sm transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40 sm:h-11 sm:w-11 sm:rounded-2xl"
+                  className="order-4 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-slate-200/90 bg-white text-slate-600 shadow-sm transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40 sm:h-11 sm:w-11 sm:rounded-2xl"
                 >
                   <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
                     <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.91-3c-.49 0-.9.36-.98.85C16.52 14.2 14.47 16 12 16s-4.52-1.8-4.93-4.15c-.08-.49-.49-.85-.98-.85-.61 0-1.09.54-1 1.14.49 3 2.89 5.35 5.91 5.78V20c0 .55.45 1 1 1s1-.45 1-1v-2.08c3.02-.43 5.42-2.78 5.91-5.78.1-.6-.39-1.14-1-1.14z" />
@@ -1902,7 +1903,7 @@ export default function GroupThreadPage() {
                 disabled={sending || !!editingId || voicePhase !== 'idle' || isSelectionMode}
                 title="دوربین"
                 onClick={() => cameraInputRef.current?.click()}
-                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-slate-200/90 bg-white text-slate-600 shadow-sm transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40 sm:h-11 sm:w-11 sm:rounded-2xl"
+                className="order-3 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-slate-200/90 bg-white text-slate-600 shadow-sm transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40 sm:h-11 sm:w-11 sm:rounded-2xl"
               >
                 <span className="text-lg" aria-hidden>
                   📷
@@ -1911,6 +1912,7 @@ export default function GroupThreadPage() {
 
               <textarea
                 ref={groupComposeTextareaRef}
+                dir="rtl"
                 value={text}
                 onCompositionStart={() => {
                   isComposingRef.current = true;
@@ -1967,7 +1969,7 @@ export default function GroupThreadPage() {
                 placeholder="پیام…"
                 rows={1}
                 disabled={sending || voicePhase === 'recording' || isSelectionMode}
-                className="theme-card-bg theme-border-soft theme-text-primary min-h-[2.625rem] max-h-32 min-w-0 flex-1 resize-none rounded-xl border px-3 py-2 text-[15px] leading-normal shadow-sm outline-none ring-0 transition placeholder:text-[var(--text-secondary)] focus:border-[var(--accent-ring)] focus:ring-2 focus:ring-[var(--accent-ring)] sm:min-h-[2.75rem] sm:rounded-2xl sm:px-3.5 sm:py-2.5"
+                className="theme-card-bg theme-border-soft theme-text-primary order-2 min-h-[2.625rem] max-h-32 min-w-0 flex-1 resize-none rounded-xl border px-3 py-2 text-[15px] leading-normal shadow-sm outline-none ring-0 transition placeholder:text-[var(--text-secondary)] focus:border-[var(--accent-ring)] focus:ring-2 focus:ring-[var(--accent-ring)] sm:min-h-[2.75rem] sm:rounded-2xl sm:px-3.5 sm:py-2.5"
               />
 
               <button
@@ -1981,7 +1983,7 @@ export default function GroupThreadPage() {
                 }
                 aria-busy={sending}
                 aria-label={editingId ? 'ذخیره ویرایش' : 'ارسال پیام'}
-                className={`inline-flex h-10 shrink-0 items-center justify-center rounded-full bg-[var(--accent)] text-[var(--accent-contrast)] shadow-sm transition hover:bg-[var(--accent-hover)] disabled:cursor-not-allowed disabled:opacity-50 sm:h-11 ${
+                className={`order-5 inline-flex h-10 shrink-0 items-center justify-center rounded-full bg-[var(--accent)] text-[var(--accent-contrast)] shadow-sm transition hover:bg-[var(--accent-hover)] disabled:cursor-not-allowed disabled:opacity-50 sm:h-11 ${
                   editingId ? 'min-w-[4.25rem] px-3.5 sm:min-w-[4.5rem] sm:px-4' : 'w-10 sm:w-11'
                 }`}
               >
