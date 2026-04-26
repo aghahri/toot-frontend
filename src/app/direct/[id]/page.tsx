@@ -2311,7 +2311,7 @@ async function uploadSelectedFile(token: string): Promise<string | null> {
                     }}
                   >
                     <div
-                      className={`relative max-w-[78%] rounded-2xl ${
+                      className={`relative min-w-0 max-w-[78%] rounded-2xl ${
                         mine ? 'rounded-tl-md' : 'rounded-tr-md'
                       } px-3.5 ${
                         isConsecutiveFromSameSender ? 'py-2' : 'py-2.5'
@@ -2602,7 +2602,7 @@ async function uploadSelectedFile(token: string): Promise<string | null> {
                           این پیام حذف شده است
                         </div>
                       ) : msg.messageType === 'LOCATION' && msg.metadata ? (
-                        <div className="mt-1 rounded-xl border border-sky-200/80 bg-sky-50 p-2 text-xs text-sky-900">
+                        <div className="mt-1 rounded-xl border border-sky-200/80 bg-sky-50 p-2 text-xs text-sky-900 break-words [overflow-wrap:anywhere]">
                           <div>📍 لوکیشن</div>
                           <div className="mt-1 opacity-80">
                             {typeof msg.metadata.label === 'string' ? msg.metadata.label : ''}
@@ -2619,18 +2619,18 @@ async function uploadSelectedFile(token: string): Promise<string | null> {
                           ) : null}
                         </div>
                       ) : msg.messageType === 'CONTACT' && msg.metadata ? (
-                        <div className="mt-1 rounded-xl border border-violet-200/80 bg-violet-50 p-2 text-xs text-violet-900">
+                        <div className="mt-1 rounded-xl border border-violet-200/80 bg-violet-50 p-2 text-xs text-violet-900 break-words [overflow-wrap:anywhere]">
                           <div>👤 {String(msg.metadata.name ?? 'Contact')}</div>
                           {msg.metadata.phone ? <div className="mt-1 opacity-80">{String(msg.metadata.phone)}</div> : null}
                         </div>
                       ) : msg.messageType === 'EVENT' && msg.metadata ? (
-                        <div className="mt-1 rounded-xl border border-amber-200/80 bg-amber-50 p-2 text-xs text-amber-900">
+                        <div className="mt-1 rounded-xl border border-amber-200/80 bg-amber-50 p-2 text-xs text-amber-900 break-words [overflow-wrap:anywhere]">
                           <div>📅 {String(msg.metadata.title ?? 'Event')}</div>
                           <div className="mt-1">{String(msg.metadata.dateTime ?? '')}</div>
                           {msg.metadata.location ? <div className="mt-1 opacity-80">{String(msg.metadata.location)}</div> : null}
                         </div>
                       ) : msg.messageType === 'POLL' && msg.metadata ? (
-                        <div className="mt-1 rounded-xl border border-emerald-200/80 bg-emerald-50 p-2 text-xs text-emerald-900">
+                        <div className="mt-1 rounded-xl border border-emerald-200/80 bg-emerald-50 p-2 text-xs text-emerald-900 break-words [overflow-wrap:anywhere]">
                           <div className="font-semibold">🗳️ {String(msg.metadata.question ?? 'Poll')}</div>
                           <div className="mt-2 space-y-1">
                             {(Array.isArray(msg.metadata.options) ? msg.metadata.options : []).map((o, idx) => {

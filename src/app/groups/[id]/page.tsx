@@ -1408,7 +1408,7 @@ export default function GroupThreadPage() {
                     }}
                   >
                     <div
-                      className={`relative max-w-[88%] rounded-[1.15rem] px-3.5 ${
+                      className={`relative min-w-0 max-w-[88%] rounded-[1.15rem] px-3.5 ${
                         isConsecutiveFromSameSender ? 'py-2' : 'py-2.5'
                       } shadow-[0_1px_2px_rgba(0,0,0,0.06)] ${
                         deleted

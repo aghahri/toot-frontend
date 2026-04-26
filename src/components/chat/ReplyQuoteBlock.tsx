@@ -153,7 +153,7 @@ export function ReplyQuoteBlock({
             className="h-9 w-9 shrink-0 rounded-md object-cover ring-1 ring-black/10"
           />
         ) : null}
-        <div className="line-clamp-2 min-w-0 flex-1 font-medium opacity-90">{model.body}</div>
+        <div className="line-clamp-2 min-w-0 flex-1 break-words [overflow-wrap:anywhere] font-medium opacity-90">{model.body}</div>
       </div>
     </button>
   );
