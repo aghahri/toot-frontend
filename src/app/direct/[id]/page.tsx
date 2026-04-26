@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { AuthGate } from '@/components/AuthGate';
 import { getAccessToken } from '@/lib/auth';
+import { tinyHaptic } from '@/lib/haptic';
 import { apiFetch, getApiBaseUrl, getErrorMessageFromResponse } from '@/lib/api';
 import { markDirectConversationRead } from '@/lib/mark-direct-read';
 import { notifyDirectConversationRead } from '@/lib/direct-events';
@@ -333,9 +334,9 @@ export default function DirectConversationPage() {
   const peerDisplay = useMemo(() => {
     const other = messages.find((m) => myUserId != null && m.senderId !== myUserId);
     if (other) {
-      return { name: other.sender.name, avatar: other.sender.avatar };
+      return { id: other.sender.id as string | null, name: other.sender.name, avatar: other.sender.avatar };
     }
-    return { name: 'مخاطب', avatar: null as string | null };
+    return { id: null as string | null, name: 'مخاطب', avatar: null as string | null };
   }, [messages, myUserId]);
 
   const peerInitial = useMemo(() => {
@@ -393,6 +394,33 @@ useEffect(() => {
   });
   return () => cancelAnimationFrame(id);
 }, [replyDraft]);
+
+useEffect(() => {
+  if (typeof window === 'undefined') return;
+  let cancelled = false;
+  const t = window.setTimeout(() => {
+    if (cancelled) return;
+    const el = composeTextareaRef.current;
+    if (!el) return;
+    if (isSelectionMode) return;
+    const active = document.activeElement;
+    // If the user already focused something (other input, button, popover), don't steal.
+    if (active && active !== document.body && active !== el) return;
+    if (active === el) return;
+    try {
+      el.focus({ preventScroll: true });
+    } catch {
+      el.focus();
+    }
+  }, 200);
+  return () => {
+    cancelled = true;
+    window.clearTimeout(t);
+  };
+  // Mount-only — intentionally empty deps. isSelectionMode is captured by closure;
+  // selection mode is off on mount.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, []);
 
 function renderMessageStatus(msg: Message, mine: boolean) {
   if (!mine) return null;
@@ -2064,28 +2092,60 @@ async function uploadSelectedFile(token: string): Promise<string | null> {
                 </span>
               </Link>
 
-              <div className="theme-surface-strong relative h-9 w-9 shrink-0 overflow-hidden rounded-full ring-2 ring-white/70">
-                {peerDisplay.avatar ? (
-                  <img
-                    src={peerDisplay.avatar}
-                    alt=""
-                    className="h-full w-full object-cover"
-                  />
-                ) : (
-                  <span className="flex h-full w-full items-center justify-center text-sm font-bold text-slate-600">
-                    {peerInitial}
-                  </span>
-                )}
-              </div>
+              {peerDisplay.id ? (
+                <Link
+                  href={`/profile/${peerDisplay.id}`}
+                  className="flex min-w-0 flex-1 items-center gap-2 rounded-lg transition hover:bg-[var(--surface-2)]"
+                  aria-label="پروفایل مخاطب"
+                >
+                  <div className="theme-surface-strong relative h-9 w-9 shrink-0 overflow-hidden rounded-full ring-2 ring-white/70">
+                    {peerDisplay.avatar ? (
+                      <img
+                        src={peerDisplay.avatar}
+                        alt=""
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <span className="flex h-full w-full items-center justify-center text-sm font-bold text-slate-600">
+                        {peerInitial}
+                      </span>
+                    )}
+                  </div>
+                  <div className="min-w-0 flex-1 text-start">
+                    <h1 className="truncate text-[15px] font-bold leading-tight text-[var(--ink)]" dir="rtl">
+                      {peerDisplay.name}
+                    </h1>
+                    <p className={`mt-0.5 truncate text-[11px] ${headerStatusLine.className}`} dir="rtl">
+                      {headerStatusLine.text}
+                    </p>
+                  </div>
+                </Link>
+              ) : (
+                <>
+                  <div className="theme-surface-strong relative h-9 w-9 shrink-0 overflow-hidden rounded-full ring-2 ring-white/70">
+                    {peerDisplay.avatar ? (
+                      <img
+                        src={peerDisplay.avatar}
+                        alt=""
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <span className="flex h-full w-full items-center justify-center text-sm font-bold text-slate-600">
+                        {peerInitial}
+                      </span>
+                    )}
+                  </div>
 
-              <div className="min-w-0 flex-1 text-start">
-                <h1 className="truncate text-[15px] font-bold leading-tight text-[var(--ink)]" dir="rtl">
-                  {peerDisplay.name}
-                </h1>
-                <p className={`mt-0.5 truncate text-[11px] ${headerStatusLine.className}`} dir="rtl">
-                  {headerStatusLine.text}
-                </p>
-              </div>
+                  <div className="min-w-0 flex-1 text-start">
+                    <h1 className="truncate text-[15px] font-bold leading-tight text-[var(--ink)]" dir="rtl">
+                      {peerDisplay.name}
+                    </h1>
+                    <p className={`mt-0.5 truncate text-[11px] ${headerStatusLine.className}`} dir="rtl">
+                      {headerStatusLine.text}
+                    </p>
+                  </div>
+                </>
+              )}
 
               <button
                 type="button"
@@ -2922,7 +2982,10 @@ async function uploadSelectedFile(token: string): Promise<string | null> {
                 title="پیوست"
                 aria-label="پیوست"
                 aria-expanded={attachmentSheetOpen}
-                onClick={() => setAttachmentSheetOpen((v) => !v)}
+                onClick={() => {
+                  tinyHaptic();
+                  setAttachmentSheetOpen((v) => !v);
+                }}
                 className="order-1 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-slate-200/90 bg-white text-slate-600 shadow-sm transition hover:bg-slate-50 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40 sm:h-11 sm:w-11 sm:rounded-2xl"
               >
                 <span className="text-xl font-bold leading-none">+</span>
@@ -3010,6 +3073,11 @@ async function uploadSelectedFile(token: string): Promise<string | null> {
                   isComposingRef.current = false;
                 }}
                 onKeyDown={(e) => {
+                  if (e.key === 'Escape') {
+                    e.preventDefault();
+                    e.currentTarget.blur();
+                    return;
+                  }
                   if (e.key !== 'Enter') return;
                   if (e.shiftKey) return;
                   const native = e.nativeEvent as KeyboardEvent;
@@ -3065,6 +3133,7 @@ async function uploadSelectedFile(token: string): Promise<string | null> {
 
               <button
                 type="submit"
+                onClick={() => tinyHaptic()}
                 disabled={
                   sending ||
                   voicePhase === 'recording' ||

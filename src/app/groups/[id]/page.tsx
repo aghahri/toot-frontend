@@ -15,6 +15,7 @@ import {
 import { io } from 'socket.io-client';
 import { AuthGate } from '@/components/AuthGate';
 import { getAccessToken } from '@/lib/auth';
+import { tinyHaptic } from '@/lib/haptic';
 import { apiFetch, getApiBaseUrl, getErrorMessageFromResponse } from '@/lib/api';
 import { markGroupConversationRead } from '@/lib/mark-group-read';
 import { DIRECT_REACTION_EMOJIS } from '@/lib/direct-reactions';
@@ -309,6 +310,31 @@ export default function GroupThreadPage() {
     });
     return () => cancelAnimationFrame(id);
   }, [replyTo]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    let cancelled = false;
+    const t = window.setTimeout(() => {
+      if (cancelled) return;
+      const el = groupComposeTextareaRef.current;
+      if (!el) return;
+      if (isSelectionMode) return;
+      const active = document.activeElement;
+      if (active && active !== document.body && active !== el) return;
+      if (active === el) return;
+      try {
+        el.focus({ preventScroll: true });
+      } catch {
+        el.focus();
+      }
+    }, 200);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(t);
+    };
+    // Mount-only — selection mode is off on mount.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     if (isSelectionMode) setAttachmentSheetOpen(false);
@@ -1181,11 +1207,15 @@ export default function GroupThreadPage() {
                 </span>
               </Link>
 
-              <div className="theme-surface-strong relative h-9 w-9 shrink-0 overflow-hidden rounded-full ring-2 ring-white/70">
+              <Link
+                href={`/groups/${groupId}/info`}
+                aria-label="اطلاعات گروه"
+                className="theme-surface-strong relative h-9 w-9 shrink-0 overflow-hidden rounded-full ring-2 ring-white/70"
+              >
                 <span className="flex h-full w-full items-center justify-center text-sm font-bold text-slate-600">
                   {groupInitial}
                 </span>
-              </div>
+              </Link>
 
               <Link href={`/groups/${groupId}/info`} className="min-w-0 flex-1 text-start">
                 <h1 className="theme-text-primary truncate text-[15px] font-bold leading-tight" dir="rtl">
@@ -1838,7 +1868,10 @@ export default function GroupThreadPage() {
                 title="پیوست"
                 aria-label="پیوست"
                 aria-expanded={attachmentSheetOpen}
-                onClick={() => setAttachmentSheetOpen((v) => !v)}
+                onClick={() => {
+                  tinyHaptic();
+                  setAttachmentSheetOpen((v) => !v);
+                }}
                 className="order-1 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-slate-200/90 bg-white text-slate-600 shadow-sm transition hover:bg-slate-50 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40 sm:h-11 sm:w-11 sm:rounded-2xl"
               >
                 <span className="text-xl font-bold leading-none">+</span>
@@ -1921,6 +1954,11 @@ export default function GroupThreadPage() {
                   isComposingRef.current = false;
                 }}
                 onKeyDown={(e) => {
+                  if (e.key === 'Escape') {
+                    e.preventDefault();
+                    e.currentTarget.blur();
+                    return;
+                  }
                   if (e.key !== 'Enter') return;
                   if (e.shiftKey) return;
                   const native = e.nativeEvent as KeyboardEvent;
@@ -1974,6 +2012,7 @@ export default function GroupThreadPage() {
 
               <button
                 type="submit"
+                onClick={() => tinyHaptic()}
                 disabled={
                   sending ||
                   voicePhase === 'recording' ||
