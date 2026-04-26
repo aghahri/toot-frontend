@@ -1,12 +1,22 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { AuthGate } from '@/components/AuthGate';
 import { getAccessToken } from '@/lib/auth';
 import { apiFetch } from '@/lib/api';
 import { groupRoleBadgeClasses, groupRoleLabelFa, isGroupManagerRole } from '@/lib/group-roles';
+
+type UserSearchHit = {
+  id: string;
+  name: string;
+  username: string;
+  phoneMasked: string;
+};
+
+const SEARCH_MIN_LEN = 2;
+const SEARCH_DEBOUNCE_MS = 300;
 
 type MemberRow = {
   id: string;
@@ -27,8 +37,12 @@ export default function GroupMembersPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const [addUserId, setAddUserId] = useState('');
-  const [addBusy, setAddBusy] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchHits, setSearchHits] = useState<UserSearchHit[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
+  const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [addBusy, setAddBusy] = useState<string | null>(null); // userId currently being added
   const [addFeedback, setAddFeedback] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
 
   const [inviteBusy, setInviteBusy] = useState(false);
@@ -65,30 +79,68 @@ export default function GroupMembersPage() {
   const canManage = isGroupManagerRole(myRole);
   const isOwner = myRole === 'OWNER';
 
-  async function onAddMember() {
-    const token = getAccessToken();
-    if (!token || !groupId) return;
-    const uid = addUserId.trim();
-    if (!uid) {
-      setAddFeedback({ kind: 'err', text: 'شناسهٔ کاربر را وارد کنید.' });
+  /** O(1) lookup of existing members so the search list can mark them as
+   *  already-added instead of letting the admin click 'add' and get a 409. */
+  const memberUserIds = useMemo(() => new Set(rows.map((r) => r.user.id)), [rows]);
+
+  /** Debounced user search. Triggers only when query length >= 2 (Persian
+   *  user expectation: 'two letters' or 'two phone digits'). The backend's
+   *  /users/search already enforces the same minimum and matches name,
+   *  username, email, and mobile (raw + normalized 98-prefix). */
+  useEffect(() => {
+    if (!canManage) return;
+    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    const q = searchQuery.trim();
+    if (q.length < SEARCH_MIN_LEN) {
+      setSearchHits([]);
+      setSearchError(null);
+      setSearching(false);
       return;
     }
-    setAddBusy(true);
+    setSearching(true);
+    setSearchError(null);
+    searchDebounceRef.current = setTimeout(async () => {
+      const token = getAccessToken();
+      if (!token) return;
+      try {
+        const hits = await apiFetch<UserSearchHit[]>(
+          `users/search?q=${encodeURIComponent(q)}&limit=20`,
+          { method: 'GET', token },
+        );
+        setSearchHits(hits);
+      } catch (e) {
+        setSearchHits([]);
+        setSearchError(e instanceof Error ? e.message : 'جستجو ناموفق بود');
+      } finally {
+        setSearching(false);
+      }
+    }, SEARCH_DEBOUNCE_MS);
+    return () => {
+      if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    };
+  }, [searchQuery, canManage]);
+
+  async function onAddMember(userId: string) {
+    const token = getAccessToken();
+    if (!token || !groupId) return;
+    setAddBusy(userId);
     setAddFeedback(null);
     try {
       await apiFetch<MemberRow[]>(`groups/${groupId}/members`, {
         method: 'POST',
         token,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: uid }),
+        body: JSON.stringify({ userId }),
       });
-      setAddUserId('');
-      setAddFeedback({ kind: 'ok', text: 'این کاربر به گروه اضافه شد.' });
+      setAddFeedback({ kind: 'ok', text: 'کاربر به گروه اضافه شد.' });
+      // Drop the user from the visible search hits so the row doesn't
+      // re-render as 'add'-able for an instant before load() refreshes.
+      setSearchHits((prev) => prev.filter((u) => u.id !== userId));
       await load();
     } catch (e) {
-      setAddFeedback({ kind: 'err', text: e instanceof Error ? e.message : 'خطا' });
+      setAddFeedback({ kind: 'err', text: e instanceof Error ? e.message : 'افزودن ناموفق بود.' });
     } finally {
-      setAddBusy(false);
+      setAddBusy(null);
     }
   }
 
@@ -239,45 +291,114 @@ export default function GroupMembersPage() {
         ) : null}
 
         {canManage ? (
-          <section className="mt-4 overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-stone-200/80">
-            <div className="border-b border-stone-100 px-3 py-2.5">
-              <h2 className="text-sm font-extrabold text-stone-900">افزودن عضو</h2>
-              <p className="mt-0.5 text-[11px] leading-relaxed text-stone-500">
-                شناسهٔ کاربر را از پروفایل او کپی کنید و اینجا بچسبانید.
+          <section className="mt-4 overflow-hidden rounded-2xl border border-[var(--line)] bg-[var(--surface)]">
+            <div className="border-b border-[var(--line)] px-3 py-2.5">
+              <h2 className="text-sm font-extrabold text-[var(--ink)]">افزودن عضو</h2>
+              <p className="mt-0.5 text-[11px] leading-relaxed text-[var(--ink-3)]">
+                با دو کاراکتر از نام، نام کاربری یا شماره تماس جستجو کنید.
               </p>
             </div>
             <div className="space-y-2 p-3">
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-stretch">
-                <input
-                  value={addUserId}
-                  onChange={(e) => {
-                    setAddUserId(e.target.value);
-                    setAddFeedback(null);
-                  }}
-                  placeholder="مثلاً clxxxxxxxx"
-                  className="min-h-[44px] min-w-0 flex-1 rounded-xl border border-stone-200 bg-stone-50/80 px-3 py-2 text-sm outline-none transition focus:border-emerald-400 focus:bg-white focus:ring-2 focus:ring-emerald-100"
-                  dir="ltr"
-                  autoComplete="off"
-                  spellCheck={false}
-                />
-                <button
-                  type="button"
-                  disabled={addBusy}
-                  onClick={() => void onAddMember()}
-                  className="min-h-[44px] shrink-0 rounded-xl bg-emerald-600 px-5 text-sm font-bold text-white shadow-sm transition hover:bg-emerald-700 disabled:opacity-55"
+              <div className="flex h-11 items-center gap-2 rounded-xl bg-[var(--surface-2)] px-3 text-[var(--ink-3)]">
+                <svg
+                  viewBox="0 0 24 24"
+                  className="h-4 w-4 shrink-0"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden
                 >
-                  {addBusy ? 'در حال افزودن…' : 'افزودن'}
-                </button>
+                  <circle cx="11" cy="11" r="7" />
+                  <path d="M20 20l-3.5-3.5" />
+                </svg>
+                <input
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="جستجو با نام، نام کاربری یا شماره"
+                  className="h-full w-full bg-transparent text-[13px] text-[var(--ink)] placeholder:text-[var(--ink-3)] outline-none"
+                  autoComplete="off"
+                  aria-label="جستجوی کاربر برای افزودن"
+                />
+                {searchQuery ? (
+                  <button
+                    type="button"
+                    onClick={() => setSearchQuery('')}
+                    className="text-[18px] leading-none text-[var(--ink-3)] hover:text-[var(--ink-2)]"
+                    aria-label="پاک کردن جستجو"
+                  >
+                    ×
+                  </button>
+                ) : null}
               </div>
+
               {addFeedback ? (
                 <p
                   className={`text-[12px] font-semibold ${
-                    addFeedback.kind === 'ok' ? 'text-emerald-800' : 'text-red-700'
+                    addFeedback.kind === 'ok' ? 'text-[var(--success)]' : 'text-[var(--accent-hover)]'
                   }`}
                   role="status"
                 >
                   {addFeedback.text}
                 </p>
+              ) : null}
+
+              {searchQuery.trim().length > 0 && searchQuery.trim().length < SEARCH_MIN_LEN ? (
+                <p className="text-[11px] text-[var(--ink-3)]">حداقل ۲ کاراکتر وارد کنید.</p>
+              ) : null}
+
+              {searching ? (
+                <p className="text-[11px] text-[var(--ink-3)]">در حال جستجو…</p>
+              ) : searchError ? (
+                <p className="text-[12px] font-semibold text-[var(--accent-hover)]" role="alert">
+                  {searchError}
+                </p>
+              ) : searchQuery.trim().length >= SEARCH_MIN_LEN && searchHits.length === 0 ? (
+                <p className="text-[11px] text-[var(--ink-3)]">کاربری یافت نشد.</p>
+              ) : searchHits.length > 0 ? (
+                <ul className="divide-y divide-[var(--line)] overflow-hidden rounded-xl border border-[var(--line)]">
+                  {searchHits.map((u) => {
+                    const alreadyMember = memberUserIds.has(u.id);
+                    const adding = addBusy === u.id;
+                    const initial = (u.name || u.username || '?').trim().slice(0, 1) || '?';
+                    return (
+                      <li
+                        key={u.id}
+                        className="flex items-center gap-3 bg-[var(--surface)] px-3 py-2.5"
+                      >
+                        <span
+                          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[var(--surface-2)] text-sm font-bold text-[var(--ink-2)]"
+                          aria-hidden
+                        >
+                          {initial.toUpperCase()}
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-[13px] font-bold text-[var(--ink)]">
+                            {u.name || 'بدون نام'}
+                          </p>
+                          <p className="truncate text-[11px] text-[var(--ink-3)]" dir="ltr">
+                            @{u.username} · {u.phoneMasked}
+                          </p>
+                        </div>
+                        {alreadyMember ? (
+                          <span className="shrink-0 rounded-full bg-[var(--surface-2)] px-3 py-1 text-[11px] font-bold text-[var(--ink-3)]">
+                            عضو گروه است
+                          </span>
+                        ) : (
+                          <button
+                            type="button"
+                            disabled={adding}
+                            onClick={() => void onAddMember(u.id)}
+                            className="shrink-0 rounded-full bg-[var(--accent)] px-3.5 py-1.5 text-[12px] font-extrabold text-[var(--accent-contrast)] transition hover:bg-[var(--accent-hover)] disabled:opacity-50"
+                          >
+                            {adding ? '…' : 'افزودن'}
+                          </button>
+                        )}
+                      </li>
+                    );
+                  })}
+                </ul>
               ) : null}
             </div>
           </section>
