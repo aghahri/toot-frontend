@@ -23,7 +23,7 @@ const nav = [
   { href: '/admin/story/sources', label: 'Story sources' },
   { href: '/admin/moderation', label: 'Moderation' },
   { href: '/admin/geography', label: 'Geography' },
-  { href: '/admin/stickers', label: 'پکیج‌های استیکر' },
+  { href: '/admin/stickers', label: 'پکیج‌های استیکر / Stickers' },
   { href: '/admin/staff', label: 'Staff roles' },
   { href: '/admin/integrations/sms', label: 'پنل پیامک' },
   { href: '/admin/system', label: 'سلامت سیستم' },
