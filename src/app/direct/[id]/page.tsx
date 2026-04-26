@@ -3192,74 +3192,90 @@ async function uploadSelectedFile(token: string): Promise<string | null> {
                 </span>
               </button>
 
-              <textarea
-                ref={composeTextareaRef}
-                dir="rtl"
-                value={text}
-                onCompositionStart={() => {
-                  isComposingRef.current = true;
-                }}
-                onCompositionEnd={() => {
-                  isComposingRef.current = false;
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === 'Escape') {
-                    e.preventDefault();
-                    e.currentTarget.blur();
-                    return;
-                  }
-                  if (e.key !== 'Enter') return;
-                  if (e.shiftKey) return;
-                  const native = e.nativeEvent as KeyboardEvent;
-                  if (isComposingRef.current || native.isComposing || native.keyCode === 229) return;
-                  const trimmed = text.trim();
-                  if (
-                    !trimmed ||
-                    sending ||
-                    editMode ||
-                    isSelectionMode ||
-                    voicePhase === 'recording' ||
-                    voicePhase === 'sending'
-                  ) {
-                    e.preventDefault();
-                    return;
-                  }
-                  e.preventDefault();
-                  const form = e.currentTarget.closest('form');
-                  if (form) {
-                    form.requestSubmit();
-                  }
-                }}
-                onChange={(e) => {
-                  const value = e.target.value;
-                  setText(value);
-                  if (!editMode) {
-                    if (draftPersistTimerRef.current) {
-                      clearTimeout(draftPersistTimerRef.current);
+              <div className="order-2 relative min-h-[2.625rem] max-h-32 min-w-0 flex-1 sm:min-h-[2.75rem]">
+                <textarea
+                  ref={composeTextareaRef}
+                  dir="rtl"
+                  value={text}
+                  onCompositionStart={() => {
+                    isComposingRef.current = true;
+                  }}
+                  onCompositionEnd={() => {
+                    isComposingRef.current = false;
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Escape') {
+                      e.preventDefault();
+                      e.currentTarget.blur();
+                      return;
                     }
-                    draftPersistTimerRef.current = setTimeout(() => {
-                      setDirectDraft(conversationId, value);
-                      draftPersistTimerRef.current = null;
-                    }, 220);
-                  }
+                    if (e.key !== 'Enter') return;
+                    if (e.shiftKey) return;
+                    const native = e.nativeEvent as KeyboardEvent;
+                    if (isComposingRef.current || native.isComposing || native.keyCode === 229) return;
+                    const trimmed = text.trim();
+                    if (
+                      !trimmed ||
+                      sending ||
+                      editMode ||
+                      isSelectionMode ||
+                      voicePhase === 'recording' ||
+                      voicePhase === 'sending'
+                    ) {
+                      e.preventDefault();
+                      return;
+                    }
+                    e.preventDefault();
+                    const form = e.currentTarget.closest('form');
+                    if (form) {
+                      form.requestSubmit();
+                    }
+                  }}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    setText(value);
+                    if (!editMode) {
+                      if (draftPersistTimerRef.current) {
+                        clearTimeout(draftPersistTimerRef.current);
+                      }
+                      draftPersistTimerRef.current = setTimeout(() => {
+                        setDirectDraft(conversationId, value);
+                        draftPersistTimerRef.current = null;
+                      }, 220);
+                    }
 
-                  emitTypingState(value.trim().length > 0);
-                }}
-                onBlur={(e) => {
-                  if (!editMode) {
-                    if (draftPersistTimerRef.current) {
-                      clearTimeout(draftPersistTimerRef.current);
-                      draftPersistTimerRef.current = null;
+                    emitTypingState(value.trim().length > 0);
+                  }}
+                  onBlur={(e) => {
+                    if (!editMode) {
+                      if (draftPersistTimerRef.current) {
+                        clearTimeout(draftPersistTimerRef.current);
+                        draftPersistTimerRef.current = null;
+                      }
+                      setDirectDraft(conversationId, e.target.value);
                     }
-                    setDirectDraft(conversationId, e.target.value);
-                  }
-                  emitTypingState(false, { immediate: true });
-                }}
-                placeholder="پیام…"
-                rows={1}
-                disabled={sending || voicePhase === 'recording' || isSelectionMode}
-                className="order-2 min-h-[2.625rem] max-h-32 min-w-0 flex-1 resize-none rounded-xl border border-[var(--line)] bg-[var(--surface)] px-3 py-2 text-[15px] leading-normal text-[var(--ink)] outline-none ring-0 transition placeholder:text-[var(--ink-3)] focus:border-[var(--accent-ring)] focus:ring-2 focus:ring-[var(--accent-soft)] sm:min-h-[2.75rem] sm:rounded-2xl sm:px-3.5 sm:py-2.5"
-              />
+                    emitTypingState(false, { immediate: true });
+                  }}
+                  placeholder="پیام…"
+                  rows={1}
+                  disabled={sending || voicePhase === 'recording' || isSelectionMode}
+                  className="h-full min-h-[2.625rem] max-h-32 w-full min-w-0 resize-none rounded-xl border border-[var(--line)] bg-[var(--surface)] py-2 pe-3 ps-10 text-[15px] leading-normal text-[var(--ink)] outline-none ring-0 transition placeholder:text-[var(--ink-3)] focus:border-[var(--accent-ring)] focus:ring-2 focus:ring-[var(--accent-soft)] sm:min-h-[2.75rem] sm:rounded-2xl sm:py-2.5 sm:pe-3.5 sm:ps-11"
+                />
+                <button
+                  type="button"
+                  aria-label="استیکر"
+                  title="استیکر"
+                  disabled={sending || editMode || isSelectionMode || voicePhase !== 'idle'}
+                  onClick={() => {
+                    tinyHaptic();
+                    setStickerPickerOpen(true);
+                    void loadStickerPacks();
+                  }}
+                  className="absolute inset-y-0 start-1 my-auto flex h-8 w-8 items-center justify-center rounded-full text-base text-slate-500 transition hover:bg-slate-100 hover:text-slate-700 disabled:cursor-not-allowed disabled:opacity-40 sm:start-1.5"
+                >
+                  🟡
+                </button>
+              </div>
 
               <button
                 type="submit"
