@@ -772,7 +772,7 @@ export default function DirectPage() {
 
       {newChatOpen ? (
         <div
-          className="fixed inset-0 z-40 flex items-start justify-center bg-black/35 p-4 pt-[min(30vh,8rem)] backdrop-blur-[2px]"
+          className="fixed inset-0 z-40 flex items-start justify-center bg-[var(--ink)]/40 p-4 pt-[min(30vh,8rem)] backdrop-blur-[2px]"
           role="dialog"
           aria-modal="true"
           aria-labelledby="new-chat-title"
@@ -784,43 +784,69 @@ export default function DirectPage() {
           dir="rtl"
         >
           <div
-            className="w-full max-w-sm rounded-2xl border border-stone-200 bg-white p-4 shadow-2xl"
+            className="w-full max-w-sm rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-4 shadow-lg"
             onClick={(e) => e.stopPropagation()}
           >
-            <h2 id="new-chat-title" className="text-base font-bold text-stone-900">
+            <h2 id="new-chat-title" className="text-base font-extrabold text-[var(--ink)]">
               گفتگوی جدید
             </h2>
-            <p className="mt-1 text-xs text-stone-500">
-              نام یا نام کاربری را جستجو کنید.
+            <p className="mt-1 text-xs text-[var(--ink-3)]">
+              نام، نام کاربری یا شماره را جستجو کنید.
             </p>
 
-            <input
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="جستجو…"
-              className="mt-4 w-full rounded-xl border border-stone-200 bg-stone-50/50 p-3.5 text-sm outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
-              autoComplete="off"
-              dir="rtl"
-            />
+            <div className="mt-4 flex h-11 items-center gap-2 rounded-xl bg-[var(--surface-2)] px-3 text-[var(--ink-3)]">
+              <svg
+                viewBox="0 0 24 24"
+                className="h-4 w-4 shrink-0"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden
+              >
+                <circle cx="11" cy="11" r="7" />
+                <path d="M20 20l-3.5-3.5" />
+              </svg>
+              <input
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="جستجو…"
+                className="h-full w-full bg-transparent text-[13px] text-[var(--ink)] placeholder:text-[var(--ink-3)] outline-none"
+                autoComplete="off"
+                dir="rtl"
+                aria-label="جستجوی کاربر برای گفتگوی جدید"
+              />
+              {searchQuery ? (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  className="text-[18px] leading-none text-[var(--ink-3)] hover:text-[var(--ink-2)]"
+                  aria-label="پاک کردن جستجو"
+                >
+                  ×
+                </button>
+              ) : null}
+            </div>
 
-            <div className="mt-2 max-h-56 overflow-y-auto rounded-xl border border-stone-100 bg-stone-50/40">
+            <div className="mt-2 max-h-56 overflow-y-auto rounded-xl border border-[var(--line)] bg-[var(--surface-2)]">
               {searchQuery.trim().length < 2 ? (
-                <p className="px-3 py-4 text-center text-xs text-stone-400">برای شروع تایپ کنید.</p>
+                <p className="px-3 py-4 text-center text-xs text-[var(--ink-3)]">برای شروع تایپ کنید.</p>
               ) : searching ? (
-                <p className="px-3 py-4 text-center text-xs text-stone-500">در حال جستجو…</p>
+                <p className="px-3 py-4 text-center text-xs text-[var(--ink-3)]">در حال جستجو…</p>
               ) : searchHits.length === 0 ? (
-                <p className="px-3 py-4 text-center text-xs text-stone-500">نتیجه‌ای یافت نشد.</p>
+                <p className="px-3 py-4 text-center text-xs text-[var(--ink-3)]">نتیجه‌ای یافت نشد.</p>
               ) : (
-                <ul className="divide-y divide-stone-100">
+                <ul className="divide-y divide-[var(--line)]">
                   {searchHits.map((hit) => (
                     <li key={hit.id}>
                       <button
                         type="button"
-                        className="flex w-full flex-col items-start gap-0.5 px-3 py-3 text-right transition hover:bg-white"
+                        className="flex w-full flex-col items-start gap-0.5 bg-[var(--surface)] px-3 py-3 text-right transition hover:bg-[var(--surface-strong)]"
                         onClick={() => void startConversationWithUser(hit.id)}
                       >
-                        <span className="text-sm font-bold text-stone-900">{hit.name}</span>
-                        <span className="text-[11px] font-medium text-stone-500" dir="ltr">
+                        <span className="text-sm font-bold text-[var(--ink)]">{hit.name}</span>
+                        <span className="text-[11px] font-medium text-[var(--ink-3)]" dir="ltr">
                           @{hit.username} · {hit.phoneMasked}
                         </span>
                       </button>
@@ -830,7 +856,11 @@ export default function DirectPage() {
               )}
             </div>
 
-            {error ? <p className="mt-2 text-xs font-semibold text-red-600">{error}</p> : null}
+            {error ? (
+              <p className="mt-2 text-xs font-semibold text-[var(--accent-hover)]" role="alert">
+                {error}
+              </p>
+            ) : null}
 
             <div className="mt-4 flex gap-2">
               <button
@@ -841,7 +871,7 @@ export default function DirectPage() {
                   setSearchQuery('');
                   setSearchHits([]);
                 }}
-                className="min-h-[48px] w-full rounded-xl border border-stone-200 px-4 py-3 text-sm font-semibold text-stone-700 hover:bg-stone-50"
+                className="min-h-[44px] w-full rounded-xl border border-[var(--line)] bg-[var(--surface)] px-4 py-3 text-sm font-bold text-[var(--ink-2)] transition hover:bg-[var(--surface-2)]"
               >
                 بستن
               </button>

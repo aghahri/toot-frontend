@@ -675,30 +675,43 @@ export default function SpacesOverviewPage() {
         ) : null}
 
         {editOpen ? (
-          <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-3" dir="rtl">
-            <div className="theme-card-bg theme-border-soft max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-3xl border p-5 shadow-2xl">
+          <div
+            className="fixed inset-0 z-50 flex items-end justify-center bg-[var(--ink)]/40 p-3 backdrop-blur-[2px]"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="spaces-edit-title"
+            onClick={() => setEditOpen(false)}
+            dir="rtl"
+          >
+            <div
+              className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-[var(--line)] bg-[var(--surface)] p-5 shadow-lg"
+              onClick={(e) => e.stopPropagation()}
+            >
               <div className="mb-2 flex items-center justify-between">
-                <h3 className="text-sm font-extrabold text-[var(--text-primary)]">فضاهای منتخب</h3>
+                <h3 id="spaces-edit-title" className="text-sm font-extrabold text-[var(--ink)]">
+                  فضاهای منتخب
+                </h3>
                 <button
                   type="button"
                   onClick={() => setEditOpen(false)}
-                  className="rounded-full border border-[var(--border-soft)] px-3 py-1 text-xs font-bold text-[var(--text-secondary)]"
+                  className="rounded-full border border-[var(--line)] bg-[var(--surface)] px-3 py-1 text-xs font-bold text-[var(--ink-2)] transition hover:bg-[var(--surface-2)]"
+                  aria-label="بستن"
                 >
                   بستن
                 </button>
               </div>
-              <p className="mb-3 text-[11px] text-[var(--text-secondary)]">
+              <p className="mb-3 text-[11px] text-[var(--ink-3)]">
                 حداقل {MIN_SPACES} و حداکثر {MAX_SPACES} فضا. «محله» ثابت است.
               </p>
-              <div className="mb-3 rounded-xl border border-[var(--border-soft)] bg-[var(--surface-soft)] p-2.5">
-                <p className="text-[11px] font-bold text-[var(--text-primary)]">ترتیب</p>
+              <div className="mb-3 rounded-xl border border-[var(--line)] bg-[var(--surface-2)] p-2.5">
+                <p className="text-[11px] font-bold text-[var(--ink)]">ترتیب</p>
                 <ul className="mt-2 space-y-1.5">
                   {draftPrefs.map((k, index) => (
                     <li
                       key={k}
-                      className="flex items-center justify-between rounded-lg bg-[var(--card-bg)] px-2.5 py-2 text-xs ring-1 ring-[var(--border-soft)]"
+                      className="flex items-center justify-between rounded-lg border border-[var(--line)] bg-[var(--surface)] px-2.5 py-2 text-xs"
                     >
-                      <span className="font-bold text-[var(--text-primary)]">
+                      <span className="font-bold text-[var(--ink)]">
                         {index + 1}. {USER_SPACE_META[k].labelFa}
                       </span>
                       <div className="flex gap-1">
@@ -706,7 +719,8 @@ export default function SpacesOverviewPage() {
                           type="button"
                           disabled={k === MANDATORY_SPACE || index <= 1}
                           onClick={() => moveDraft(k, -1)}
-                          className="rounded border border-[var(--border-soft)] px-2 py-0.5 disabled:opacity-40"
+                          aria-label="انتقال به بالا"
+                          className="rounded-md border border-[var(--line)] bg-[var(--surface)] px-2 py-0.5 text-[var(--ink-2)] transition hover:bg-[var(--surface-2)] disabled:opacity-40"
                         >
                           ↑
                         </button>
@@ -714,7 +728,8 @@ export default function SpacesOverviewPage() {
                           type="button"
                           disabled={k === MANDATORY_SPACE || index >= draftPrefs.length - 1}
                           onClick={() => moveDraft(k, 1)}
-                          className="rounded border border-[var(--border-soft)] px-2 py-0.5 disabled:opacity-40"
+                          aria-label="انتقال به پایین"
+                          className="rounded-md border border-[var(--line)] bg-[var(--surface)] px-2 py-0.5 text-[var(--ink-2)] transition hover:bg-[var(--surface-2)] disabled:opacity-40"
                         >
                           ↓
                         </button>
@@ -732,8 +747,11 @@ export default function SpacesOverviewPage() {
                       key={k}
                       type="button"
                       onClick={() => toggleDraftSpace(k)}
-                      className={`rounded-2xl px-2.5 py-2.5 text-xs font-bold ring-1 transition ${
-                        selected ? `${USER_SPACE_META[k].accent} ring-2` : 'bg-[var(--surface-soft)] text-[var(--text-primary)] ring-[var(--border-soft)] hover:bg-[var(--accent-soft)]/40'
+                      aria-pressed={selected}
+                      className={`rounded-xl border px-2.5 py-2.5 text-xs font-bold transition ${
+                        selected
+                          ? 'border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent-soft-ink)]'
+                          : 'border-[var(--line)] bg-[var(--surface)] text-[var(--ink)] hover:bg-[var(--surface-2)]'
                       }`}
                     >
                       <span className="ms-1" aria-hidden>
@@ -749,7 +767,7 @@ export default function SpacesOverviewPage() {
                 <button
                   type="button"
                   onClick={() => setEditOpen(false)}
-                  className="rounded-full border border-[var(--border-soft)] px-4 py-2 text-xs font-extrabold text-[var(--text-primary)]"
+                  className="rounded-full border border-[var(--line)] bg-[var(--surface)] px-4 py-2 text-xs font-extrabold text-[var(--ink)] transition hover:bg-[var(--surface-2)]"
                 >
                   انصراف
                 </button>
@@ -757,7 +775,7 @@ export default function SpacesOverviewPage() {
                   type="button"
                   disabled={prefsSaving || draftPrefs.length < MIN_SPACES || draftPrefs.length > MAX_SPACES}
                   onClick={() => void savePreferredSpaces()}
-                  className="rounded-full bg-[var(--accent)] px-4 py-2 text-xs font-extrabold text-[var(--accent-contrast)] hover:bg-[var(--accent-hover)] disabled:opacity-50"
+                  className="rounded-full bg-[var(--accent)] px-4 py-2 text-xs font-extrabold text-[var(--accent-contrast)] transition hover:bg-[var(--accent-hover)] disabled:opacity-50"
                 >
                   {prefsSaving ? '…' : 'ذخیره'}
                 </button>
