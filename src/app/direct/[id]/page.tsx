@@ -1993,7 +1993,7 @@ async function uploadSelectedFile(token: string): Promise<string | null> {
   return (
     <AuthGate>
       <IncomingCallHint />
-      <main className="mx-auto flex min-h-[100dvh] w-full max-w-md flex-col bg-[var(--bg-page)] text-[var(--ink)]">
+      <main className="mx-auto flex min-h-[100dvh] w-full max-w-md min-w-0 flex-col overflow-x-hidden bg-[var(--bg-page)] text-[var(--ink)]">
         <header
           className="sticky top-0 z-30 border-b border-[var(--line)] bg-[var(--surface)]/95 backdrop-blur-md"
           dir="rtl"
@@ -2192,7 +2192,7 @@ async function uploadSelectedFile(token: string): Promise<string | null> {
           </div>
         ) : null}
 
-        <div className="flex-1 space-y-2.5 bg-[var(--bg-page)] px-2.5 pt-3 pb-24 sm:px-3">
+        <div className="flex-1 min-w-0 max-w-full space-y-2.5 overflow-x-hidden bg-[var(--bg-page)] px-2.5 pt-3 pb-24 sm:px-3">
           {loading ? (
             <Card>
               <div className="text-sm text-slate-700">در حال دریافت پیام‌ها...</div>
@@ -2743,7 +2743,7 @@ async function uploadSelectedFile(token: string): Promise<string | null> {
         ) : null}
 
         <div
-          className="sticky bottom-0 z-20 border-t border-[var(--line)] bg-[var(--surface)]/95 px-2.5 pt-2 backdrop-blur-md"
+          className="sticky bottom-0 z-20 w-full min-w-0 max-w-full overflow-x-hidden border-t border-[var(--line)] bg-[var(--surface)]/95 px-2.5 pt-2 backdrop-blur-md"
           style={{
             paddingBottom: `calc(max(0.75rem, env(safe-area-inset-bottom)) + ${composerKeyboardInset}px)`,
           }}

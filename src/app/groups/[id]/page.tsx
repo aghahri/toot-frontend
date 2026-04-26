@@ -1110,7 +1110,7 @@ export default function GroupThreadPage() {
 
   return (
     <AuthGate>
-      <main className="theme-page-bg theme-text-primary mx-auto flex min-h-[100dvh] w-full max-w-md flex-col bg-[linear-gradient(180deg,var(--surface-soft)_0%,var(--page-bg)_28%)]">
+      <main className="theme-page-bg theme-text-primary mx-auto flex min-h-[100dvh] w-full max-w-md min-w-0 flex-col overflow-x-hidden bg-[linear-gradient(180deg,var(--surface-soft)_0%,var(--page-bg)_28%)]">
         <header
           className="theme-panel-bg theme-border-soft sticky top-0 z-30 border-b shadow-[0_1px_0_rgba(0,0,0,0.04)] backdrop-blur-md"
           dir="rtl"
@@ -1290,7 +1290,7 @@ export default function GroupThreadPage() {
           </div>
         ) : null}
 
-        <div className="theme-surface-soft flex-1 space-y-2.5 px-2.5 pt-3 pb-24 sm:px-3">
+        <div className="theme-surface-soft flex-1 min-w-0 max-w-full space-y-2.5 overflow-x-hidden px-2.5 pt-3 pb-24 sm:px-3">
           {loading ? (
             <Card>
               <div className="text-sm text-slate-700">در حال دریافت پیام‌ها...</div>
@@ -1707,7 +1707,7 @@ export default function GroupThreadPage() {
         </div>
 
         <div
-          className={`theme-panel-bg theme-border-soft sticky bottom-0 z-20 border-t px-2.5 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2 shadow-[0_-1px_8px_rgba(0,0,0,0.05)] backdrop-blur-md ${
+          className={`theme-panel-bg theme-border-soft sticky bottom-0 z-20 w-full min-w-0 max-w-full overflow-x-hidden border-t px-2.5 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2 shadow-[0_-1px_8px_rgba(0,0,0,0.05)] backdrop-blur-md ${
             isSelectionMode ? 'pointer-events-none opacity-50' : ''
           }`}
         >
