@@ -14,6 +14,18 @@ function shouldShowBottomNav(pathname: string): boolean {
   if (pathname === '/') return false;
   if (pathname === '/login' || pathname === '/register') return false;
   if (/^\/meetings\/[^/]+\/room\/?$/.test(pathname)) return false;
+  // Chat threads always pin a composer to the bottom; the bottom nav would
+  // either compete for that space or push the composer off-viewport. Hide
+  // it on /direct/[id] and /groups/[id] (channel threads already use the
+  // dedicated `channelThreadFixed` workspace below).
+  if (/^\/direct\/[^/]+$/.test(pathname)) return false;
+  if (
+    pathname !== '/groups/new' &&
+    pathname !== '/groups/join' &&
+    /^\/groups\/[^/]+$/.test(pathname)
+  ) {
+    return false;
+  }
   return true;
 }
 

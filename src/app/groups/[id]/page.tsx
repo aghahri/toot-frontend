@@ -23,6 +23,7 @@ import { ReplyQuoteBlock, groupReplyToModel } from '@/components/chat/ReplyQuote
 import { VoiceMessageBubble } from '@/components/chat/VoiceMessageBubble';
 import { ForwardPickerSheet } from '@/components/chat/ForwardPickerSheet';
 import { MessageText } from '@/components/chat/MessageText';
+import { SendIcon } from '@/components/icons/SendIcon';
 import { loadForwardPickTargets, type ForwardPickTarget } from '@/lib/chat-forward';
 import { isVoiceMedia, formatVoiceClock } from '@/lib/chat-media';
 import { calendarDayKey, dayDividerLabelFa } from '@/lib/chat-dates';
@@ -1289,7 +1290,7 @@ export default function GroupThreadPage() {
           </div>
         ) : null}
 
-        <div className="theme-surface-soft flex-1 space-y-2.5 px-2.5 py-3 sm:px-3">
+        <div className="theme-surface-soft flex-1 space-y-2.5 px-2.5 pt-3 pb-24 sm:px-3">
           {loading ? (
             <Card>
               <div className="text-sm text-slate-700">در حال دریافت پیام‌ها...</div>
@@ -1979,15 +1980,20 @@ export default function GroupThreadPage() {
                   (!text.trim() && !file)
                 }
                 aria-busy={sending}
-                className="inline-flex h-10 min-w-[4.25rem] shrink-0 items-center justify-center rounded-xl bg-[var(--accent)] px-3.5 text-sm font-semibold text-[var(--accent-contrast)] shadow-sm transition hover:bg-[var(--accent-hover)] disabled:cursor-not-allowed disabled:opacity-50 sm:h-11 sm:min-w-[4.5rem] sm:rounded-2xl sm:px-4"
+                aria-label={editingId ? 'ذخیره ویرایش' : 'ارسال پیام'}
+                className={`inline-flex h-10 shrink-0 items-center justify-center rounded-full bg-[var(--accent)] text-[var(--accent-contrast)] shadow-sm transition hover:bg-[var(--accent-hover)] disabled:cursor-not-allowed disabled:opacity-50 sm:h-11 ${
+                  editingId ? 'min-w-[4.25rem] px-3.5 sm:min-w-[4.5rem] sm:px-4' : 'w-10 sm:w-11'
+                }`}
               >
                 {sending ? (
                   <span
                     className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white"
                     aria-label={editingId ? 'در حال ذخیره' : 'در حال ارسال'}
                   />
+                ) : editingId ? (
+                  <span className="text-sm font-bold">ذخیره</span>
                 ) : (
-                  <span>{editingId ? 'ذخیره' : 'ارسال'}</span>
+                  <SendIcon className="h-5 w-5" />
                 )}
               </button>
             </div>

@@ -26,6 +26,7 @@ import type { Socket } from 'socket.io-client';
 import { useAppRealtime } from '@/context/AppRealtimeSocketContext';
 import { useVoiceCall } from '@/context/VoiceCallContext';
 import { IncomingCallHint } from '@/components/IncomingCallHint';
+import { SendIcon } from '@/components/icons/SendIcon';
 import {
   FormEvent,
   Fragment,
@@ -2191,7 +2192,7 @@ async function uploadSelectedFile(token: string): Promise<string | null> {
           </div>
         ) : null}
 
-        <div className="flex-1 space-y-2.5 bg-[var(--bg-page)] px-2.5 py-3 sm:px-3">
+        <div className="flex-1 space-y-2.5 bg-[var(--bg-page)] px-2.5 pt-3 pb-24 sm:px-3">
           {loading ? (
             <Card>
               <div className="text-sm text-slate-700">در حال دریافت پیام‌ها...</div>
@@ -3071,15 +3072,20 @@ async function uploadSelectedFile(token: string): Promise<string | null> {
                   (!text.trim() && !file)
                 }
                 aria-busy={sending}
-                className="inline-flex h-10 min-w-[4.25rem] shrink-0 items-center justify-center rounded-xl bg-[var(--accent)] px-3.5 text-sm font-semibold text-[var(--accent-contrast)] shadow-sm transition hover:bg-[var(--accent-hover)] disabled:cursor-not-allowed disabled:opacity-50 sm:h-11 sm:min-w-[4.5rem] sm:rounded-2xl sm:px-4"
+                aria-label={editMode ? 'ذخیره ویرایش' : 'ارسال پیام'}
+                className={`inline-flex h-10 shrink-0 items-center justify-center rounded-full bg-[var(--accent)] text-[var(--accent-contrast)] shadow-sm transition hover:bg-[var(--accent-hover)] disabled:cursor-not-allowed disabled:opacity-50 sm:h-11 ${
+                  editMode ? 'min-w-[4.25rem] px-3.5 sm:min-w-[4.5rem] sm:px-4' : 'w-10 sm:w-11'
+                }`}
               >
                 {sending ? (
                   <span
                     className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white"
                     aria-label={editMode ? 'در حال ذخیره' : 'در حال ارسال'}
                   />
+                ) : editMode ? (
+                  <span className="text-sm font-bold">ذخیره</span>
                 ) : (
-                  <span>{editMode ? 'ذخیره' : 'ارسال'}</span>
+                  <SendIcon className="h-5 w-5" />
                 )}
               </button>
             </div>
