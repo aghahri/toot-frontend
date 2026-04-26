@@ -44,6 +44,7 @@ function replyPreviewLabelFromReply(reply: ReplyToSummary): { body: string; thum
   if (reply.isDeleted) return { body: 'این پیام حذف شده است', thumbUrl: null };
   const mt = reply.messageType;
   if (mt === 'LOCATION') return { body: '📍 موقعیت مکانی', thumbUrl: null };
+  if (mt === 'STICKER') return { body: '🟡 استیکر', thumbUrl: null };
   if (mt === 'CONTACT') {
     const name = reply.metadata && typeof reply.metadata.name === 'string' ? reply.metadata.name : 'مخاطب';
     return { body: `👤 ${name}`, thumbUrl: null };

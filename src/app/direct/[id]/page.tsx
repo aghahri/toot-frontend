@@ -18,6 +18,7 @@ import {
   type ReplyToSummary,
 } from '@/components/chat/ReplyQuoteBlock';
 import { ForwardPickerSheet } from '@/components/chat/ForwardPickerSheet';
+import { StickerPickerSheet } from '@/components/chat/StickerPickerSheet';
 import { MessageText } from '@/components/chat/MessageText';
 import { loadForwardPickTargets, type ForwardPickTarget } from '@/lib/chat-forward';
 import { isVoiceMedia, formatVoiceClock } from '@/lib/chat-media';
@@ -93,6 +94,16 @@ type Message = {
   starredByMe?: boolean;
 };
 
+type StickerPackResponse = {
+  id: string;
+  title: string;
+  items?: Array<{
+    id: string;
+    label?: string | null;
+    media?: { url?: string | null } | null;
+  }>;
+};
+
 function withDirectReactions(m: Message): Message {
   return { ...m, reactions: m.reactions ?? [] };
 }
@@ -115,6 +126,7 @@ function wasPinnedToBottomSnapshot(
 
 function replySnippetForMessage(msg: Message): string {
   if (msg.isDeleted) return 'این پیام حذف شده است';
+  if (msg.messageType === 'STICKER') return '🟡 استیکر';
   if (msg.messageType === 'LOCATION') return 'لوکیشن';
   if (msg.messageType === 'CONTACT') return 'مخاطب';
   if (msg.messageType === 'POLL') return 'نظرسنجی';
@@ -313,6 +325,17 @@ export default function DirectConversationPage() {
   const documentInputRef = useRef<HTMLInputElement | null>(null);
   const composeTextareaRef = useRef<HTMLTextAreaElement | null>(null);
   const [attachmentSheetOpen, setAttachmentSheetOpen] = useState(false);
+  const [stickerPickerOpen, setStickerPickerOpen] = useState(false);
+  const [stickerPickerLoading, setStickerPickerLoading] = useState(false);
+  const [stickerPickerError, setStickerPickerError] = useState<string | null>(null);
+  const [stickerPacks, setStickerPacks] = useState<
+    Array<{
+      id: string;
+      title: string;
+      items: Array<{ id: string; packId: string; url: string; label: string | null }>;
+    }>
+  >([]);
+  const [stickerSending, setStickerSending] = useState(false);
 
   type VoicePhase = 'idle' | 'recording' | 'sending' | 'failed';
   const [voicePhase, setVoicePhase] = useState<VoicePhase>('idle');
@@ -394,6 +417,12 @@ useEffect(() => {
   });
   return () => cancelAnimationFrame(id);
 }, [replyDraft]);
+
+useEffect(() => {
+  const hasStickerMessages = messages.some((m) => m.messageType === 'STICKER');
+  if (!hasStickerMessages || stickerPacks.length > 0 || stickerPickerLoading) return;
+  void loadStickerPacks();
+}, [messages, stickerPacks.length, stickerPickerLoading]);
 
 useEffect(() => {
   if (typeof window === 'undefined') return;
@@ -1895,6 +1924,84 @@ async function uploadSelectedFile(token: string): Promise<string | null> {
     }
   }
 
+  async function loadStickerPacks() {
+    const token = getAccessToken();
+    if (!token) return;
+    setStickerPickerLoading(true);
+    setStickerPickerError(null);
+    try {
+      const res = await apiFetch<{ data?: StickerPackResponse[] }>('stickers/packs', {
+        method: 'GET',
+        token,
+      });
+      const packsRaw = Array.isArray(res.data) ? res.data : [];
+      const normalized = packsRaw.map((p) => ({
+        id: p.id,
+        title: p.title,
+        items: (Array.isArray(p.items) ? p.items : [])
+          .map((i) => ({
+            id: i.id,
+            packId: p.id,
+            url: typeof i.media?.url === 'string' ? i.media.url : '',
+            label: typeof i.label === 'string' ? i.label : null,
+          }))
+          .filter((i) => !!i.url),
+      }));
+      setStickerPacks(normalized);
+    } catch (e) {
+      setStickerPickerError(e instanceof Error ? e.message : 'خطا در دریافت استیکرها');
+    } finally {
+      setStickerPickerLoading(false);
+    }
+  }
+
+  function stickerUrlForMessage(msg: Message): string | null {
+    if (msg.messageType !== 'STICKER' || !msg.metadata) return null;
+    const stickerItemId =
+      typeof msg.metadata.stickerItemId === 'string' ? msg.metadata.stickerItemId : '';
+    if (!stickerItemId) return null;
+    for (const pack of stickerPacks) {
+      const item = pack.items.find((x) => x.id === stickerItemId);
+      if (item?.url) return item.url;
+    }
+    return null;
+  }
+
+  async function sendStickerMessage(item: { id: string; packId: string }) {
+    const token = getAccessToken();
+    if (!token || !conversationId || sending || stickerSending || editMode || isSelectionMode) return;
+    setStickerSending(true);
+    setError(null);
+    try {
+      await apiFetch<Message>(`direct/conversations/${conversationId}/messages`, {
+        method: 'POST',
+        token,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messageType: 'STICKER',
+          metadata: {
+            stickerItemId: item.id,
+            packId: item.packId,
+          },
+          ...(replyDraft ? { replyToMessageId: replyDraft.id } : {}),
+        }),
+      });
+      setReplyDraft(null);
+      setStickerPickerOpen(false);
+      scrollThreadEnd('auto');
+      void apiFetch(`stickers/recents/${item.id}`, {
+        method: 'POST',
+        token,
+        headers: { 'Content-Type': 'application/json' },
+        body: '{}',
+      }).catch(() => {});
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'خطا در ارسال استیکر');
+    } finally {
+      setStickerSending(false);
+    }
+  }
+
   async function sendStructuredMessage(
     messageType: 'LOCATION' | 'CONTACT' | 'POLL' | 'EVENT',
     metadata: Record<string, unknown>,
@@ -2618,7 +2725,24 @@ async function uploadSelectedFile(token: string): Promise<string | null> {
                         />
                       ) : null}
 
-                      {media ? (
+                      {msg.messageType === 'STICKER' ? (
+                        (() => {
+                          const stickerUrl = stickerUrlForMessage(msg);
+                          return stickerUrl ? (
+                            <div className="mb-2">
+                              <img
+                                src={stickerUrl}
+                                alt="sticker"
+                                className="h-28 w-28 max-w-[52vw] object-contain"
+                              />
+                            </div>
+                          ) : (
+                            <div className="mb-2 rounded-xl border border-slate-200/90 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-600">
+                              🟡 استیکر
+                            </div>
+                          );
+                        })()
+                      ) : media ? (
                         isVoiceMedia(media) ? (
                           <VoiceMessageBubble
                             media={media}
@@ -2896,6 +3020,7 @@ async function uploadSelectedFile(token: string): Promise<string | null> {
                 {[
                   { key: 'photos', label: 'گالری' },
                   { key: 'camera', label: 'دوربین' },
+                  { key: 'sticker', label: '🟡 استیکر' },
                   { key: 'location', label: 'مکان' },
                   { key: 'contact', label: 'مخاطب' },
                   { key: 'document', label: 'سند' },
@@ -2928,6 +3053,11 @@ async function uploadSelectedFile(token: string): Promise<string | null> {
                         } catch (e) {
                           setError(e instanceof Error ? e.message : 'خطا در دریافت مکان');
                         }
+                        return;
+                      }
+                      if (item.key === 'sticker') {
+                        setStickerPickerOpen(true);
+                        void loadStickerPacks();
                         return;
                       }
                       if (item.key === 'contact') {
@@ -3258,6 +3388,16 @@ async function uploadSelectedFile(token: string): Promise<string | null> {
           items={forwardPickItems}
           onDismiss={() => dismissForwardPicker()}
           onPick={(t) => void confirmForwardTo(t)}
+        />
+
+        <StickerPickerSheet
+          open={stickerPickerOpen}
+          loading={stickerPickerLoading}
+          error={stickerPickerError}
+          packs={stickerPacks}
+          submitting={stickerSending}
+          onDismiss={() => setStickerPickerOpen(false)}
+          onPick={(item) => void sendStickerMessage({ id: item.id, packId: item.packId })}
         />
 
         {searchOpen ? (
