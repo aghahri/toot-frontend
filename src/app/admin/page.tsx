@@ -17,6 +17,7 @@ const quickActions = [
   { href: '/admin/geography', title: 'Geography', desc: 'Neighborhood import/bootstrap tools' },
   { href: '/admin/staff', title: 'Staff', desc: 'Privileged operator role management' },
   { href: '/admin/integrations/sms', title: 'SMS Integration', desc: 'OTP SMS provider, balance, and send logs' },
+  { href: '/admin/system', title: 'System health', desc: 'ICE/STUN/TURN, FCM, socket presence, Redis — read-only diagnostics' },
 ] as const;
 
 type DashboardResponse = {
