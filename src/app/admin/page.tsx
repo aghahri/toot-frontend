@@ -15,6 +15,7 @@ const quickActions = [
   { href: '/admin/story/sources', title: 'Story sources', desc: 'Manage trusted story sources and regions' },
   { href: '/admin/moderation', title: 'Moderation', desc: 'Reported items and post moderation' },
   { href: '/admin/geography', title: 'Geography', desc: 'Neighborhood import/bootstrap tools' },
+  { href: '/admin/stickers', title: 'Sticker packs', desc: 'Create and manage official Persian sticker packs' },
   { href: '/admin/staff', title: 'Staff', desc: 'Privileged operator role management' },
   { href: '/admin/integrations/sms', title: 'SMS Integration', desc: 'OTP SMS provider, balance, and send logs' },
   { href: '/admin/system', title: 'System health', desc: 'ICE/STUN/TURN, FCM, socket presence, Redis — read-only diagnostics' },
