@@ -24,7 +24,25 @@ const nav = [
   { href: '/admin/moderation', label: 'Moderation' },
   { href: '/admin/geography', label: 'Geography' },
   { href: '/admin/staff', label: 'Staff roles' },
+  { href: '/admin/integrations/sms', label: 'پنل پیامک' },
+  { href: '/admin/system', label: 'سلامت سیستم' },
+  { href: '/admin/system/analytics', label: 'تحلیل‌های سیستم' },
 ] as const;
+
+/** Pick the most specific nav.href that matches the pathname. Exact match wins;
+ *  otherwise the longest prefix match (with a trailing /) wins, so /admin/system
+ *  is not highlighted when /admin/system/analytics is active. */
+function bestNavMatch(pathname: string | null): string | null {
+  if (!pathname) return null;
+  let best: string | null = null;
+  for (const item of nav) {
+    if (item.href === pathname) return item.href;
+    if (item.href !== '/admin' && pathname.startsWith(item.href + '/')) {
+      if (!best || item.href.length > best.length) best = item.href;
+    }
+  }
+  return best;
+}
 
 export function AdminAppChrome({ children }: { children: ReactNode }) {
   const router = useRouter();
@@ -83,7 +101,7 @@ export function AdminAppChrome({ children }: { children: ReactNode }) {
           <nav className="flex flex-col gap-0.5 px-2 pb-6">
             {nav.map((item) => {
               if (item.href === '/admin/staff' && !isSuper) return null;
-              const active = pathname === item.href || (item.href !== '/admin' && pathname.startsWith(item.href));
+              const active = item.href === bestNavMatch(pathname);
               return (
                 <Link
                   key={item.href}
