@@ -29,6 +29,7 @@ import { useAppRealtime } from '@/context/AppRealtimeSocketContext';
 import { useVoiceCall } from '@/context/VoiceCallContext';
 import { IncomingCallHint } from '@/components/IncomingCallHint';
 import { SendIcon } from '@/components/icons/SendIcon';
+import { StickerIcon } from '@/components/icons/StickerIcon';
 import {
   FormEvent,
   Fragment,
@@ -334,6 +335,9 @@ export default function DirectConversationPage() {
       title: string;
       items: Array<{ id: string; packId: string; url: string; label: string | null }>;
     }>
+  >([]);
+  const [stickerRecents, setStickerRecents] = useState<
+    Array<{ id: string; packId: string; url: string; label: string | null }>
   >([]);
   const [stickerSending, setStickerSending] = useState(false);
 
@@ -1955,6 +1959,40 @@ async function uploadSelectedFile(token: string): Promise<string | null> {
     }
   }
 
+  async function loadStickerRecents() {
+    const token = getAccessToken();
+    if (!token) return;
+    try {
+      const res = await apiFetch<{
+        data?: Array<{
+          stickerItem?: {
+            id: string;
+            label?: string | null;
+            media?: { url?: string | null } | null;
+            pack?: { id?: string | null } | null;
+          } | null;
+        }>;
+      }>('stickers/recents', {
+        method: 'GET',
+        token,
+      });
+      const rows = Array.isArray(res.data) ? res.data : [];
+      const mapped = rows
+        .map((row) => row.stickerItem)
+        .filter((item): item is NonNullable<typeof item> => !!item)
+        .map((item) => ({
+          id: item.id,
+          packId: typeof item.pack?.id === 'string' ? item.pack.id : '',
+          url: typeof item.media?.url === 'string' ? item.media.url : '',
+          label: typeof item.label === 'string' ? item.label : null,
+        }))
+        .filter((item) => !!item.url && !!item.packId);
+      setStickerRecents(mapped);
+    } catch {
+      /* best-effort: keep picker functional even if recents fails */
+    }
+  }
+
   function stickerUrlForMessage(msg: Message): string | null {
     if (msg.messageType !== 'STICKER' || !msg.metadata) return null;
     const stickerItemId =
@@ -1989,6 +2027,12 @@ async function uploadSelectedFile(token: string): Promise<string | null> {
       setReplyDraft(null);
       setStickerPickerOpen(false);
       scrollThreadEnd('auto');
+      const picked = stickerPacks
+        .flatMap((pack) => pack.items)
+        .find((sticker) => sticker.id === item.id && sticker.packId === item.packId);
+      if (picked) {
+        setStickerRecents((prev) => [picked, ...prev.filter((x) => x.id !== picked.id)].slice(0, 12));
+      }
       void apiFetch(`stickers/recents/${item.id}`, {
         method: 'POST',
         token,
@@ -3058,6 +3102,7 @@ async function uploadSelectedFile(token: string): Promise<string | null> {
                       if (item.key === 'sticker') {
                         setStickerPickerOpen(true);
                         void loadStickerPacks();
+                        void loadStickerRecents();
                         return;
                       }
                       if (item.key === 'contact') {
@@ -3270,10 +3315,11 @@ async function uploadSelectedFile(token: string): Promise<string | null> {
                     tinyHaptic();
                     setStickerPickerOpen(true);
                     void loadStickerPacks();
+                    void loadStickerRecents();
                   }}
                   className="absolute inset-y-0 start-1 my-auto flex h-8 w-8 items-center justify-center rounded-full text-base text-slate-500 transition hover:bg-slate-100 hover:text-slate-700 disabled:cursor-not-allowed disabled:opacity-40 sm:start-1.5"
                 >
-                  🟡
+                  <StickerIcon className="h-5 w-5" />
                 </button>
               </div>
 
@@ -3411,6 +3457,8 @@ async function uploadSelectedFile(token: string): Promise<string | null> {
           loading={stickerPickerLoading}
           error={stickerPickerError}
           packs={stickerPacks}
+          recents={stickerRecents}
+          draftText={text}
           submitting={stickerSending}
           onDismiss={() => setStickerPickerOpen(false)}
           onPick={(item) => void sendStickerMessage({ id: item.id, packId: item.packId })}
