@@ -3356,7 +3356,7 @@ async function uploadSelectedFile(token: string): Promise<string | null> {
                 </span>
               </button>
 
-              <div className="order-2 relative min-h-[2.625rem] max-h-32 min-w-0 flex-1 sm:min-h-[2.75rem]">
+              <div className="order-2 relative h-10 min-w-0 flex-1 sm:h-11">
                 <textarea
                   ref={composeTextareaRef}
                   dir="rtl"
@@ -3423,7 +3423,7 @@ async function uploadSelectedFile(token: string): Promise<string | null> {
                   placeholder="پیام…"
                   rows={1}
                   disabled={sending || voicePhase === 'recording' || isSelectionMode}
-                  className="h-full min-h-[2.625rem] max-h-32 w-full min-w-0 resize-none rounded-xl border border-[var(--line)] bg-[var(--surface)] py-2 pe-3 ps-10 text-[15px] leading-normal text-[var(--ink)] outline-none ring-0 transition placeholder:text-[var(--ink-3)] focus:border-[var(--accent-ring)] focus:ring-2 focus:ring-[var(--accent-soft)] sm:min-h-[2.75rem] sm:rounded-2xl sm:py-2.5 sm:pe-3.5 sm:ps-11"
+                  className="h-full min-h-0 w-full min-w-0 resize-none rounded-xl border border-[var(--line)] bg-[var(--surface)] py-2 pe-3 ps-10 text-[15px] leading-tight text-[var(--ink)] outline-none ring-0 transition placeholder:text-[var(--ink-3)] focus:border-[var(--accent-ring)] focus:ring-2 focus:ring-[var(--accent-soft)] sm:rounded-2xl sm:py-2.5 sm:pe-3.5 sm:ps-11"
                 />
                 <button
                   type="button"
