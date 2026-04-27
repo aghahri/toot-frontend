@@ -325,6 +325,15 @@ export default function VitrinPage() {
             </ul>
           )}
         </section>
+        <section className="mb-5">
+          <Link
+            href="/spaces/business/directory"
+            className="flex items-center justify-between rounded-2xl border border-[var(--border-soft)] bg-[var(--card-bg)] px-4 py-3"
+          >
+            <span className="text-sm font-black text-[var(--text-primary)]">مشاوره آنلاین</span>
+            <span className="text-xs font-bold text-[var(--accent-hover)]">جلسه کسب‌وکار ↗</span>
+          </Link>
+        </section>
 
         {/* 2. هشدارها و خبرها */}
         {publishedAnnouncements.length > 0 ? (

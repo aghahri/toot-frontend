@@ -79,6 +79,7 @@ export default function MeetingDetailPage() {
   }, [load]);
 
   const isHost = m?._meta?.isHost;
+  const businessContext = m?.businessMeetings?.[0]?.business ?? null;
   const meetingLink =
     typeof window !== 'undefined' && id ? `${window.location.origin}/meetings/${encodeURIComponent(id)}` : '';
 
@@ -183,10 +184,10 @@ export default function MeetingDetailPage() {
       <div className="mx-auto max-w-md px-4 pb-6 pt-2">
         <div className="mb-4 flex items-center justify-between gap-2">
           <Link
-            href="/spaces/education"
+            href={businessContext ? '/spaces/business/directory' : '/spaces/education'}
             className="text-[12px] font-bold text-[var(--text-secondary)] hover:text-[var(--accent-hover)]"
           >
-            ← فضای آموزش
+            {businessContext ? '← فهرست کسب‌وکارها' : '← فضای آموزش'}
           </Link>
         </div>
 
@@ -203,12 +204,20 @@ export default function MeetingDetailPage() {
               {m.educationLabel ? (
                 <p className="text-[11px] font-bold text-violet-600 dark:text-violet-300">{m.educationLabel}</p>
               ) : null}
+              {businessContext ? (
+                <p className="mt-1 text-[11px] font-bold text-emerald-700 dark:text-emerald-300">
+                  جلسه کسب‌وکار: {businessContext.businessName}
+                </p>
+              ) : null}
               <h1 className="mt-1 text-xl font-black text-[var(--text-primary)]">{m.title}</h1>
               <p className="mt-2 text-sm text-[var(--text-secondary)]">
                 میزبان: <span className="font-bold text-[var(--text-primary)]">{m.host.name}</span>
               </p>
               <p className="mt-2 text-sm text-[var(--text-secondary)]">
                 {formatAppDateTime(m.startsAt)} · {m.durationMinutes} دقیقه
+              </p>
+              <p className="mt-2 text-sm text-[var(--text-secondary)]">
+                تعداد شرکت‌کنندگان: {m.maxParticipants ?? 'نامحدود'}
               </p>
               <div className="mt-3 flex flex-wrap gap-2">
                 <span className="rounded-full bg-[var(--surface-strong)] px-2 py-0.5 text-[11px] font-bold text-[var(--text-secondary)]">
@@ -260,7 +269,7 @@ export default function MeetingDetailPage() {
                   onClick={() => router.push(`/meetings/${m.id}/room`)}
                   className="w-full rounded-2xl bg-violet-700 py-3 text-sm font-extrabold text-white shadow-md hover:bg-violet-600 disabled:opacity-50"
                 >
-                  ورود به اتاق
+                  ورود به جلسه
                 </button>
               )}
 

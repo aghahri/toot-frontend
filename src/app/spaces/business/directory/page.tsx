@@ -44,6 +44,11 @@ function DirInner() {
     <main className="theme-page-bg mx-auto max-w-md space-y-3 px-4 pb-16 pt-4" dir="rtl">
       <Link href="/spaces/business">←</Link>
       <h1 className="text-lg font-black">فهرست کسب‌وکارها</h1>
+      {networkId ? (
+        <p className="rounded-xl border border-[var(--border-soft)] bg-[var(--card-bg)] px-3 py-2 text-xs font-bold text-[var(--text-secondary)]">
+          برای <span className="text-[var(--text-primary)]">مشاوره آنلاین</span> وارد صفحه هر کسب‌وکار شوید.
+        </p>
+      ) : null}
       {!networkId ? <p className="text-sm text-amber-800">networkId لازم است</p> : null}
       <input
         value={cat}

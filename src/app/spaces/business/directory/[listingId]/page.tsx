@@ -2,12 +2,12 @@
 
 import Link from 'next/link';
 import { Suspense, useEffect, useState } from 'react';
-import { useParams, useRouter, useSearchParams } from 'next/navigation';
+import { useParams, useSearchParams } from 'next/navigation';
 import { AuthGate } from '@/components/AuthGate';
 import { apiFetch } from '@/lib/api';
 import { getAccessToken } from '@/lib/auth';
 import { LinkCapabilityModal } from '@/components/capability/LinkCapabilityModal';
-import { createBusinessMeeting, fetchBusinessMeetings, type BusinessMeetingRow } from '@/lib/businessSpace';
+import { fetchBusinessMeetings, type BusinessMeetingRow } from '@/lib/businessSpace';
 
 type ListingDetail = {
   id: string;
@@ -19,7 +19,6 @@ type ListingDetail = {
 };
 
 function ListingDetailInner() {
-  const router = useRouter();
   const params = useParams();
   const sp = useSearchParams();
   const listingId = typeof params?.listingId === 'string' ? params.listingId : '';
@@ -28,9 +27,11 @@ function ListingDetailInner() {
   const [linkOpen, setLinkOpen] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [meetings, setMeetings] = useState<BusinessMeetingRow[]>([]);
-  const [meetingBusy, setMeetingBusy] = useState(false);
-  const [meetingErr, setMeetingErr] = useState<string | null>(null);
   const [showMeetingHistory, setShowMeetingHistory] = useState(false);
+  const activeMeeting = meetings.find((item) => {
+    const st = item.meeting.status;
+    return st === 'SCHEDULED' || st === 'LIVE';
+  });
 
   useEffect(() => {
     if (!listingId) return;
@@ -69,20 +70,6 @@ function ListingDetailInner() {
     };
   }, [listingId]);
 
-  async function startMeetingNow() {
-    if (!listingId) return;
-    setMeetingBusy(true);
-    setMeetingErr(null);
-    try {
-      const created = await createBusinessMeeting(listingId);
-      router.push(created.roomUrl || `/meetings/${created.meetingId}/room`);
-    } catch (e) {
-      setMeetingErr(e instanceof Error ? e.message : 'خطا در ایجاد جلسه');
-    } finally {
-      setMeetingBusy(false);
-    }
-  }
-
   return (
     <main className="theme-page-bg mx-auto max-w-md space-y-4 px-4 pb-16 pt-4" dir="rtl">
       <Link href={networkId ? `/spaces/business/directory?networkId=${encodeURIComponent(networkId)}` : '/spaces/business'}>←</Link>
@@ -101,15 +88,23 @@ function ListingDetailInner() {
           {row.description ? <p className="text-sm leading-relaxed">{row.description}</p> : null}
           <section className="space-y-3 rounded-2xl border border-[var(--border-soft)] bg-[var(--card-bg)] p-3">
             <h2 className="text-sm font-black">جلسه آنلاین کسب‌وکار</h2>
+            <p className="text-xs text-[var(--text-secondary)]">مشاوره آنلاین</p>
             <div className="flex flex-wrap gap-2">
-              <button
-                type="button"
-                onClick={() => void startMeetingNow()}
-                disabled={meetingBusy}
-                className="rounded-full bg-[var(--accent)] px-4 py-2 text-xs font-extrabold text-[var(--accent-contrast)] disabled:opacity-60"
-              >
-                {meetingBusy ? 'در حال ایجاد…' : 'شروع جلسه فوری'}
-              </button>
+              {activeMeeting ? (
+                <Link
+                  href={`/meetings/${activeMeeting.meeting.id}`}
+                  className="rounded-full bg-[var(--accent)] px-4 py-2 text-xs font-extrabold text-[var(--accent-contrast)]"
+                >
+                  ورود به جلسه
+                </Link>
+              ) : (
+                <Link
+                  href={`/meetings/new?context=business&listingId=${encodeURIComponent(listingId)}`}
+                  className="rounded-full bg-[var(--accent)] px-4 py-2 text-xs font-extrabold text-[var(--accent-contrast)]"
+                >
+                  شروع جلسه آنلاین
+                </Link>
+              )}
               <button
                 type="button"
                 onClick={() => setShowMeetingHistory((v) => !v)}
@@ -118,7 +113,6 @@ function ListingDetailInner() {
                 {showMeetingHistory ? 'بستن جلسات قبلی' : 'مشاهده جلسات قبلی'}
               </button>
             </div>
-            {meetingErr ? <p className="text-xs text-red-600">{meetingErr}</p> : null}
             {showMeetingHistory ? meetings.length > 0 ? (
               <ul className="space-y-2">
                 {meetings.slice(0, 6).map((item) => (
@@ -128,7 +122,7 @@ function ListingDetailInner() {
                       <p className="text-[11px] text-[var(--text-secondary)]">{new Date(item.meeting.startsAt).toLocaleString('fa-IR')}</p>
                     </div>
                     <Link
-                      href={`/meetings/${item.meeting.id}/room`}
+                      href={`/meetings/${item.meeting.id}`}
                       className="rounded-full border border-[var(--border-soft)] px-3 py-1 text-[11px] font-extrabold"
                     >
                       ورود

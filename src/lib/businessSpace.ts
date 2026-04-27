@@ -128,7 +128,12 @@ export type BusinessMeetingRow = {
 
 export async function createBusinessMeeting(
   listingId: string,
-  body?: { title?: string; durationMinutes?: number },
+  body?: {
+    title?: string;
+    durationMinutes?: number;
+    maxParticipants?: number;
+    allowGuests?: boolean;
+  },
 ): Promise<{ meetingId: string; roomUrl: string }> {
   const token = getAccessToken();
   if (!token) throw new Error('ورود لازم است');

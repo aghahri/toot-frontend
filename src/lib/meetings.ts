@@ -28,6 +28,12 @@ export type MeetingRow = {
   createdAt: string;
   updatedAt: string;
   host: MeetingHost;
+  businessMeetings?: Array<{
+    business: {
+      id: string;
+      businessName: string;
+    };
+  }>;
   chatMessages?: Array<{
     id: string;
     text: string;
