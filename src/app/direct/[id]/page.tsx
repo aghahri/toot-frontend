@@ -24,6 +24,7 @@ import { loadForwardPickTargets, type ForwardPickTarget } from '@/lib/chat-forwa
 import { isVoiceMedia, formatVoiceClock } from '@/lib/chat-media';
 import { calendarDayKey, dayDividerLabelFa } from '@/lib/chat-dates';
 import { formatFileSize } from '@/lib/format-file-size';
+import { getSmartPersianReplies } from '@/lib/smart-persian-replies';
 import type { Socket } from 'socket.io-client';
 import { useAppRealtime } from '@/context/AppRealtimeSocketContext';
 import { useVoiceCall } from '@/context/VoiceCallContext';
@@ -399,6 +400,39 @@ export default function DirectConversationPage() {
     if (ordered.length !== selectedMessageIds.size) return false;
     return ordered.every(isPureTextMessage);
   }, [messages, selectedMessageIds]);
+
+  const latestIncomingMessage = useMemo(() => {
+    if (!myUserId) return null;
+    for (let i = messages.length - 1; i >= 0; i -= 1) {
+      const msg = messages[i];
+      if (!msg || msg.pending) continue;
+      if (msg.senderId === myUserId) return null;
+      return msg;
+    }
+    return null;
+  }, [messages, myUserId]);
+
+  const smartReplies = useMemo(() => {
+    if (!latestIncomingMessage) return [];
+    return getSmartPersianReplies({
+      latestText: latestIncomingMessage.text ?? '',
+      latestMessageType: latestIncomingMessage.messageType,
+    }).slice(0, 4);
+  }, [latestIncomingMessage]);
+
+  const shouldShowSmartReplies =
+    !editMode &&
+    !isSelectionMode &&
+    !attachmentSheetOpen &&
+    !stickerPickerOpen &&
+    !forwardPickerOpen &&
+    !searchOpen &&
+    !starredSheetOpen &&
+    !openActionsMessageId &&
+    !infoMessage &&
+    voicePhase === 'idle' &&
+    text.trim().length === 0 &&
+    smartReplies.length > 0;
 
 useEffect(() => {
   if (!file) {
@@ -1928,9 +1962,10 @@ async function uploadSelectedFile(token: string): Promise<string | null> {
     }
   }
 
-  async function loadStickerPacks() {
+  async function loadStickerPacks(force = false) {
     const token = getAccessToken();
     if (!token) return;
+    if (!force && stickerPacks.length > 0) return;
     setStickerPickerLoading(true);
     setStickerPickerError(null);
     try {
@@ -1959,9 +1994,10 @@ async function uploadSelectedFile(token: string): Promise<string | null> {
     }
   }
 
-  async function loadStickerRecents() {
+  async function loadStickerRecents(force = false) {
     const token = getAccessToken();
     if (!token) return;
+    if (!force && stickerRecents.length > 0) return;
     try {
       const res = await apiFetch<{
         data?: Array<{
@@ -2044,6 +2080,18 @@ async function uploadSelectedFile(token: string): Promise<string | null> {
     } finally {
       setStickerSending(false);
     }
+  }
+
+  function openStickerPickerSmooth() {
+    if (sending || editMode || isSelectionMode || voicePhase !== 'idle') return;
+    tinyHaptic();
+    setAttachmentSheetOpen(false);
+    composeTextareaRef.current?.blur();
+    requestAnimationFrame(() => {
+      setStickerPickerOpen(true);
+      void loadStickerPacks();
+      void loadStickerRecents();
+    });
   }
 
   async function sendStructuredMessage(
@@ -2773,7 +2821,7 @@ async function uploadSelectedFile(token: string): Promise<string | null> {
                         (() => {
                           const stickerUrl = stickerUrlForMessage(msg);
                           return stickerUrl ? (
-                            <div className="mb-2">
+                            <div className="mb-2 animate-in zoom-in-95 fade-in-0 duration-200">
                               <img
                                 src={stickerUrl}
                                 alt="sticker"
@@ -3100,9 +3148,7 @@ async function uploadSelectedFile(token: string): Promise<string | null> {
                         return;
                       }
                       if (item.key === 'sticker') {
-                        setStickerPickerOpen(true);
-                        void loadStickerPacks();
-                        void loadStickerRecents();
+                        openStickerPickerSmooth();
                         return;
                       }
                       if (item.key === 'contact') {
@@ -3146,6 +3192,39 @@ async function uploadSelectedFile(token: string): Promise<string | null> {
                     {item.label}
                   </button>
                 ))}
+                </div>
+              </div>
+            ) : null}
+
+            {shouldShowSmartReplies ? (
+              <div className="rounded-xl border border-slate-200/80 bg-white/95 px-2.5 py-2 shadow-sm ring-1 ring-slate-100/80">
+                <div className="mb-1.5 flex items-center gap-1 text-[11px] font-bold text-slate-600">
+                  <span aria-hidden>✨</span>
+                  <span>پاسخ سریع</span>
+                </div>
+                <div className="flex gap-1.5 overflow-x-auto pb-0.5">
+                  {smartReplies.map((reply) => (
+                    <button
+                      key={reply}
+                      type="button"
+                      onClick={() => {
+                        tinyHaptic();
+                        setText(reply);
+                        requestAnimationFrame(() => {
+                          const el = composeTextareaRef.current;
+                          if (!el) return;
+                          try {
+                            el.focus({ preventScroll: true });
+                          } catch {
+                            el.focus();
+                          }
+                        });
+                      }}
+                      className="shrink-0 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-[12px] font-semibold text-slate-700 transition hover:bg-slate-100"
+                    >
+                      {reply}
+                    </button>
+                  ))}
                 </div>
               </div>
             ) : null}
@@ -3311,12 +3390,7 @@ async function uploadSelectedFile(token: string): Promise<string | null> {
                   aria-label="استیکر"
                   title="استیکر"
                   disabled={sending || editMode || isSelectionMode || voicePhase !== 'idle'}
-                  onClick={() => {
-                    tinyHaptic();
-                    setStickerPickerOpen(true);
-                    void loadStickerPacks();
-                    void loadStickerRecents();
-                  }}
+                  onClick={() => openStickerPickerSmooth()}
                   className="absolute inset-y-0 start-1 my-auto flex h-8 w-8 items-center justify-center rounded-full text-base text-slate-500 transition hover:bg-slate-100 hover:text-slate-700 disabled:cursor-not-allowed disabled:opacity-40 sm:start-1.5"
                 >
                   <StickerIcon className="h-5 w-5" />
@@ -3461,7 +3535,10 @@ async function uploadSelectedFile(token: string): Promise<string | null> {
           draftText={text}
           submitting={stickerSending}
           onDismiss={() => setStickerPickerOpen(false)}
-          onPick={(item) => void sendStickerMessage({ id: item.id, packId: item.packId })}
+          onPick={(item) => {
+            tinyHaptic();
+            void sendStickerMessage({ id: item.id, packId: item.packId });
+          }}
         />
 
         {searchOpen ? (
