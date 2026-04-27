@@ -110,3 +110,49 @@ export async function fetchMyBusinessCommunities(networkId: string): Promise<{
   if (!token) throw new Error('ورود لازم است');
   return apiFetch(`business/my-communities?networkId=${encodeURIComponent(networkId)}`, { method: 'GET', token });
 }
+
+export type BusinessMeetingRow = {
+  id: string;
+  createdAt: string;
+  meeting: {
+    id: string;
+    title: string;
+    startsAt: string;
+    durationMinutes: number;
+    status: string;
+    host: { id: string; name: string | null; avatar: string | null };
+    chatMessages: Array<{ id: string; text: string; createdAt: string }>;
+    _count: { chatMessages: number };
+  };
+};
+
+export async function createBusinessMeeting(
+  listingId: string,
+  body?: { title?: string; durationMinutes?: number },
+): Promise<{ meetingId: string; roomUrl: string }> {
+  const token = getAccessToken();
+  if (!token) throw new Error('ورود لازم است');
+  return apiFetch<{ meetingId: string; roomUrl: string }>(
+    `business/directory/${encodeURIComponent(listingId)}/meetings`,
+    {
+      method: 'POST',
+      token,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body ?? {}),
+    },
+  );
+}
+
+export async function fetchBusinessMeetings(
+  listingId: string,
+  limit = 20,
+): Promise<{ data: BusinessMeetingRow[] }> {
+  const token = getAccessToken();
+  if (!token) throw new Error('ورود لازم است');
+  const params = new URLSearchParams({ limit: String(limit) });
+  const data = await apiFetch<BusinessMeetingRow[]>(
+    `business/directory/${encodeURIComponent(listingId)}/meetings?${params.toString()}`,
+    { method: 'GET', token },
+  );
+  return { data: Array.isArray(data) ? data : [] };
+}

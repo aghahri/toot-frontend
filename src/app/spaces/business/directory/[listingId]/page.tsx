@@ -2,11 +2,12 @@
 
 import Link from 'next/link';
 import { Suspense, useEffect, useState } from 'react';
-import { useParams, useSearchParams } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { AuthGate } from '@/components/AuthGate';
 import { apiFetch } from '@/lib/api';
 import { getAccessToken } from '@/lib/auth';
 import { LinkCapabilityModal } from '@/components/capability/LinkCapabilityModal';
+import { createBusinessMeeting, fetchBusinessMeetings, type BusinessMeetingRow } from '@/lib/businessSpace';
 
 type ListingDetail = {
   id: string;
@@ -18,6 +19,7 @@ type ListingDetail = {
 };
 
 function ListingDetailInner() {
+  const router = useRouter();
   const params = useParams();
   const sp = useSearchParams();
   const listingId = typeof params?.listingId === 'string' ? params.listingId : '';
@@ -25,6 +27,10 @@ function ListingDetailInner() {
   const [row, setRow] = useState<ListingDetail | null>(null);
   const [linkOpen, setLinkOpen] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [meetings, setMeetings] = useState<BusinessMeetingRow[]>([]);
+  const [meetingBusy, setMeetingBusy] = useState(false);
+  const [meetingErr, setMeetingErr] = useState<string | null>(null);
+  const [showMeetingHistory, setShowMeetingHistory] = useState(false);
 
   useEffect(() => {
     if (!listingId) return;
@@ -47,6 +53,36 @@ function ListingDetailInner() {
     };
   }, [listingId]);
 
+  useEffect(() => {
+    if (!listingId) return;
+    let c = false;
+    void (async () => {
+      try {
+        const res = await fetchBusinessMeetings(listingId, 10);
+        if (!c) setMeetings(res.data);
+      } catch {
+        if (!c) setMeetings([]);
+      }
+    })();
+    return () => {
+      c = true;
+    };
+  }, [listingId]);
+
+  async function startMeetingNow() {
+    if (!listingId) return;
+    setMeetingBusy(true);
+    setMeetingErr(null);
+    try {
+      const created = await createBusinessMeeting(listingId);
+      router.push(created.roomUrl || `/meetings/${created.meetingId}/room`);
+    } catch (e) {
+      setMeetingErr(e instanceof Error ? e.message : 'خطا در ایجاد جلسه');
+    } finally {
+      setMeetingBusy(false);
+    }
+  }
+
   return (
     <main className="theme-page-bg mx-auto max-w-md space-y-4 px-4 pb-16 pt-4" dir="rtl">
       <Link href={networkId ? `/spaces/business/directory?networkId=${encodeURIComponent(networkId)}` : '/spaces/business'}>←</Link>
@@ -63,6 +99,47 @@ function ListingDetailInner() {
             {row.city ? ` · ${row.city}` : ''}
           </p>
           {row.description ? <p className="text-sm leading-relaxed">{row.description}</p> : null}
+          <section className="space-y-3 rounded-2xl border border-[var(--border-soft)] bg-[var(--card-bg)] p-3">
+            <h2 className="text-sm font-black">جلسه آنلاین کسب‌وکار</h2>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => void startMeetingNow()}
+                disabled={meetingBusy}
+                className="rounded-full bg-[var(--accent)] px-4 py-2 text-xs font-extrabold text-[var(--accent-contrast)] disabled:opacity-60"
+              >
+                {meetingBusy ? 'در حال ایجاد…' : 'شروع جلسه فوری'}
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowMeetingHistory((v) => !v)}
+                className="rounded-full border border-[var(--border-soft)] px-4 py-2 text-xs font-bold"
+              >
+                {showMeetingHistory ? 'بستن جلسات قبلی' : 'مشاهده جلسات قبلی'}
+              </button>
+            </div>
+            {meetingErr ? <p className="text-xs text-red-600">{meetingErr}</p> : null}
+            {showMeetingHistory ? meetings.length > 0 ? (
+              <ul className="space-y-2">
+                {meetings.slice(0, 6).map((item) => (
+                  <li key={item.id} className="flex items-center justify-between rounded-xl border border-[var(--border-soft)] px-3 py-2">
+                    <div className="min-w-0">
+                      <p className="truncate text-xs font-bold">{item.meeting.title}</p>
+                      <p className="text-[11px] text-[var(--text-secondary)]">{new Date(item.meeting.startsAt).toLocaleString('fa-IR')}</p>
+                    </div>
+                    <Link
+                      href={`/meetings/${item.meeting.id}/room`}
+                      className="rounded-full border border-[var(--border-soft)] px-3 py-1 text-[11px] font-extrabold"
+                    >
+                      ورود
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-xs text-[var(--text-secondary)]">جلسه‌ای ثبت نشده است.</p>
+            ) : null}
+          </section>
           {networkId ? (
             <button type="button" onClick={() => setLinkOpen(true)} className="rounded-full bg-[var(--accent)] px-4 py-2 text-xs font-bold text-[var(--accent-contrast)]">
               اشتراک در جامعه
