@@ -22,6 +22,18 @@ type RosterPayload = {
   offererUserId: string | null;
 };
 
+type LocalMeetingChatMessage = {
+  id: string;
+  senderName: string;
+  text: string;
+  at: Date;
+};
+
+type LocalReactionBurst = {
+  id: string;
+  emoji: string;
+};
+
 export default function MeetingRoomPage() {
   const params = useParams();
   const router = useRouter();
@@ -40,6 +52,11 @@ export default function MeetingRoomPage() {
   const selfIdRef = useRef<string | null>(null);
   const [mediaReady, setMediaReady] = useState(false);
   const [remoteStreams, setRemoteStreams] = useState<Array<{ userId: string; stream: MediaStream }>>([]);
+  const [chatOpen, setChatOpen] = useState(false);
+  const [chatDraft, setChatDraft] = useState('');
+  const [chatMessages, setChatMessages] = useState<LocalMeetingChatMessage[]>([]);
+  const [reactionBursts, setReactionBursts] = useState<LocalReactionBurst[]>([]);
+  const [screenShareNotice, setScreenShareNotice] = useState<string | null>(null);
   const [rtcStage, setRtcStage] = useState<RtcStage>('waiting');
   const [offererUserId, setOffererUserId] = useState<string | null>(null);
   const [rtcDebug, setRtcDebug] = useState({
@@ -71,6 +88,7 @@ export default function MeetingRoomPage() {
   );
 
   const participantCount = participants.length;
+  const SELF_REACTIONS = ['👍', '👏', '😂', '❤️', '✋'];
 
   const stopAndClearMedia = useCallback(() => {
     localStreamRef.current?.getTracks().forEach((t) => t.stop());
@@ -633,6 +651,9 @@ export default function MeetingRoomPage() {
     () => participants.filter((p) => p.id !== selfId),
     [participants, selfId],
   );
+  const selfParticipant = useMemo(() => participants.find((p) => p.id === selfId) ?? null, [participants, selfId]);
+  const remotePrimary = remotes[0] ?? null;
+  const remoteOthers = remotes.slice(1);
   const remoteMediaSummary = useMemo(
     () =>
       remoteStreams.map((r) => ({
@@ -682,6 +703,30 @@ export default function MeetingRoomPage() {
     setStatusText('منتظر ورود شرکت‌کننده…');
   }, [hasRemoteSessionEvidence, join, permissionDenied, remoteStreams.length, remoteParticipants.length, rtcStage]);
 
+  function sendChatMessage() {
+    const text = chatDraft.trim();
+    if (!text) return;
+    const senderName = selfParticipant?.name || 'شما';
+    setChatMessages((prev) => [
+      ...prev,
+      { id: `${Date.now()}-${Math.random().toString(36).slice(2)}`, senderName, text, at: new Date() },
+    ]);
+    setChatDraft('');
+  }
+
+  function pushReaction(emoji: string) {
+    const id = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    setReactionBursts((prev) => [...prev, { id, emoji }]);
+    window.setTimeout(() => {
+      setReactionBursts((prev) => prev.filter((x) => x.id !== id));
+    }, 1500);
+  }
+
+  function onScreenSharePressed() {
+    setScreenShareNotice('اشتراک صفحه در این نسخه به‌زودی اضافه می‌شود.');
+    window.setTimeout(() => setScreenShareNotice(null), 2500);
+  }
+
   return (
     <AuthGate>
       <div className="flex min-h-[calc(100vh-8rem)] flex-col bg-[var(--surface-strong)]">
@@ -710,43 +755,77 @@ export default function MeetingRoomPage() {
         ) : null}
 
         <div className="flex flex-1 flex-col gap-3 p-3 pb-28">
-          <div className="aspect-video w-full overflow-hidden rounded-2xl border border-[var(--border-soft)] bg-zinc-900 shadow-inner ring-1 ring-black/20">
-            <video ref={localVideoRef} className="h-full w-full object-cover" autoPlay muted playsInline />
+          <div className="relative aspect-video w-full overflow-hidden rounded-2xl border border-[var(--border-soft)] bg-zinc-900 shadow-inner ring-1 ring-black/20">
+            {remotePrimary ? (
+              <>
+                <RemoteTile
+                  stream={remotePrimary.stream}
+                  title={remotePrimary.participant?.name ?? 'شرکت‌کننده'}
+                  avatarUrl={remotePrimary.participant?.avatar ?? null}
+                  logRtc={logRtc}
+                />
+                <span className="absolute right-2 top-2 rounded-full bg-emerald-600/90 px-2 py-0.5 text-[10px] font-bold text-white">
+                  اتصال برقرار شد
+                </span>
+              </>
+            ) : (
+              <>
+                <video ref={localVideoRef} className="h-full w-full object-cover" autoPlay muted playsInline />
+                <div className="absolute inset-x-0 bottom-2 text-center">
+                  <span className="rounded-full bg-black/55 px-2.5 py-1 text-xs font-bold text-white">در انتظار ورود دیگران</span>
+                </div>
+              </>
+            )}
+
+            {remotePrimary ? (
+              <div className="absolute bottom-2 left-2 h-24 w-20 overflow-hidden rounded-xl border border-white/40 bg-black/70 shadow-lg sm:h-28 sm:w-24">
+                <video ref={localVideoRef} className="h-full w-full object-cover" autoPlay muted playsInline />
+                <div className="pointer-events-none absolute bottom-1 right-1 rounded bg-black/60 px-1.5 py-0.5 text-[10px] font-bold text-white">
+                  شما
+                </div>
+              </div>
+            ) : null}
+
+            {reactionBursts.length > 0 ? (
+              <div className="pointer-events-none absolute inset-0">
+                {reactionBursts.map((burst, idx) => (
+                  <span
+                    key={burst.id}
+                    className="absolute animate-bounce text-3xl"
+                    style={{ left: `${18 + (idx % 5) * 15}%`, bottom: `${16 + (idx % 3) * 10}%` }}
+                  >
+                    {burst.emoji}
+                  </span>
+                ))}
+              </div>
+            ) : null}
           </div>
 
-          <div className="min-h-[120px] flex-1 rounded-2xl border border-dashed border-[var(--border-soft)] bg-[var(--card-bg)] p-2 ring-1 ring-[var(--border-soft)]">
-            <p className="mb-2 text-[10px] font-bold uppercase tracking-wide text-[var(--text-secondary)]">سایر شرکت‌کنندگان</p>
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-              {remoteParticipants.length > 0
-                ? remoteParticipants.map((p) => {
-                    const remote = remotes.find((r) => r.userId === p.id);
-                    if (remote) {
-                      return <RemoteTile key={p.id} stream={remote.stream} title={p.name} avatarUrl={p.avatar} logRtc={logRtc} />;
-                    }
-                    const pc = pcsRef.current.get(p.id);
-                    const hasReceiverTrack =
-                      !!pc &&
-                      pc
-                        .getReceivers()
-                        .some((r) => !!r.track && (r.track.kind === 'audio' || r.track.kind === 'video') && r.track.readyState === 'live');
-                    const showPreparingState = hasReceiverTrack || remoteStreamsRef.current.has(p.id) || rtcStage === 'connected';
-                    return (
-                      <div
-                        key={p.id}
-                        className="flex aspect-video items-center justify-center rounded-xl bg-[var(--surface-soft)] text-[10px] text-[var(--text-secondary)] ring-1 ring-[var(--border-soft)]"
-                      >
-                        {showPreparingState
-                          ? `اتصال ${p.name} برقرار است؛ در حال آماده‌سازی تصویر…`
-                          : `در حال اتصال به ${p.name}…`}
-                      </div>
-                    );
-                  })
-                : (
-                  <div className="col-span-2 flex aspect-video items-center justify-center rounded-xl bg-[var(--surface-soft)] text-[10px] text-[var(--text-secondary)] ring-1 ring-[var(--border-soft)] sm:col-span-3">
-                    هنوز شرکت‌کننده‌ای وصل نشده است
-                  </div>
-                )}
+          {screenShareNotice ? (
+            <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-200">
+              {screenShareNotice}
             </div>
+          ) : null}
+
+          <div className="rounded-2xl border border-dashed border-[var(--border-soft)] bg-[var(--card-bg)] p-2 ring-1 ring-[var(--border-soft)]">
+            <p className="mb-2 text-[10px] font-bold uppercase tracking-wide text-[var(--text-secondary)]">سایر شرکت‌کنندگان</p>
+            {remoteOthers.length > 0 ? (
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                {remoteOthers.map((remote) => (
+                  <RemoteTile
+                    key={remote.userId}
+                    stream={remote.stream}
+                    title={remote.participant?.name ?? 'شرکت‌کننده'}
+                    avatarUrl={remote.participant?.avatar ?? null}
+                    logRtc={logRtc}
+                  />
+                ))}
+              </div>
+            ) : (
+              <div className="flex aspect-video items-center justify-center rounded-xl bg-[var(--surface-soft)] text-[10px] text-[var(--text-secondary)] ring-1 ring-[var(--border-soft)]">
+                {remotePrimary ? 'شرکت‌کننده دیگری در حال حاضر نیست' : 'هنوز شرکت‌کننده‌ای وصل نشده است'}
+              </div>
+            )}
           </div>
         </div>
 
@@ -806,8 +885,108 @@ export default function MeetingRoomPage() {
             >
               خروج
             </button>
+            <button
+              type="button"
+              onClick={() => setChatOpen(true)}
+              className="flex h-12 min-w-[4.5rem] items-center justify-center rounded-full bg-[var(--surface-soft)] px-3 text-xs font-extrabold text-[var(--text-primary)] shadow-md"
+            >
+              گفتگوی جلسه
+            </button>
+            <button
+              type="button"
+              onClick={onScreenSharePressed}
+              className="flex h-12 min-w-[4.5rem] items-center justify-center rounded-full bg-[var(--surface-soft)] px-3 text-xs font-extrabold text-[var(--text-primary)] shadow-md"
+            >
+              اشتراک صفحه
+            </button>
+          </div>
+          <div className="mt-2 flex items-center justify-center gap-2">
+            {SELF_REACTIONS.map((emoji) => (
+              <button
+                key={emoji}
+                type="button"
+                onClick={() => pushReaction(emoji)}
+                className="rounded-full bg-[var(--surface-soft)] px-2.5 py-1 text-base"
+                aria-label={`واکنش ${emoji}`}
+              >
+                {emoji}
+              </button>
+            ))}
           </div>
         </footer>
+
+        {chatOpen ? (
+          <div
+            className="fixed inset-0 z-40 bg-black/30"
+            onClick={(e) => {
+              if (e.target === e.currentTarget) setChatOpen(false);
+            }}
+          >
+            <div className="absolute bottom-0 right-0 w-full rounded-t-3xl border border-[var(--border-soft)] bg-[var(--card-bg)] p-3 shadow-2xl sm:bottom-0 sm:left-auto sm:right-0 sm:top-0 sm:w-[24rem] sm:rounded-none sm:border-l">
+              <div className="mb-2 flex items-center justify-between">
+                <p className="text-sm font-extrabold text-[var(--text-primary)]">گفتگوی جلسه</p>
+                <button
+                  type="button"
+                  onClick={() => setChatOpen(false)}
+                  className="rounded-full bg-[var(--surface-soft)] px-2 py-1 text-xs font-bold text-[var(--text-secondary)]"
+                >
+                  بستن
+                </button>
+              </div>
+              <div className="mb-2 flex gap-1.5">
+                {SELF_REACTIONS.map((emoji) => (
+                  <button
+                    key={`chat-${emoji}`}
+                    type="button"
+                    onClick={() => setChatDraft((prev) => `${prev}${emoji}`)}
+                    className="rounded-full bg-[var(--surface-soft)] px-2 py-1 text-sm"
+                  >
+                    {emoji}
+                  </button>
+                ))}
+              </div>
+              <div className="h-[40vh] overflow-y-auto rounded-xl border border-[var(--border-soft)] bg-[var(--surface-soft)] p-2 sm:h-[calc(100vh-12rem)]">
+                {chatMessages.length === 0 ? (
+                  <p className="text-xs text-[var(--text-secondary)]">پیامی ثبت نشده است.</p>
+                ) : (
+                  <div className="space-y-2">
+                    {chatMessages.map((msg) => (
+                      <div key={msg.id} className="rounded-lg bg-[var(--card-bg)] px-2 py-1.5">
+                        <p className="text-[11px] font-bold text-[var(--text-primary)]">{msg.senderName}</p>
+                        <p className="mt-0.5 text-sm text-[var(--text-primary)]">{msg.text}</p>
+                        <p className="mt-0.5 text-[10px] text-[var(--text-secondary)]">
+                          {msg.at.toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit' })}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <div className="mt-2 flex items-center gap-2">
+                <input
+                  value={chatDraft}
+                  onChange={(e) => setChatDraft(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      sendChatMessage();
+                    }
+                  }}
+                  maxLength={280}
+                  placeholder="پیام کوتاه بنویسید…"
+                  className="flex-1 rounded-xl border border-[var(--border-soft)] bg-[var(--card-bg)] px-3 py-2 text-sm outline-none"
+                />
+                <button
+                  type="button"
+                  onClick={sendChatMessage}
+                  className="rounded-xl bg-[var(--accent)] px-3 py-2 text-xs font-extrabold text-[var(--accent-contrast)]"
+                >
+                  ارسال
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : null}
       </div>
     </AuthGate>
   );
