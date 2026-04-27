@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AuthGate } from '@/components/AuthGate';
 import { useAppRealtime } from '@/context/AppRealtimeSocketContext';
 import { fetchJoinToken, fetchMeeting, fetchMeetingChat, type JoinTokenResponse, type MeetingDetail } from '@/lib/meetings';
@@ -65,7 +65,6 @@ export default function MeetingRoomPage() {
   const [chatMessages, setChatMessages] = useState<LocalMeetingChatMessage[]>([]);
   const [reactionBursts, setReactionBursts] = useState<LocalReactionBurst[]>([]);
   const [captionsEnabled, setCaptionsEnabled] = useState(false);
-  const [liveCaption, setLiveCaption] = useState<LiveCaption | null>(null);
   const [screenShareNotice, setScreenShareNotice] = useState<string | null>(null);
   const [rtcStage, setRtcStage] = useState<RtcStage>('waiting');
   const [offererUserId, setOffererUserId] = useState<string | null>(null);
@@ -631,42 +630,12 @@ export default function MeetingRoomPage() {
       }, 1500);
     };
 
-    const onMeetingCaption = (payload: {
-      meetingId: string;
-      id?: string;
-      speakerLabel?: string;
-      faText?: string;
-      enText?: string;
-    }) => {
-      if (payload.meetingId !== id) return;
-      const faText = payload.faText?.trim();
-      const enText = payload.enText?.trim();
-      if (!faText || !enText) return;
-      const captionId = payload.id || `${Date.now()}`;
-      setLiveCaption({
-        id: captionId,
-        speakerLabel: payload.speakerLabel?.trim() || 'گوینده',
-        faText,
-        enText,
-      });
-      window.setTimeout(() => {
-        setLiveCaption((prev) => (prev && prev.id === captionId ? null : prev));
-      }, 5500);
-    };
-
-    const onMeetingCaptionClear = (payload: { meetingId: string }) => {
-      if (payload.meetingId !== id) return;
-      setLiveCaption(null);
-    };
-
     socket.on('meeting_participant_joined', onParticipantJoined);
     socket.on('meeting_participant_left', onParticipantLeft);
     socket.on('meeting_signal', onSignal);
     socket.on('meeting_roster', onRoster);
     socket.on('meeting_chat_message', onMeetingChatMessage);
     socket.on('meeting_reaction', onMeetingReaction);
-    socket.on('meeting_caption', onMeetingCaption);
-    socket.on('meeting_caption_clear', onMeetingCaptionClear);
     socket.emit(
       'meeting_join',
       { meetingId: id, joinToken: join.token },
@@ -711,8 +680,6 @@ export default function MeetingRoomPage() {
       socket.off('meeting_roster', onRoster);
       socket.off('meeting_chat_message', onMeetingChatMessage);
       socket.off('meeting_reaction', onMeetingReaction);
-      socket.off('meeting_caption', onMeetingCaption);
-      socket.off('meeting_caption_clear', onMeetingCaptionClear);
     };
   }, [connected, createOfferTo, createPeerConnection, emitMeetingSignalWithAck, id, join?.token, logRtc, mediaReady, socket, upsertChatMessage]);
 
@@ -908,15 +875,7 @@ export default function MeetingRoomPage() {
               </div>
             ) : null}
 
-            {captionsEnabled && liveCaption ? (
-              <div className="pointer-events-none absolute inset-x-4 bottom-3 z-30 flex justify-center">
-                <div className="max-w-[92%] rounded-xl bg-black/70 px-3 py-2 text-center text-white backdrop-blur-sm">
-                  <p className="text-[10px] font-bold text-emerald-200">{liveCaption.speakerLabel}</p>
-                  <p className="text-sm font-extrabold leading-tight">{liveCaption.faText}</p>
-                  <p className="mt-0.5 text-xs leading-tight text-zinc-200">{liveCaption.enText}</p>
-                </div>
-              </div>
-            ) : null}
+            <MeetingCaptionsOverlay socket={socket} connected={connected} meetingId={id} enabled={captionsEnabled} />
           </div>
 
           <div className="rounded-2xl border border-dashed border-[var(--border-soft)] bg-[var(--card-bg)] p-2 ring-1 ring-[var(--border-soft)]">
@@ -1134,6 +1093,125 @@ export default function MeetingRoomPage() {
     </AuthGate>
   );
 }
+
+const MeetingCaptionsOverlay = memo(function MeetingCaptionsOverlay({
+  socket,
+  connected,
+  meetingId,
+  enabled,
+}: {
+  socket: ReturnType<typeof useAppRealtime>['socket'];
+  connected: boolean;
+  meetingId: string;
+  enabled: boolean;
+}) {
+  const [caption, setCaption] = useState<LiveCaption | null>(null);
+  const [visible, setVisible] = useState(false);
+  const hideTimerRef = useRef<number | null>(null);
+  const clearTimerRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (!enabled) {
+      setCaption(null);
+      setVisible(false);
+      if (hideTimerRef.current) {
+        clearTimeout(hideTimerRef.current);
+        hideTimerRef.current = null;
+      }
+      if (clearTimerRef.current) {
+        clearTimeout(clearTimerRef.current);
+        clearTimerRef.current = null;
+      }
+    }
+  }, [enabled]);
+
+  useEffect(() => {
+    if (!socket || !connected || !meetingId || !enabled) return;
+
+    const clearHideTimer = () => {
+      if (hideTimerRef.current) {
+        clearTimeout(hideTimerRef.current);
+        hideTimerRef.current = null;
+      }
+    };
+    const clearClearTimer = () => {
+      if (clearTimerRef.current) {
+        clearTimeout(clearTimerRef.current);
+        clearTimerRef.current = null;
+      }
+    };
+
+    const scheduleHide = () => {
+      clearHideTimer();
+      clearClearTimer();
+      hideTimerRef.current = window.setTimeout(() => {
+        setVisible(false);
+        clearTimerRef.current = window.setTimeout(() => {
+          setCaption(null);
+          clearTimerRef.current = null;
+        }, 220);
+      }, 4500);
+    };
+
+    const onMeetingCaption = (payload: {
+      meetingId: string;
+      id?: string;
+      speakerLabel?: string;
+      faText?: string;
+      enText?: string;
+    }) => {
+      if (payload.meetingId !== meetingId) return;
+      const faText = payload.faText?.trim();
+      const enText = payload.enText?.trim();
+      if (!faText || !enText) return;
+      setCaption({
+        id: payload.id || `${Date.now()}`,
+        speakerLabel: payload.speakerLabel?.trim() || 'گوینده',
+        faText,
+        enText,
+      });
+      setVisible(true);
+      scheduleHide();
+    };
+
+    const onMeetingCaptionClear = (payload: { meetingId: string }) => {
+      if (payload.meetingId !== meetingId) return;
+      clearHideTimer();
+      clearClearTimer();
+      setVisible(false);
+      clearTimerRef.current = window.setTimeout(() => {
+        setCaption(null);
+        clearTimerRef.current = null;
+      }, 220);
+    };
+
+    socket.on('meeting_caption', onMeetingCaption);
+    socket.on('meeting_caption_clear', onMeetingCaptionClear);
+
+    return () => {
+      clearHideTimer();
+      clearClearTimer();
+      socket.off('meeting_caption', onMeetingCaption);
+      socket.off('meeting_caption_clear', onMeetingCaptionClear);
+    };
+  }, [connected, enabled, meetingId, socket]);
+
+  if (!enabled || !caption) return null;
+
+  return (
+    <div className="pointer-events-none absolute inset-x-4 bottom-3 z-30 flex justify-center">
+      <div
+        className={`max-w-[92%] rounded-xl bg-black/72 px-3 py-2 text-center text-white transition-opacity duration-200 ${
+          visible ? 'opacity-100' : 'opacity-0'
+        }`}
+      >
+        <p className="text-[10px] font-bold text-emerald-200">{caption.speakerLabel}</p>
+        <p className="text-sm font-extrabold leading-tight">{caption.faText}</p>
+        <p className="mt-0.5 text-xs leading-tight text-zinc-200">{caption.enText}</p>
+      </div>
+    </div>
+  );
+});
 
 function SelfPreviewVideo({ stream, className }: { stream: MediaStream | null; className?: string }) {
   const ref = useRef<HTMLVideoElement | null>(null);
