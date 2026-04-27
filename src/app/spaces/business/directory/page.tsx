@@ -79,6 +79,11 @@ function DirInner() {
           </li>
         ))}
       </ul>
+      {!loading && !err && networkId && (rows ?? []).length === 0 ? (
+        <p className="rounded-xl border border-[var(--border-soft)] bg-[var(--card-bg)] px-3 py-2 text-xs font-bold text-[var(--text-secondary)]">
+          هنوز کسب‌وکاری ثبت نشده است
+        </p>
+      ) : null}
       {networkId ? (
         <Link
           href={`/spaces/business/directory/new?networkId=${encodeURIComponent(networkId)}`}

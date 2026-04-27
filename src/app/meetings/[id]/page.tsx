@@ -219,6 +219,9 @@ export default function MeetingDetailPage() {
               <p className="mt-2 text-sm text-[var(--text-secondary)]">
                 تعداد شرکت‌کنندگان: {m.maxParticipants ?? 'نامحدود'}
               </p>
+              <p className="mt-2 text-sm text-[var(--text-secondary)]">
+                نوع دسترسی: {m.allowGuests ? 'با لینک' : 'خصوصی'}
+              </p>
               <div className="mt-3 flex flex-wrap gap-2">
                 <span className="rounded-full bg-[var(--surface-strong)] px-2 py-0.5 text-[11px] font-bold text-[var(--text-secondary)]">
                   {statusFa(m.status)}
@@ -240,24 +243,24 @@ export default function MeetingDetailPage() {
                 <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
                   <button
                     type="button"
-                    onClick={() => void openShareInToot()}
-                    className="rounded-2xl border border-violet-500/50 bg-violet-500/10 py-2 text-xs font-extrabold text-violet-700 dark:text-violet-300"
-                  >
-                    اشتراک در توت
-                  </button>
-                  <button
-                    type="button"
                     onClick={() => void copyLink()}
                     className="rounded-2xl border border-[var(--border-soft)] bg-[var(--surface-soft)] py-2 text-xs font-extrabold text-[var(--text-primary)]"
                   >
-                    کپی لینک جلسه
+                    کپی لینک
                   </button>
                   <button
                     type="button"
                     onClick={() => void shareLink()}
                     className="rounded-2xl border border-[var(--border-soft)] bg-[var(--surface-soft)] py-2 text-xs font-extrabold text-[var(--text-primary)]"
                   >
-                    اشتراک‌گذاری بیرونی
+                    اشتراک‌گذاری
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void openShareInToot()}
+                    className="rounded-2xl border border-violet-500/50 bg-violet-500/10 py-2 text-xs font-extrabold text-violet-700 dark:text-violet-300"
+                  >
+                    اشتراک در توت
                   </button>
                 </div>
               )}

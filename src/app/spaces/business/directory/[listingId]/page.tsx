@@ -87,8 +87,20 @@ function ListingDetailInner() {
           </p>
           {row.description ? <p className="text-sm leading-relaxed">{row.description}</p> : null}
           <section className="space-y-3 rounded-2xl border border-[var(--border-soft)] bg-[var(--card-bg)] p-3">
-            <h2 className="text-sm font-black">جلسه آنلاین کسب‌وکار</h2>
-            <p className="text-xs text-[var(--text-secondary)]">مشاوره آنلاین</p>
+            <h2 className="text-sm font-black">{activeMeeting ? 'جلسه آنلاین فعال' : 'مشاوره آنلاین'}</h2>
+            <p className="text-xs text-[var(--text-secondary)]">
+              {activeMeeting ? 'همین حالا وارد شوید' : 'جلسه تصویری فوری با این کسب‌وکار'}
+            </p>
+            <div className="flex flex-wrap gap-1.5">
+              {['سریع', 'آنلاین', 'تصویری'].map((hint) => (
+                <span
+                  key={hint}
+                  className="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10px] font-extrabold text-emerald-700"
+                >
+                  {hint}
+                </span>
+              ))}
+            </div>
             <div className="flex flex-wrap gap-2">
               {activeMeeting ? (
                 <Link
@@ -102,7 +114,7 @@ function ListingDetailInner() {
                   href={`/meetings/new?context=business&listingId=${encodeURIComponent(listingId)}`}
                   className="rounded-full bg-[var(--accent)] px-4 py-2 text-xs font-extrabold text-[var(--accent-contrast)]"
                 >
-                  شروع جلسه آنلاین
+                  شروع جلسه
                 </Link>
               )}
               <button
@@ -131,7 +143,7 @@ function ListingDetailInner() {
                 ))}
               </ul>
             ) : (
-              <p className="text-xs text-[var(--text-secondary)]">جلسه‌ای ثبت نشده است.</p>
+              <p className="text-xs text-[var(--text-secondary)]">هنوز جلسه‌ای برگزار نشده است</p>
             ) : null}
           </section>
           {networkId ? (

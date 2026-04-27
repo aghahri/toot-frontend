@@ -28,6 +28,7 @@ function NewMeetingInner() {
   const [businessVisibility, setBusinessVisibility] = useState<'PRIVATE' | 'LINK'>('PRIVATE');
   const [allowGuests, setAllowGuests] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [creatingNotice, setCreatingNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const bodyBase = useMemo(
@@ -48,12 +49,14 @@ function NewMeetingInner() {
         if (!Number.isFinite(parsedLimit) || parsedLimit < 2) {
           throw new Error('حداکثر شرکت‌کنندگان نامعتبر است.');
         }
+        setCreatingNotice('در حال آماده‌سازی جلسه...');
         const created = await createBusinessMeeting(listingId, {
           title: title.trim() || undefined,
           maxParticipants: parsedLimit,
           allowGuests: businessVisibility === 'LINK',
           durationMinutes: 60,
         });
+        await new Promise((resolve) => window.setTimeout(resolve, 550));
         router.replace(`/meetings/${created.meetingId}`);
         return;
       }
@@ -81,6 +84,7 @@ function NewMeetingInner() {
       router.replace(`/meetings/${row.id}`);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'خطا');
+      setCreatingNotice(null);
     } finally {
       setSaving(false);
     }
@@ -110,6 +114,11 @@ function NewMeetingInner() {
         {error ? (
           <div className="mb-4 rounded-2xl border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-700 dark:text-red-200">
             {error}
+          </div>
+        ) : null}
+        {creatingNotice ? (
+          <div className="mb-4 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm font-bold text-emerald-700 dark:text-emerald-200">
+            {creatingNotice}
           </div>
         ) : null}
 
