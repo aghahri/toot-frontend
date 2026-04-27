@@ -242,6 +242,18 @@ function BusinessHubInner() {
             جستجوی فرصت‌ها
           </Link>
         </div>
+        <Link
+          href={networkId ? `/spaces/business/directory?networkId=${encodeURIComponent(networkId)}` : '/spaces/business/directory'}
+          className="mt-3 flex items-center justify-between rounded-2xl border border-amber-200/70 bg-[linear-gradient(135deg,#FFF1E6,#FDE5D1)] px-3 py-3 text-right"
+        >
+          <div className="min-w-0">
+            <p className="text-sm font-black text-amber-900">کسب‌وکارها</p>
+            <p className="mt-1 text-[11px] leading-relaxed text-amber-800">
+              فهرست کسب‌وکارها، خدمات و مشاوره آنلاین
+            </p>
+          </div>
+          <span className="rounded-full bg-amber-900 px-2.5 py-1 text-[10px] font-extrabold text-amber-50">مشاهده فهرست</span>
+        </Link>
         {!networkId ? (
           <p className="mt-3 text-[10px] text-amber-800 dark:text-amber-200">برای استفاده از اقدامات، ابتدا شبکه را انتخاب کنید.</p>
         ) : null}
