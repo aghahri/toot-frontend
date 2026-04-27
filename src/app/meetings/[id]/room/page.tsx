@@ -5,7 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AuthGate } from '@/components/AuthGate';
 import { useAppRealtime } from '@/context/AppRealtimeSocketContext';
-import { fetchJoinToken, fetchMeeting, type JoinTokenResponse, type MeetingDetail } from '@/lib/meetings';
+import { fetchJoinToken, fetchMeeting, fetchMeetingChat, type JoinTokenResponse, type MeetingDetail } from '@/lib/meetings';
 
 type RoomParticipant = {
   id: string;
@@ -91,6 +91,13 @@ export default function MeetingRoomPage() {
 
   const participantCount = participants.length;
   const SELF_REACTIONS = ['👍', '👏', '😂', '❤️', '✋'];
+
+  const upsertChatMessage = useCallback((msg: LocalMeetingChatMessage) => {
+    setChatMessages((prev) => {
+      if (prev.some((x) => x.id === msg.id)) return prev;
+      return [...prev, msg].sort((a, b) => a.at.getTime() - b.at.getTime());
+    });
+  }, []);
 
   const stopAndClearMedia = useCallback(() => {
     localStreamRef.current?.getTracks().forEach((t) => t.stop());
@@ -415,6 +422,30 @@ export default function MeetingRoomPage() {
   }, [closeAllPeerConnections, id, load, socket, stopAndClearMedia]);
 
   useEffect(() => {
+    if (!id) return;
+    let cancelled = false;
+    void fetchMeetingChat(id, 50)
+      .then((rows) => {
+        if (cancelled) return;
+        setChatMessages(
+          rows.map((row) => ({
+            id: row.id,
+            senderId: row.sender.id,
+            senderName: row.sender.name,
+            text: row.text,
+            at: new Date(row.createdAt),
+          })),
+        );
+      })
+      .catch(() => {
+        if (!cancelled) setChatMessages([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [id]);
+
+  useEffect(() => {
     if (!socket || !connected || !id || !join?.token || !mediaReady || !localStreamRef.current) return;
 
     let mounted = true;
@@ -571,16 +602,13 @@ export default function MeetingRoomPage() {
       if (payload.meetingId !== id) return;
       const text = payload.text?.trim();
       if (!text) return;
-      setChatMessages((prev) => [
-        ...prev,
-        {
-          id: payload.id || `${Date.now()}-${Math.random().toString(36).slice(2)}`,
-          senderId: payload.sender?.id ?? null,
-          senderName: payload.sender?.name?.trim() || 'کاربر',
-          text,
-          at: payload.createdAt ? new Date(payload.createdAt) : new Date(),
-        },
-      ]);
+      upsertChatMessage({
+        id: payload.id || `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+        senderId: payload.sender?.id ?? null,
+        senderName: payload.sender?.name?.trim() || 'کاربر',
+        text,
+        at: payload.createdAt ? new Date(payload.createdAt) : new Date(),
+      });
     };
 
     const onMeetingReaction = (payload: { meetingId: string; id?: string; emoji?: string }) => {
@@ -645,7 +673,7 @@ export default function MeetingRoomPage() {
       socket.off('meeting_chat_message', onMeetingChatMessage);
       socket.off('meeting_reaction', onMeetingReaction);
     };
-  }, [connected, createOfferTo, createPeerConnection, emitMeetingSignalWithAck, id, join?.token, logRtc, mediaReady, socket]);
+  }, [connected, createOfferTo, createPeerConnection, emitMeetingSignalWithAck, id, join?.token, logRtc, mediaReady, socket, upsertChatMessage]);
 
   const remotes = useMemo(
     () =>

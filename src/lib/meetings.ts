@@ -28,6 +28,13 @@ export type MeetingRow = {
   createdAt: string;
   updatedAt: string;
   host: MeetingHost;
+  chatMessages?: Array<{
+    id: string;
+    text: string;
+    createdAt: string;
+    sender: { id: string; name: string };
+  }>;
+  _count?: { chatMessages?: number };
 };
 
 export type MeetingDetail = MeetingRow & {
@@ -59,6 +66,18 @@ export type JoinTokenResponse = {
   expiresInSec: number;
   iceServers: Array<{ urls: string | string[]; username?: string; credential?: string }>;
   workerHint?: { note: string };
+};
+
+export type MeetingChatMessage = {
+  id: string;
+  text: string;
+  createdAt: string;
+  sender: {
+    id: string;
+    name: string;
+    username: string;
+    avatar: string | null;
+  };
 };
 
 export function fetchEducationHub() {
@@ -105,5 +124,12 @@ export function cancelMeeting(id: string) {
 export function fetchJoinToken(id: string) {
   return apiFetch<JoinTokenResponse>(`meetings/${encodeURIComponent(id)}/join-token`, {
     method: 'POST',
+  });
+}
+
+export function fetchMeetingChat(id: string, limit = 50) {
+  const q = Number.isFinite(limit) ? `?limit=${Math.max(1, Math.min(100, Math.floor(limit)))}` : '';
+  return apiFetch<MeetingChatMessage[]>(`meetings/${encodeURIComponent(id)}/chat${q}`, {
+    method: 'GET',
   });
 }

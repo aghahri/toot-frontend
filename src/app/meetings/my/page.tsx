@@ -82,10 +82,22 @@ export default function MyMeetingsPage() {
                       <p className="mt-1 text-[11px] text-[var(--text-secondary)]">
                         {formatAppDateTime(m.startsAt)} · {m.durationMinutes} دقیقه
                       </p>
+                      {m.chatMessages?.[0]?.text ? (
+                        <p className="mt-1 truncate text-[11px] text-[var(--text-secondary)]">
+                          آخرین پیام: {m.chatMessages[0].text}
+                        </p>
+                      ) : null}
                     </div>
-                    <span className="shrink-0 rounded-full bg-[var(--surface-strong)] px-2 py-0.5 text-[10px] font-bold text-[var(--text-secondary)]">
-                      {statusFa(m.status)}
-                    </span>
+                    <div className="shrink-0 space-y-1 text-left">
+                      <span className="block rounded-full bg-[var(--surface-strong)] px-2 py-0.5 text-[10px] font-bold text-[var(--text-secondary)]">
+                        {statusFa(m.status)}
+                      </span>
+                      {(m._count?.chatMessages ?? 0) > 0 ? (
+                        <span className="block rounded-full bg-[var(--accent-soft)] px-2 py-0.5 text-[10px] font-bold text-[var(--accent-hover)]">
+                          {m._count?.chatMessages} پیام
+                        </span>
+                      ) : null}
+                    </div>
                   </div>
                 </Link>
               </li>
