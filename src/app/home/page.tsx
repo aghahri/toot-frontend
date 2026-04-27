@@ -13,6 +13,7 @@ import { StoryCuratedRail } from '@/components/home/StoryCuratedRail';
 import { HomeComposeSheet } from '@/components/home/HomeComposeSheet';
 import { PostReplySheet } from '@/components/home/PostReplySheet';
 import { TrendingTopicsRow, type TrendChip } from '@/components/home/TrendingTopicsRow';
+import { VoiceStatusStrip } from '@/components/home/VoiceStatusStrip';
 import type { FeedPost, FeedTabId } from '@/components/home/feed-types';
 import { normalizeFeedPost } from '@/lib/feed-normalize';
 
@@ -753,6 +754,7 @@ function HomePageInner() {
           ) : null}
           {tab === 'for-you' ? (
             <>
+              <VoiceStatusStrip />
               {suggestedFollows.length && !suggestedHidden ? (
                 <section className="mx-2 mt-2 rounded-xl border border-[var(--line)] bg-[var(--surface)] px-2.5 py-2">
                   <div className="flex items-center justify-between gap-2">
