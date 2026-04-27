@@ -328,10 +328,22 @@ export default function VitrinPage() {
         <section className="mb-5">
           <Link
             href="/spaces/business/directory"
-            className="flex items-center justify-between rounded-2xl border border-[var(--border-soft)] bg-[var(--card-bg)] px-4 py-3"
+            className="block rounded-2xl border border-amber-200/70 bg-[linear-gradient(135deg,#FFF1E6,#FDE5D1)] px-4 py-3 shadow-sm transition active:scale-[0.99]"
           >
-            <span className="text-sm font-black text-[var(--text-primary)]">مشاوره آنلاین</span>
-            <span className="text-xs font-bold text-[var(--accent-hover)]">جلسه کسب‌وکار ↗</span>
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-sm font-black text-amber-900">کسب‌وکارها و مشاوره آنلاین</p>
+                <p className="mt-1 text-[11px] leading-relaxed text-amber-800">
+                  خدمات محلی، معرفی کسب‌وکارها و شروع جلسه آنلاین
+                </p>
+                <span className="mt-2 inline-flex rounded-full bg-amber-900 px-2.5 py-1 text-[10px] font-extrabold text-amber-50">
+                  مشاهده کسب‌وکارها
+                </span>
+              </div>
+              <span className="shrink-0 rounded-full border border-amber-300 bg-amber-50 px-2 py-1 text-[10px] font-bold text-amber-800">
+                مشاوره آنلاین
+              </span>
+            </div>
           </Link>
         </section>
 

@@ -740,6 +740,27 @@ function HomePageInner() {
               </button>
             </div>
           </section>
+          <section className="mx-2 mt-2.5">
+            <Link
+              href="/spaces/business/directory"
+              className="block rounded-2xl border border-amber-200/70 bg-[linear-gradient(135deg,#FFF1E6,#FDE5D1)] px-3.5 py-3 shadow-sm transition active:scale-[0.99]"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-sm font-black text-amber-900">کسب‌وکارها و مشاوره آنلاین</p>
+                  <p className="mt-1 text-[11px] leading-relaxed text-amber-800">
+                    خدمات محلی، معرفی کسب‌وکارها و شروع جلسه آنلاین
+                  </p>
+                  <span className="mt-2 inline-flex rounded-full bg-amber-900 px-2.5 py-1 text-[10px] font-extrabold text-amber-50">
+                    مشاهده کسب‌وکارها
+                  </span>
+                </div>
+                <span className="shrink-0 rounded-full border border-amber-300 bg-amber-50 px-2 py-1 text-[10px] font-bold text-amber-800">
+                  مشاوره آنلاین
+                </span>
+              </div>
+            </Link>
+          </section>
           {postTargetMissed ? (
             <div className="mx-3 mb-3 rounded-2xl border border-[var(--line)] bg-[var(--accent-soft)] px-4 py-3 text-sm text-[var(--ink)]">
               <p className="font-bold">پست پیدا نشد یا دیگر در دسترس نیست.</p>
