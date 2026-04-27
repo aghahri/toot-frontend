@@ -99,7 +99,8 @@ export async function tryRefreshAccessTokenOnce(): Promise<boolean> {
       }
       return true;
     } catch {
-      clearSession();
+      // Transient network/runtime errors must not log out the user.
+      // Keep existing tokens and allow next request to retry refresh.
       return false;
     } finally {
       refreshInFlight = null;
