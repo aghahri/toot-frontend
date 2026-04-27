@@ -723,6 +723,12 @@ function HomePageInner() {
             <div className="flex items-start justify-between gap-2" dir="rtl">
               <div className="min-w-0">
                 <p className="truncate text-sm font-extrabold text-[var(--ink)]">{tabFrame.title}</p>
+                <Link
+                  href="/status/voice"
+                  className="mt-1 inline-flex rounded-full bg-[var(--surface-2)] px-2.5 py-1 text-[11px] font-bold text-[var(--accent-hover)] transition hover:bg-[var(--surface-strong)]"
+                >
+                  وضعیت صوتی امروز
+                </Link>
               </div>
               <button
                 type="button"
