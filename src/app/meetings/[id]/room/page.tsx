@@ -24,6 +24,7 @@ type RosterPayload = {
 
 type LocalMeetingChatMessage = {
   id: string;
+  senderId: string | null;
   senderName: string;
   text: string;
   at: Date;
@@ -72,6 +73,7 @@ export default function MeetingRoomPage() {
 
   const localVideoRef = useRef<HTMLVideoElement | null>(null);
   const localStreamRef = useRef<MediaStream | null>(null);
+  const [localPreviewStream, setLocalPreviewStream] = useState<MediaStream | null>(null);
   const pcsRef = useRef<Map<string, RTCPeerConnection>>(new Map());
   const remoteStreamsRef = useRef<Map<string, MediaStream>>(new Map());
   const pendingIceRef = useRef<Map<string, RTCIceCandidateInit[]>>(new Map());
@@ -93,6 +95,7 @@ export default function MeetingRoomPage() {
   const stopAndClearMedia = useCallback(() => {
     localStreamRef.current?.getTracks().forEach((t) => t.stop());
     localStreamRef.current = null;
+    setLocalPreviewStream(null);
     if (localVideoRef.current) localVideoRef.current.srcObject = null;
   }, []);
 
@@ -365,6 +368,7 @@ export default function MeetingRoomPage() {
         });
       }
       localStreamRef.current = stream;
+      setLocalPreviewStream(stream);
       if (localVideoRef.current) localVideoRef.current.srcObject = stream;
       stream.getAudioTracks().forEach((t) => {
         t.enabled = true;
@@ -557,10 +561,45 @@ export default function MeetingRoomPage() {
       }
     };
 
+    const onMeetingChatMessage = (payload: {
+      meetingId: string;
+      id: string;
+      sender?: { id?: string; name?: string };
+      text?: string;
+      createdAt?: string;
+    }) => {
+      if (payload.meetingId !== id) return;
+      const text = payload.text?.trim();
+      if (!text) return;
+      setChatMessages((prev) => [
+        ...prev,
+        {
+          id: payload.id || `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+          senderId: payload.sender?.id ?? null,
+          senderName: payload.sender?.name?.trim() || 'کاربر',
+          text,
+          at: payload.createdAt ? new Date(payload.createdAt) : new Date(),
+        },
+      ]);
+    };
+
+    const onMeetingReaction = (payload: { meetingId: string; id?: string; emoji?: string }) => {
+      if (payload.meetingId !== id) return;
+      const emoji = payload.emoji?.trim();
+      if (!emoji) return;
+      const rid = payload.id || `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+      setReactionBursts((prev) => [...prev, { id: rid, emoji }]);
+      window.setTimeout(() => {
+        setReactionBursts((prev) => prev.filter((x) => x.id !== rid));
+      }, 1500);
+    };
+
     socket.on('meeting_participant_joined', onParticipantJoined);
     socket.on('meeting_participant_left', onParticipantLeft);
     socket.on('meeting_signal', onSignal);
     socket.on('meeting_roster', onRoster);
+    socket.on('meeting_chat_message', onMeetingChatMessage);
+    socket.on('meeting_reaction', onMeetingReaction);
     socket.emit(
       'meeting_join',
       { meetingId: id, joinToken: join.token },
@@ -603,6 +642,8 @@ export default function MeetingRoomPage() {
       socket.off('meeting_participant_left', onParticipantLeft);
       socket.off('meeting_signal', onSignal);
       socket.off('meeting_roster', onRoster);
+      socket.off('meeting_chat_message', onMeetingChatMessage);
+      socket.off('meeting_reaction', onMeetingReaction);
     };
   }, [connected, createOfferTo, createPeerConnection, emitMeetingSignalWithAck, id, join?.token, logRtc, mediaReady, socket]);
 
@@ -705,21 +746,14 @@ export default function MeetingRoomPage() {
 
   function sendChatMessage() {
     const text = chatDraft.trim();
-    if (!text) return;
-    const senderName = selfParticipant?.name || 'شما';
-    setChatMessages((prev) => [
-      ...prev,
-      { id: `${Date.now()}-${Math.random().toString(36).slice(2)}`, senderName, text, at: new Date() },
-    ]);
+    if (!text || !socket || !id) return;
+    socket.emit('meeting_chat_send', { meetingId: id, text });
     setChatDraft('');
   }
 
   function pushReaction(emoji: string) {
-    const id = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-    setReactionBursts((prev) => [...prev, { id, emoji }]);
-    window.setTimeout(() => {
-      setReactionBursts((prev) => prev.filter((x) => x.id !== id));
-    }, 1500);
+    if (!socket || !id) return;
+    socket.emit('meeting_reaction_send', { meetingId: id, emoji });
   }
 
   function onScreenSharePressed() {
@@ -778,8 +812,8 @@ export default function MeetingRoomPage() {
             )}
 
             {remotePrimary ? (
-              <div className="absolute bottom-2 left-2 h-24 w-20 overflow-hidden rounded-xl border border-white/40 bg-black/70 shadow-lg sm:h-28 sm:w-24">
-                <video ref={localVideoRef} className="h-full w-full object-cover" autoPlay muted playsInline />
+              <div className="absolute bottom-2 left-2 z-20 h-28 w-24 overflow-hidden rounded-xl border border-white/40 bg-black/70 shadow-lg sm:h-32 sm:w-28">
+                <SelfPreviewVideo stream={localPreviewStream} className="h-full w-full object-cover" />
                 <div className="pointer-events-none absolute bottom-1 right-1 rounded bg-black/60 px-1.5 py-0.5 text-[10px] font-bold text-white">
                   شما
                 </div>
@@ -800,12 +834,6 @@ export default function MeetingRoomPage() {
               </div>
             ) : null}
           </div>
-
-          {screenShareNotice ? (
-            <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-200">
-              {screenShareNotice}
-            </div>
-          ) : null}
 
           <div className="rounded-2xl border border-dashed border-[var(--border-soft)] bg-[var(--card-bg)] p-2 ring-1 ring-[var(--border-soft)]">
             <p className="mb-2 text-[10px] font-bold uppercase tracking-wide text-[var(--text-secondary)]">سایر شرکت‌کنندگان</p>
@@ -951,7 +979,14 @@ export default function MeetingRoomPage() {
                 ) : (
                   <div className="space-y-2">
                     {chatMessages.map((msg) => (
-                      <div key={msg.id} className="rounded-lg bg-[var(--card-bg)] px-2 py-1.5">
+                      <div
+                        key={msg.id}
+                        className={`rounded-lg px-2 py-1.5 ${
+                          msg.senderId && selfId && msg.senderId === selfId
+                            ? 'bg-[var(--accent-soft)]'
+                            : 'bg-[var(--card-bg)]'
+                        }`}
+                      >
                         <p className="text-[11px] font-bold text-[var(--text-primary)]">{msg.senderName}</p>
                         <p className="mt-0.5 text-sm text-[var(--text-primary)]">{msg.text}</p>
                         <p className="mt-0.5 text-[10px] text-[var(--text-secondary)]">
@@ -987,9 +1022,38 @@ export default function MeetingRoomPage() {
             </div>
           </div>
         ) : null}
+
+        {screenShareNotice ? (
+          <div className="pointer-events-none fixed inset-x-0 top-16 z-50 mx-auto w-fit rounded-full bg-black/80 px-3 py-1.5 text-xs font-bold text-white">
+            {screenShareNotice}
+          </div>
+        ) : null}
       </div>
     </AuthGate>
   );
+}
+
+function SelfPreviewVideo({ stream, className }: { stream: MediaStream | null; className?: string }) {
+  const ref = useRef<HTMLVideoElement | null>(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    if (!stream) {
+      el.srcObject = null;
+      return;
+    }
+    el.srcObject = stream;
+    const p = el.play();
+    if (p !== undefined) {
+      void p.catch(() => {
+        /* ignored */
+      });
+    }
+    return () => {
+      if (ref.current) ref.current.srcObject = null;
+    };
+  }, [stream]);
+  return <video ref={ref} className={className} autoPlay muted playsInline />;
 }
 
 function RemoteTile({
