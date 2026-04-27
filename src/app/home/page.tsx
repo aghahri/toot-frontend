@@ -210,10 +210,16 @@ function HomePageInner() {
   const searchParams = useSearchParams();
   const [posts, setPosts] = useState<FeedPost[]>([]);
   const [followingPosts, setFollowingPosts] = useState<FeedPost[]>([]);
+  const [localScopePosts, setLocalScopePosts] = useState<FeedPost[]>([]);
+  const [spacesScopePosts, setSpacesScopePosts] = useState<FeedPost[]>([]);
   const [loadingFeed, setLoadingFeed] = useState(true);
   const [loadingFollowingFeed, setLoadingFollowingFeed] = useState(false);
+  const [loadingLocalFeed, setLoadingLocalFeed] = useState(false);
+  const [loadingSpacesFeed, setLoadingSpacesFeed] = useState(false);
   const [feedError, setFeedError] = useState<string | null>(null);
   const [followingFeedError, setFollowingFeedError] = useState<string | null>(null);
+  const [localFeedError, setLocalFeedError] = useState<string | null>(null);
+  const [spacesFeedError, setSpacesFeedError] = useState<string | null>(null);
   const [tab, setTab] = useState<FeedTabId>('for-you');
   const [composeOpen, setComposeOpen] = useState(false);
   const [replyPost, setReplyPost] = useState<FeedPost | null>(null);
@@ -280,6 +286,50 @@ function HomePageInner() {
     }
   }, []);
 
+  const loadLocalFeed = useCallback(async (opts?: { silent?: boolean }) => {
+    const t = getAccessToken();
+    if (!t) return;
+    if (!opts?.silent) {
+      setLoadingLocalFeed(true);
+      setLocalFeedError(null);
+    }
+    try {
+      const data = await apiFetch<FeedPost[]>('posts/feed?scope=local', {
+        method: 'GET',
+        token: t,
+      });
+      setLocalScopePosts(data.map(normalizeFeedPost));
+    } catch (e) {
+      if (!opts?.silent) {
+        setLocalFeedError(e instanceof Error ? e.message : 'خطا در دریافت فید محلی');
+      }
+    } finally {
+      if (!opts?.silent) setLoadingLocalFeed(false);
+    }
+  }, []);
+
+  const loadSpacesFeed = useCallback(async (opts?: { silent?: boolean }) => {
+    const t = getAccessToken();
+    if (!t) return;
+    if (!opts?.silent) {
+      setLoadingSpacesFeed(true);
+      setSpacesFeedError(null);
+    }
+    try {
+      const data = await apiFetch<FeedPost[]>('posts/feed?scope=spaces', {
+        method: 'GET',
+        token: t,
+      });
+      setSpacesScopePosts(data.map(normalizeFeedPost));
+    } catch (e) {
+      if (!opts?.silent) {
+        setSpacesFeedError(e instanceof Error ? e.message : 'خطا در دریافت فید فضاها');
+      }
+    } finally {
+      if (!opts?.silent) setLoadingSpacesFeed(false);
+    }
+  }, []);
+
   useEffect(() => {
     if (tab !== 'for-you') return;
     loadFeed();
@@ -294,10 +344,14 @@ function HomePageInner() {
   }, [tab, loadFollowingFeed]);
 
   useEffect(() => {
-    if (tab !== 'local' && tab !== 'networks') return;
-    if (posts.length > 0 || followingPosts.length > 0) return;
-    void loadFeed({ silent: true });
-  }, [tab, posts.length, followingPosts.length, loadFeed]);
+    if (tab !== 'local') return;
+    void loadLocalFeed();
+  }, [tab, loadLocalFeed]);
+
+  useEffect(() => {
+    if (tab !== 'networks') return;
+    void loadSpacesFeed();
+  }, [tab, loadSpacesFeed]);
 
   useEffect(() => {
     const token = getAccessToken();
@@ -559,7 +613,9 @@ function HomePageInner() {
     3,
   );
 
-  const localPosts = rankedLocalRows.slice(0, 80).map((x) => x.post);
+  const localPosts = [...localScopePosts].sort(
+    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+  );
 
   const strictRankedNetworkRows = applyAuthorDiversity(
     [...allKnownPosts]
@@ -599,9 +655,9 @@ function HomePageInner() {
     2,
   );
 
-  const networkPosts = strictRankedNetworkRows
-    .slice(0, 60)
-    .map((x) => x.post);
+  const networkPosts = [...spacesScopePosts].sort(
+    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+  );
 
   const scoreStoryRelevance = useCallback(
     (story: StoryItem, opts: { mode: 'local' | 'networks' }) => {
@@ -952,7 +1008,20 @@ function HomePageInner() {
                   searchMoreHref="/search?mode=top"
                 />
               ) : null}
-              {localStream.length > 0 ? (
+              {loadingLocalFeed ? (
+                <FeedSkeleton />
+              ) : localFeedError ? (
+                <div className="px-4 py-8 text-center">
+                  <p className="text-sm font-semibold text-red-600">{localFeedError}</p>
+                  <button
+                    type="button"
+                    onClick={() => void loadLocalFeed()}
+                    className="mt-4 rounded-full bg-[var(--accent)] px-5 py-2 text-sm font-bold text-[var(--accent-contrast)]"
+                  >
+                    تلاش دوباره
+                  </button>
+                </div>
+              ) : localStream.length > 0 ? (
                 <div className="mx-2 mt-2 overflow-hidden rounded-xl border border-[var(--line)] bg-[var(--surface)]">
                   {localStream.map((item, idx) => {
                     if (item.kind === 'post') {
@@ -976,7 +1045,11 @@ function HomePageInner() {
               ) : (
                 <FeedEmptyState
                   title="محلهٔ من"
-                  description="خبرها و پست‌های نزدیک شما اینجا می‌آید."
+                  description={
+                    joinedNeighborhoodNetworks.length === 0
+                      ? 'هنوز به محله‌ای متصل نیستید.'
+                      : 'فعلا پستی از اعضای محله شما ثبت نشده است.'
+                  }
                   icon="⌂"
                 />
               )}
@@ -991,7 +1064,20 @@ function HomePageInner() {
                   searchMoreHref="/search?mode=top"
                 />
               ) : null}
-              {networkStream.length > 0 ? (
+              {loadingSpacesFeed ? (
+                <FeedSkeleton />
+              ) : spacesFeedError ? (
+                <div className="px-4 py-8 text-center">
+                  <p className="text-sm font-semibold text-red-600">{spacesFeedError}</p>
+                  <button
+                    type="button"
+                    onClick={() => void loadSpacesFeed()}
+                    className="mt-4 rounded-full bg-[var(--accent)] px-5 py-2 text-sm font-bold text-[var(--accent-contrast)]"
+                  >
+                    تلاش دوباره
+                  </button>
+                </div>
+              ) : networkStream.length > 0 ? (
                 <div className="mx-2 mt-2 overflow-hidden rounded-xl border border-[var(--line)] bg-[var(--surface)]">
                   {networkStream.map((item, idx) => {
                     if (item.kind === 'post') {
@@ -1015,7 +1101,7 @@ function HomePageInner() {
               ) : (
                 <FeedEmptyState
                   title="شبکه‌ها"
-                  description="پست‌های شبکه‌هایی که عضو هستید اینجا می‌آید."
+                  description="پست‌های مرتبط با فضاها و شبکه‌هایی که عضو هستید اینجا نمایش داده می‌شود."
                   icon="⬡"
                 />
               )}
