@@ -47,6 +47,7 @@ export default function MeetingRoomPage() {
   const router = useRouter();
   const { socket, connected } = useAppRealtime();
   const id = typeof params?.id === 'string' ? params.id : '';
+  const captionsLabAvailable = process.env.NEXT_PUBLIC_MEETING_CAPTIONS_ENABLED === 'true';
 
   const [m, setM] = useState<MeetingDetail | null>(null);
   const [join, setJoin] = useState<JoinTokenResponse | null>(null);
@@ -797,10 +798,10 @@ export default function MeetingRoomPage() {
     window.setTimeout(() => setScreenShareNotice(null), 2500);
   }
 
-  function triggerDemoCaptions() {
-    if (!socket || !id) return;
+  const triggerDemoCaptions = useCallback(() => {
+    if (!captionsLabAvailable || !socket || !id) return;
     socket.emit('meeting_caption_trigger_demo', { meetingId: id });
-  }
+  }, [captionsLabAvailable, id, socket]);
 
   return (
     <AuthGate>
@@ -875,7 +876,9 @@ export default function MeetingRoomPage() {
               </div>
             ) : null}
 
-            <MeetingCaptionsOverlay socket={socket} connected={connected} meetingId={id} enabled={captionsEnabled} />
+            {captionsLabAvailable && captionsEnabled ? (
+              <MeetingCaptionsOverlay socket={socket} connected={connected} meetingId={id} />
+            ) : null}
           </div>
 
           <div className="rounded-2xl border border-dashed border-[var(--border-soft)] bg-[var(--card-bg)] p-2 ring-1 ring-[var(--border-soft)]">
@@ -970,24 +973,13 @@ export default function MeetingRoomPage() {
             >
               اشتراک صفحه
             </button>
-            <button
-              type="button"
-              onClick={() => setCaptionsEnabled((v) => !v)}
-              className={`flex h-12 min-w-[5.2rem] items-center justify-center rounded-full px-3 text-xs font-extrabold shadow-md ${
-                captionsEnabled
-                  ? 'bg-emerald-600 text-white'
-                  : 'bg-[var(--surface-soft)] text-[var(--text-primary)]'
-              }`}
-            >
-              زیرنویس آزمایشی
-            </button>
-            <button
-              type="button"
-              onClick={triggerDemoCaptions}
-              className="flex h-12 min-w-[4.2rem] items-center justify-center rounded-full bg-[var(--surface-soft)] px-3 text-xs font-extrabold text-[var(--text-primary)] shadow-md"
-            >
-              دمو
-            </button>
+            {captionsLabAvailable ? (
+              <MeetingCaptionsControls
+                enabled={captionsEnabled}
+                onToggle={() => setCaptionsEnabled((v) => !v)}
+                onTriggerDemo={triggerDemoCaptions}
+              />
+            ) : null}
           </div>
           <div className="mt-2 flex items-center justify-center gap-2">
             {SELF_REACTIONS.map((emoji) => (
@@ -1098,12 +1090,10 @@ const MeetingCaptionsOverlay = memo(function MeetingCaptionsOverlay({
   socket,
   connected,
   meetingId,
-  enabled,
 }: {
   socket: ReturnType<typeof useAppRealtime>['socket'];
   connected: boolean;
   meetingId: string;
-  enabled: boolean;
 }) {
   const [caption, setCaption] = useState<LiveCaption | null>(null);
   const [visible, setVisible] = useState(false);
@@ -1111,22 +1101,7 @@ const MeetingCaptionsOverlay = memo(function MeetingCaptionsOverlay({
   const clearTimerRef = useRef<number | null>(null);
 
   useEffect(() => {
-    if (!enabled) {
-      setCaption(null);
-      setVisible(false);
-      if (hideTimerRef.current) {
-        clearTimeout(hideTimerRef.current);
-        hideTimerRef.current = null;
-      }
-      if (clearTimerRef.current) {
-        clearTimeout(clearTimerRef.current);
-        clearTimerRef.current = null;
-      }
-    }
-  }, [enabled]);
-
-  useEffect(() => {
-    if (!socket || !connected || !meetingId || !enabled) return;
+    if (!socket || !connected || !meetingId) return;
 
     const clearHideTimer = () => {
       if (hideTimerRef.current) {
@@ -1194,9 +1169,9 @@ const MeetingCaptionsOverlay = memo(function MeetingCaptionsOverlay({
       socket.off('meeting_caption', onMeetingCaption);
       socket.off('meeting_caption_clear', onMeetingCaptionClear);
     };
-  }, [connected, enabled, meetingId, socket]);
+  }, [connected, meetingId, socket]);
 
-  if (!enabled || !caption) return null;
+  if (!caption) return null;
 
   return (
     <div className="pointer-events-none absolute inset-x-4 bottom-3 z-30 flex justify-center">
@@ -1210,6 +1185,37 @@ const MeetingCaptionsOverlay = memo(function MeetingCaptionsOverlay({
         <p className="mt-0.5 text-xs leading-tight text-zinc-200">{caption.enText}</p>
       </div>
     </div>
+  );
+});
+
+const MeetingCaptionsControls = memo(function MeetingCaptionsControls({
+  enabled,
+  onToggle,
+  onTriggerDemo,
+}: {
+  enabled: boolean;
+  onToggle: () => void;
+  onTriggerDemo: () => void;
+}) {
+  return (
+    <>
+      <button
+        type="button"
+        onClick={onToggle}
+        className={`flex h-12 min-w-[5.2rem] items-center justify-center rounded-full px-3 text-xs font-extrabold shadow-md ${
+          enabled ? 'bg-emerald-600 text-white' : 'bg-[var(--surface-soft)] text-[var(--text-primary)]'
+        }`}
+      >
+        زیرنویس آزمایشی
+      </button>
+      <button
+        type="button"
+        onClick={onTriggerDemo}
+        className="flex h-12 min-w-[4.2rem] items-center justify-center rounded-full bg-[var(--surface-soft)] px-3 text-xs font-extrabold text-[var(--text-primary)] shadow-md"
+      >
+        دمو
+      </button>
+    </>
   );
 });
 
