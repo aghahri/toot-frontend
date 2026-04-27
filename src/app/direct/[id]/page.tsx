@@ -343,6 +343,7 @@ export default function DirectConversationPage() {
   const [stickerSending, setStickerSending] = useState(false);
   const [quickRepliesDismissedForConversation, setQuickRepliesDismissedForConversation] =
     useState<string | null>(null);
+  const [peerHasRecentStory, setPeerHasRecentStory] = useState(false);
 
   type VoicePhase = 'idle' | 'recording' | 'sending' | 'failed';
   const [voicePhase, setVoicePhase] = useState<VoicePhase>('idle');
@@ -374,6 +375,40 @@ export default function DirectConversationPage() {
     if (!t) return '?';
     return t.slice(0, 1);
   }, [peerDisplay.name]);
+
+  useEffect(() => {
+    const peerId = peerDisplay.id;
+    if (!peerId) {
+      setPeerHasRecentStory(false);
+      return;
+    }
+    const token = getAccessToken();
+    if (!token) {
+      setPeerHasRecentStory(false);
+      return;
+    }
+    let cancelled = false;
+    void apiFetch<Array<{ createdAt: string }>>(`posts/user/${encodeURIComponent(peerId)}`, {
+      method: 'GET',
+      token,
+    })
+      .then((rows) => {
+        if (cancelled) return;
+        const latest = Array.isArray(rows) && rows.length > 0 ? rows[0] : null;
+        if (!latest?.createdAt) {
+          setPeerHasRecentStory(false);
+          return;
+        }
+        const ageMs = Date.now() - new Date(latest.createdAt).getTime();
+        setPeerHasRecentStory(ageMs <= 24 * 60 * 60 * 1000);
+      })
+      .catch(() => {
+        if (!cancelled) setPeerHasRecentStory(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [peerDisplay.id]);
 
   const readAnchorIndex = useMemo(() => {
     if (!lastReadMessageId) return -1;
@@ -2336,7 +2371,11 @@ async function uploadSelectedFile(token: string): Promise<string | null> {
                   className="flex min-w-0 flex-1 items-center gap-2 rounded-lg transition hover:bg-[var(--surface-2)]"
                   aria-label="پروفایل مخاطب"
                 >
-                  <div className="theme-surface-strong relative h-9 w-9 shrink-0 overflow-hidden rounded-full ring-2 ring-white/70">
+                  <div
+                    className={`theme-surface-strong relative h-9 w-9 shrink-0 overflow-hidden rounded-full ring-2 ${
+                      peerHasRecentStory ? 'ring-emerald-500' : 'ring-white/70'
+                    }`}
+                  >
                     {peerDisplay.avatar ? (
                       <img
                         src={peerDisplay.avatar}
