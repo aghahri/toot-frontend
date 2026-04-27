@@ -341,6 +341,8 @@ export default function DirectConversationPage() {
     Array<{ id: string; packId: string; url: string; label: string | null }>
   >([]);
   const [stickerSending, setStickerSending] = useState(false);
+  const [quickRepliesDismissedForConversation, setQuickRepliesDismissedForConversation] =
+    useState<string | null>(null);
 
   type VoicePhase = 'idle' | 'recording' | 'sending' | 'failed';
   const [voicePhase, setVoicePhase] = useState<VoicePhase>('idle');
@@ -432,7 +434,12 @@ export default function DirectConversationPage() {
     !infoMessage &&
     voicePhase === 'idle' &&
     text.trim().length === 0 &&
+    quickRepliesDismissedForConversation !== conversationId &&
     smartReplies.length > 0;
+
+  useEffect(() => {
+    setQuickRepliesDismissedForConversation(null);
+  }, [conversationId]);
 
 useEffect(() => {
   if (!file) {
@@ -2217,6 +2224,38 @@ async function uploadSelectedFile(token: string): Promise<string | null> {
     }
   }
 
+  async function sendQuickReply(textToSend: string) {
+    const trimmed = textToSend.trim();
+    if (!trimmed) return;
+    if (isSelectionMode || sendLockRef.current || sending || voicePhase !== 'idle') return;
+    const token = getAccessToken();
+    if (!token || !conversationId) return;
+    sendLockRef.current = true;
+    setSending(true);
+    setError(null);
+    try {
+      await apiFetch<Message>(`direct/conversations/${conversationId}/messages`, {
+        method: 'POST',
+        token,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          text: trimmed,
+          ...(replyDraft ? { replyToMessageId: replyDraft.id } : {}),
+        }),
+      });
+      setText('');
+      clearDirectDraft(conversationId);
+      setReplyDraft(null);
+      scrollThreadEnd('auto');
+      emitTypingState(false, { immediate: true });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'خطا در ارسال پیام');
+    } finally {
+      setSending(false);
+      sendLockRef.current = false;
+    }
+  }
+
   return (
     <AuthGate>
       <IncomingCallHint />
@@ -3198,9 +3237,19 @@ async function uploadSelectedFile(token: string): Promise<string | null> {
 
             {shouldShowSmartReplies ? (
               <div className="rounded-xl border border-slate-200/80 bg-white/95 px-2.5 py-2 shadow-sm ring-1 ring-slate-100/80">
-                <div className="mb-1.5 flex items-center gap-1 text-[11px] font-bold text-slate-600">
-                  <span aria-hidden>✨</span>
-                  <span>پاسخ سریع</span>
+                <div className="mb-1.5 flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-1 text-[11px] font-bold text-slate-600">
+                    <span aria-hidden>✨</span>
+                    <span>پاسخ سریع</span>
+                  </div>
+                  <button
+                    type="button"
+                    aria-label="بستن پاسخ سریع"
+                    onClick={() => setQuickRepliesDismissedForConversation(conversationId)}
+                    className="rounded-full px-2 py-0.5 text-xs font-bold text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
+                  >
+                    ×
+                  </button>
                 </div>
                 <div className="flex gap-1.5 overflow-x-auto pb-0.5">
                   {smartReplies.map((reply) => (
@@ -3209,16 +3258,7 @@ async function uploadSelectedFile(token: string): Promise<string | null> {
                       type="button"
                       onClick={() => {
                         tinyHaptic();
-                        setText(reply);
-                        requestAnimationFrame(() => {
-                          const el = composeTextareaRef.current;
-                          if (!el) return;
-                          try {
-                            el.focus({ preventScroll: true });
-                          } catch {
-                            el.focus();
-                          }
-                        });
+                        void sendQuickReply(reply);
                       }}
                       className="shrink-0 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-[12px] font-semibold text-slate-700 transition hover:bg-slate-100"
                     >
@@ -3229,7 +3269,7 @@ async function uploadSelectedFile(token: string): Promise<string | null> {
               </div>
             ) : null}
 
-            <div className="flex min-w-0 items-end gap-1.5 sm:gap-2" dir="ltr">
+            <div className="flex min-w-0 items-center gap-1.5 sm:gap-2" dir="ltr">
               <button
                 type="button"
                 disabled={sending || editMode || isSelectionMode}
