@@ -47,6 +47,8 @@ export default function VoiceStatusPage() {
   const [recordedMime, setRecordedMime] = useState('audio/webm');
   const [recordedDurationSec, setRecordedDurationSec] = useState(0);
   const [currentStatus, setCurrentStatus] = useState<VoiceStatusResponse['data']>(null);
+  const [previewAudioKey, setPreviewAudioKey] = useState(0);
+  const [currentAudioKey, setCurrentAudioKey] = useState(0);
 
   const recorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -54,6 +56,8 @@ export default function VoiceStatusPage() {
   const startMsRef = useRef(0);
   const tickRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const stopTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const previewAudioRef = useRef<HTMLAudioElement | null>(null);
+  const currentAudioRef = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => {
     const ok =
@@ -85,7 +89,12 @@ export default function VoiceStatusPage() {
         method: 'GET',
         token,
       });
+      if (currentAudioRef.current) {
+        currentAudioRef.current.pause();
+        currentAudioRef.current.currentTime = 0;
+      }
       setCurrentStatus(res.data);
+      setCurrentAudioKey((v) => v + 1);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'خطا در دریافت وضعیت');
     } finally {
@@ -102,9 +111,16 @@ export default function VoiceStatusPage() {
     setError(null);
     setMessage(null);
     setRecordedBlob(null);
+    setRecordedDurationSec(0);
+    setRecordedMime('audio/webm');
+    if (previewAudioRef.current) {
+      previewAudioRef.current.pause();
+      previewAudioRef.current.currentTime = 0;
+    }
     if (recordedUrl) {
       URL.revokeObjectURL(recordedUrl);
       setRecordedUrl(null);
+      setPreviewAudioKey((v) => v + 1);
     }
     setRemainingSec(MAX_SECONDS);
 
@@ -128,14 +144,23 @@ export default function VoiceStatusPage() {
           clearTimeout(stopTimeoutRef.current);
           stopTimeoutRef.current = null;
         }
-        const durationSec = Math.max(1, Math.min(MAX_SECONDS, Math.round((Date.now() - startMsRef.current) / 1000)));
+        const durationSec = Math.max(1, Math.min(MAX_SECONDS, Math.ceil((Date.now() - startMsRef.current) / 1000)));
+        if (chunksRef.current.length === 0) {
+          setRecording(false);
+          stream.getTracks().forEach((t) => t.stop());
+          streamRef.current = null;
+          return;
+        }
         const blob = new Blob(chunksRef.current, { type: recorder.mimeType || 'audio/webm' });
         const url = URL.createObjectURL(blob);
         setRecordedBlob(blob);
         setRecordedUrl(url);
         setRecordedMime(recorder.mimeType || 'audio/webm');
         setRecordedDurationSec(durationSec);
+        setPreviewAudioKey((v) => v + 1);
         setRecording(false);
+        recorderRef.current = null;
+        chunksRef.current = [];
         stream.getTracks().forEach((t) => t.stop());
         streamRef.current = null;
       };
@@ -158,6 +183,7 @@ export default function VoiceStatusPage() {
 
   function stopRecording() {
     if (!recorderRef.current || recorderRef.current.state !== 'recording') return;
+    recorderRef.current.requestData();
     recorderRef.current.stop();
   }
 
@@ -193,9 +219,14 @@ export default function VoiceStatusPage() {
       setMessage('وضعیت صوتی منتشر شد');
       setCaption('');
       setRecordedBlob(null);
+      if (previewAudioRef.current) {
+        previewAudioRef.current.pause();
+        previewAudioRef.current.currentTime = 0;
+      }
       if (recordedUrl) {
         URL.revokeObjectURL(recordedUrl);
         setRecordedUrl(null);
+        setPreviewAudioKey((v) => v + 1);
       }
       setRecordedDurationSec(0);
       await loadCurrentStatus();
@@ -283,7 +314,18 @@ export default function VoiceStatusPage() {
 
             {recordedUrl ? (
               <div className="mt-4 space-y-3">
-                <audio src={recordedUrl} controls className="w-full rounded-xl bg-white" />
+                <audio
+                  key={previewAudioKey}
+                  ref={previewAudioRef}
+                  src={recordedUrl}
+                  controls
+                  className="w-full rounded-xl bg-white"
+                  onPlay={(e) => {
+                    if (e.currentTarget.currentTime > 0.01 && e.currentTarget.ended) {
+                      e.currentTarget.currentTime = 0;
+                    }
+                  }}
+                />
                 <input
                   type="text"
                   value={caption}
@@ -317,7 +359,13 @@ export default function VoiceStatusPage() {
           ) : (
             <div className="mt-3 space-y-2">
               <div className="text-xs text-[var(--ink-3)]">{statusDayLabel}</div>
-              <audio src={currentStatus.media.url} controls className="w-full rounded-xl bg-white" />
+              <audio
+                key={currentAudioKey}
+                ref={currentAudioRef}
+                src={currentStatus.media.url}
+                controls
+                className="w-full rounded-xl bg-white"
+              />
               {currentStatus.caption ? <p className="text-sm text-[var(--ink-2)]">{currentStatus.caption}</p> : null}
               <button
                 type="button"
