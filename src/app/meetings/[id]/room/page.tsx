@@ -35,6 +35,13 @@ type LocalReactionBurst = {
   emoji: string;
 };
 
+type LiveCaption = {
+  id: string;
+  speakerLabel: string;
+  faText: string;
+  enText: string;
+};
+
 export default function MeetingRoomPage() {
   const params = useParams();
   const router = useRouter();
@@ -57,6 +64,8 @@ export default function MeetingRoomPage() {
   const [chatDraft, setChatDraft] = useState('');
   const [chatMessages, setChatMessages] = useState<LocalMeetingChatMessage[]>([]);
   const [reactionBursts, setReactionBursts] = useState<LocalReactionBurst[]>([]);
+  const [captionsEnabled, setCaptionsEnabled] = useState(false);
+  const [liveCaption, setLiveCaption] = useState<LiveCaption | null>(null);
   const [screenShareNotice, setScreenShareNotice] = useState<string | null>(null);
   const [rtcStage, setRtcStage] = useState<RtcStage>('waiting');
   const [offererUserId, setOffererUserId] = useState<string | null>(null);
@@ -622,12 +631,42 @@ export default function MeetingRoomPage() {
       }, 1500);
     };
 
+    const onMeetingCaption = (payload: {
+      meetingId: string;
+      id?: string;
+      speakerLabel?: string;
+      faText?: string;
+      enText?: string;
+    }) => {
+      if (payload.meetingId !== id) return;
+      const faText = payload.faText?.trim();
+      const enText = payload.enText?.trim();
+      if (!faText || !enText) return;
+      const captionId = payload.id || `${Date.now()}`;
+      setLiveCaption({
+        id: captionId,
+        speakerLabel: payload.speakerLabel?.trim() || 'گوینده',
+        faText,
+        enText,
+      });
+      window.setTimeout(() => {
+        setLiveCaption((prev) => (prev && prev.id === captionId ? null : prev));
+      }, 5500);
+    };
+
+    const onMeetingCaptionClear = (payload: { meetingId: string }) => {
+      if (payload.meetingId !== id) return;
+      setLiveCaption(null);
+    };
+
     socket.on('meeting_participant_joined', onParticipantJoined);
     socket.on('meeting_participant_left', onParticipantLeft);
     socket.on('meeting_signal', onSignal);
     socket.on('meeting_roster', onRoster);
     socket.on('meeting_chat_message', onMeetingChatMessage);
     socket.on('meeting_reaction', onMeetingReaction);
+    socket.on('meeting_caption', onMeetingCaption);
+    socket.on('meeting_caption_clear', onMeetingCaptionClear);
     socket.emit(
       'meeting_join',
       { meetingId: id, joinToken: join.token },
@@ -672,6 +711,8 @@ export default function MeetingRoomPage() {
       socket.off('meeting_roster', onRoster);
       socket.off('meeting_chat_message', onMeetingChatMessage);
       socket.off('meeting_reaction', onMeetingReaction);
+      socket.off('meeting_caption', onMeetingCaption);
+      socket.off('meeting_caption_clear', onMeetingCaptionClear);
     };
   }, [connected, createOfferTo, createPeerConnection, emitMeetingSignalWithAck, id, join?.token, logRtc, mediaReady, socket, upsertChatMessage]);
 
@@ -789,6 +830,11 @@ export default function MeetingRoomPage() {
     window.setTimeout(() => setScreenShareNotice(null), 2500);
   }
 
+  function triggerDemoCaptions() {
+    if (!socket || !id) return;
+    socket.emit('meeting_caption_trigger_demo', { meetingId: id });
+  }
+
   return (
     <AuthGate>
       <div className="flex min-h-[calc(100vh-8rem)] flex-col bg-[var(--surface-strong)]">
@@ -859,6 +905,16 @@ export default function MeetingRoomPage() {
                     {burst.emoji}
                   </span>
                 ))}
+              </div>
+            ) : null}
+
+            {captionsEnabled && liveCaption ? (
+              <div className="pointer-events-none absolute inset-x-4 bottom-3 z-30 flex justify-center">
+                <div className="max-w-[92%] rounded-xl bg-black/70 px-3 py-2 text-center text-white backdrop-blur-sm">
+                  <p className="text-[10px] font-bold text-emerald-200">{liveCaption.speakerLabel}</p>
+                  <p className="text-sm font-extrabold leading-tight">{liveCaption.faText}</p>
+                  <p className="mt-0.5 text-xs leading-tight text-zinc-200">{liveCaption.enText}</p>
+                </div>
               </div>
             ) : null}
           </div>
@@ -954,6 +1010,24 @@ export default function MeetingRoomPage() {
               className="flex h-12 min-w-[4.5rem] items-center justify-center rounded-full bg-[var(--surface-soft)] px-3 text-xs font-extrabold text-[var(--text-primary)] shadow-md"
             >
               اشتراک صفحه
+            </button>
+            <button
+              type="button"
+              onClick={() => setCaptionsEnabled((v) => !v)}
+              className={`flex h-12 min-w-[5.2rem] items-center justify-center rounded-full px-3 text-xs font-extrabold shadow-md ${
+                captionsEnabled
+                  ? 'bg-emerald-600 text-white'
+                  : 'bg-[var(--surface-soft)] text-[var(--text-primary)]'
+              }`}
+            >
+              زیرنویس آزمایشی
+            </button>
+            <button
+              type="button"
+              onClick={triggerDemoCaptions}
+              className="flex h-12 min-w-[4.2rem] items-center justify-center rounded-full bg-[var(--surface-soft)] px-3 text-xs font-extrabold text-[var(--text-primary)] shadow-md"
+            >
+              دمو
             </button>
           </div>
           <div className="mt-2 flex items-center justify-center gap-2">
