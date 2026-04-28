@@ -7,8 +7,8 @@ import type { useAppRealtime } from '@/context/AppRealtimeSocketContext';
 type LiveCaption = {
   id: string;
   speakerLabel: string;
-  faText: string;
-  enText: string;
+  text: string;
+  language: string;
 };
 
 type Props = {
@@ -73,23 +73,6 @@ function MeetingCaptionsLabComponent({ socket, connected, meetingId }: Props) {
 
   useEffect(() => {
     if (!captionsLabEnabled) return;
-    if (!enabled) {
-      if (hideTimerRef.current !== null) {
-        window.clearTimeout(hideTimerRef.current);
-        hideTimerRef.current = null;
-      }
-      if (segmentStopTimerRef.current !== null) {
-        window.clearTimeout(segmentStopTimerRef.current);
-        segmentStopTimerRef.current = null;
-      }
-      batchInFlightRef.current = false;
-      sessionStartedAtRef.current = null;
-      requestWindowRef.current = { startedAt: 0, count: 0 };
-      pausedByVisibilityRef.current = false;
-      setCaptureError(null);
-      setCaption(null);
-      return;
-    }
     if (!socket || !connected || !meetingId) return;
 
     const clearHideTimer = () => {
@@ -103,18 +86,17 @@ function MeetingCaptionsLabComponent({ socket, connected, meetingId }: Props) {
       meetingId: string;
       id?: string;
       speakerLabel?: string;
-      faText?: string;
-      enText?: string;
+      text?: string;
+      language?: string;
     }) => {
       if (payload.meetingId !== meetingId) return;
-      const faText = payload.faText?.trim();
-      const enText = payload.enText?.trim();
-      if (!faText || !enText) return;
+      const text = payload.text?.trim();
+      if (!text) return;
       setCaption({
         id: payload.id || `${Date.now()}`,
         speakerLabel: payload.speakerLabel?.trim() || 'گوینده',
-        faText,
-        enText,
+        text,
+        language: (payload.language || '').trim().toLowerCase() || 'auto',
       });
       clearHideTimer();
       hideTimerRef.current = window.setTimeout(() => {
@@ -137,7 +119,27 @@ function MeetingCaptionsLabComponent({ socket, connected, meetingId }: Props) {
       socket.off('meeting_caption', onMeetingCaption);
       socket.off('meeting_caption_clear', onMeetingCaptionClear);
     };
-  }, [captionsLabEnabled, connected, enabled, meetingId, socket]);
+  }, [captionsLabEnabled, connected, meetingId, socket]);
+
+  useEffect(() => {
+    if (!captionsLabEnabled) return;
+    if (!enabled) {
+      if (hideTimerRef.current !== null) {
+        window.clearTimeout(hideTimerRef.current);
+        hideTimerRef.current = null;
+      }
+      if (segmentStopTimerRef.current !== null) {
+        window.clearTimeout(segmentStopTimerRef.current);
+        segmentStopTimerRef.current = null;
+      }
+      batchInFlightRef.current = false;
+      sessionStartedAtRef.current = null;
+      requestWindowRef.current = { startedAt: 0, count: 0 };
+      pausedByVisibilityRef.current = false;
+      setCaptureError(null);
+      return;
+    }
+  }, [captionsLabEnabled, enabled]);
 
   useEffect(() => {
     if (!captionsLabEnabled || !enabled || !socket || !connected || !meetingId) return;
@@ -381,7 +383,7 @@ function MeetingCaptionsLabComponent({ socket, connected, meetingId }: Props) {
           enabled ? 'bg-emerald-600 text-white' : 'bg-[var(--surface-soft)] text-[var(--text-primary)]'
         }`}
       >
-        زیرنویس آزمایشی
+        ارسال زیرنویس صدای من
       </button>
       <button
         type="button"
@@ -398,8 +400,8 @@ function MeetingCaptionsLabComponent({ socket, connected, meetingId }: Props) {
             <div className="pointer-events-none fixed inset-x-0 bottom-24 z-40 flex justify-center px-4">
               <div className="max-w-[42rem] rounded-xl bg-black/75 px-3 py-2 text-center text-white">
                 <p className="text-[10px] font-bold text-emerald-200">{caption.speakerLabel}</p>
-                <p className="text-sm font-extrabold leading-tight">{caption.faText}</p>
-                <p className="mt-0.5 text-xs leading-tight text-zinc-200">{caption.enText}</p>
+                <p className="text-sm font-extrabold leading-tight">{caption.text}</p>
+                <p className="mt-0.5 text-[10px] font-bold text-zinc-300">{caption.language.toUpperCase()}</p>
               </div>
             </div>,
             document.body,
