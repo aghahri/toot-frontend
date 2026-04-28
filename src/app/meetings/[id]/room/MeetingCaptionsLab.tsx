@@ -141,11 +141,15 @@ function MeetingCaptionsLabComponent({ socket, connected, meetingId }: Props) {
           if (cancelled || !socket || !connected || !meetingId) return;
           if (!event.data || event.data.size === 0) return;
           const seq = ++chunkSeqRef.current;
-          socket.emit('meeting_caption_chunk', {
-            meetingId,
-            seq,
-            byteLength: event.data.size,
-            mimeType: localRecorder?.mimeType || mimeType || 'audio/webm',
+          void event.data.arrayBuffer().then((ab) => {
+            if (cancelled || !socket || !connected || !meetingId) return;
+            socket.emit('meeting_caption_chunk', {
+              meetingId,
+              seq,
+              byteLength: event.data.size,
+              mimeType: localRecorder?.mimeType || mimeType || 'audio/webm',
+              audioChunk: new Uint8Array(ab),
+            });
           });
         };
         localRecorder.onerror = () => {
