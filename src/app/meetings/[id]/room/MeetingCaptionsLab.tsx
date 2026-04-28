@@ -42,6 +42,28 @@ function MeetingCaptionsLabComponent({ socket, connected, meetingId }: Props) {
     console.debug(`[captions-lab:${meetingId}] ${event}${suffix}`);
   };
 
+  const detectMimeFromBytes = (bytes: Uint8Array, fallback: string): string => {
+    if (bytes.length >= 4) {
+      // WebM / Matroska EBML
+      if (bytes[0] === 0x1a && bytes[1] === 0x45 && bytes[2] === 0xdf && bytes[3] === 0xa3) return 'audio/webm';
+      // OGG
+      if (bytes[0] === 0x4f && bytes[1] === 0x67 && bytes[2] === 0x67 && bytes[3] === 0x53) return 'audio/ogg';
+      // WAV
+      if (bytes[0] === 0x52 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x46) return 'audio/wav';
+      // MP4 family starts with size box then "ftyp" at 4..7
+      if (
+        bytes.length >= 8 &&
+        bytes[4] === 0x66 &&
+        bytes[5] === 0x74 &&
+        bytes[6] === 0x79 &&
+        bytes[7] === 0x70
+      ) {
+        return 'audio/mp4';
+      }
+    }
+    return fallback;
+  };
+
   useEffect(() => {
     mountedRef.current = true;
     return () => {
@@ -171,6 +193,8 @@ function MeetingCaptionsLabComponent({ socket, connected, meetingId }: Props) {
         const ab = await payloadBlob.arrayBuffer();
         if (cancelled || !socket || !connected || !meetingId) return;
         const firstBytes = new Uint8Array(ab.slice(0, 4));
+        const sniffBytes = new Uint8Array(ab.slice(0, 12));
+        const detectedMimeType = detectMimeFromBytes(sniffBytes, mimeType || 'audio/webm');
         const firstBytesHex = Array.from(firstBytes)
           .map((b) => b.toString(16).padStart(2, '0'))
           .join('');
@@ -178,7 +202,7 @@ function MeetingCaptionsLabComponent({ socket, connected, meetingId }: Props) {
           meetingId,
           seq,
           byteLength: payloadBlob.size,
-          mimeType,
+          mimeType: detectedMimeType,
           blobSize: payloadBlob.size,
           batchPartCount: parts.length,
           firstBytesHex,
