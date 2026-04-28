@@ -17,7 +17,7 @@ type Props = {
   meetingId: string;
 };
 
-const CAPTIONS_BATCH_WINDOW_MS = 9000;
+const CAPTIONS_BATCH_WINDOW_MS = 6000;
 const CAPTIONS_MAX_SESSION_MS = 2 * 60 * 1000;
 const CAPTIONS_MAX_REQUESTS_PER_MINUTE = 5;
 
@@ -393,7 +393,9 @@ function MeetingCaptionsLabComponent({ socket, connected, meetingId }: Props) {
       >
         دمو
       </button>
-      <span className="text-[10px] font-bold text-[var(--text-secondary)]">نسخه آزمایشی؛ ممکن است کند باشد</span>
+      <span className="text-[10px] font-bold text-[var(--text-secondary)]">
+        نسخه آزمایشی؛ فعلاً برای گفتار انگلیسی بهتر عمل می‌کند
+      </span>
       {captureError ? <span className="text-[10px] font-bold text-amber-300">{captureError}</span> : null}
       {mountedRef.current && caption
         ? createPortal(
