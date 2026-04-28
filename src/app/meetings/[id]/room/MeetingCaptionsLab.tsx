@@ -29,10 +29,8 @@ function MeetingCaptionsLabComponent({ socket, connected, meetingId }: Props) {
   const hideTimerRef = useRef<number | null>(null);
   const recorderRef = useRef<MediaRecorder | null>(null);
   const recorderStreamRef = useRef<MediaStream | null>(null);
+  const segmentStopTimerRef = useRef<number | null>(null);
   const chunkSeqRef = useRef(0);
-  const batchChunksRef = useRef<Blob[]>([]);
-  const batchBytesRef = useRef(0);
-  const batchTimerRef = useRef<number | null>(null);
   const batchInFlightRef = useRef(false);
   const sessionStartedAtRef = useRef<number | null>(null);
   const requestWindowRef = useRef<{ startedAt: number; count: number }>({ startedAt: 0, count: 0 });
@@ -58,12 +56,10 @@ function MeetingCaptionsLabComponent({ socket, connected, meetingId }: Props) {
         window.clearTimeout(hideTimerRef.current);
         hideTimerRef.current = null;
       }
-      if (batchTimerRef.current !== null) {
-        window.clearTimeout(batchTimerRef.current);
-        batchTimerRef.current = null;
+      if (segmentStopTimerRef.current !== null) {
+        window.clearTimeout(segmentStopTimerRef.current);
+        segmentStopTimerRef.current = null;
       }
-      batchChunksRef.current = [];
-      batchBytesRef.current = 0;
       batchInFlightRef.current = false;
       sessionStartedAtRef.current = null;
       requestWindowRef.current = { startedAt: 0, count: 0 };
@@ -126,26 +122,20 @@ function MeetingCaptionsLabComponent({ socket, connected, meetingId }: Props) {
 
     let cancelled = false;
     let localRecorder: MediaRecorder | null = null;
+    let segmentParts: Blob[] = [];
 
-    const clearBatchTimer = () => {
-      if (batchTimerRef.current !== null) {
-        window.clearTimeout(batchTimerRef.current);
-        batchTimerRef.current = null;
+    const clearSegmentStopTimer = () => {
+      if (segmentStopTimerRef.current !== null) {
+        window.clearTimeout(segmentStopTimerRef.current);
+        segmentStopTimerRef.current = null;
       }
     };
 
-    const resetBatch = () => {
-      batchChunksRef.current = [];
-      batchBytesRef.current = 0;
-      clearBatchTimer();
-    };
-
-    const flushBatch = async (reason: string) => {
+    const sendSegment = async (reason: string, mimeType: string, parts: Blob[]) => {
       if (cancelled || !socket || !connected || !meetingId) return;
-      if (batchChunksRef.current.length === 0 || batchBytesRef.current <= 0) return;
+      if (parts.length === 0) return;
       if (batchInFlightRef.current) {
-        logLab('batch-skipped-inflight', { reason, chunks: batchChunksRef.current.length });
-        resetBatch();
+        logLab('batch-skipped-inflight', { reason, parts: parts.length });
         return;
       }
       const now = Date.now();
@@ -154,7 +144,6 @@ function MeetingCaptionsLabComponent({ socket, connected, meetingId }: Props) {
         logLab('batch-stopped-session-limit', { reason });
         setCaptureError('جلسه آزمایشی زیرنویس به پایان رسید');
         setEnabled(false);
-        resetBatch();
         return;
       }
 
@@ -165,31 +154,34 @@ function MeetingCaptionsLabComponent({ socket, connected, meetingId }: Props) {
         requestWindowRef.current.count >= CAPTIONS_MAX_REQUESTS_PER_MINUTE
       ) {
         logLab('batch-dropped-rate-limit', { reason, requests: requestWindowRef.current.count });
-        resetBatch();
         return;
       }
 
-      const mimeType = localRecorder?.mimeType || recorderRef.current?.mimeType || 'audio/webm';
-      const payloadBlob = new Blob(batchChunksRef.current, { type: mimeType });
+      const payloadBlob = new Blob(parts, { type: mimeType || 'audio/webm' });
       if (payloadBlob.size <= 0) {
-        resetBatch();
         return;
       }
 
       const seq = ++chunkSeqRef.current;
       const startedAt = performance.now();
       batchInFlightRef.current = true;
-      resetBatch();
       requestWindowRef.current.count += 1;
-      logLab('batch-sent', { seq, byteLength: payloadBlob.size, reason });
+      logLab('batch-sent', { seq, blobSize: payloadBlob.size, batchPartCount: parts.length, mimeType, reason });
       try {
         const ab = await payloadBlob.arrayBuffer();
         if (cancelled || !socket || !connected || !meetingId) return;
+        const firstBytes = new Uint8Array(ab.slice(0, 4));
+        const firstBytesHex = Array.from(firstBytes)
+          .map((b) => b.toString(16).padStart(2, '0'))
+          .join('');
         socket.emit('meeting_caption_chunk', {
           meetingId,
           seq,
           byteLength: payloadBlob.size,
           mimeType,
+          blobSize: payloadBlob.size,
+          batchPartCount: parts.length,
+          firstBytesHex,
           audioChunk: new Uint8Array(ab),
         });
       } finally {
@@ -198,25 +190,51 @@ function MeetingCaptionsLabComponent({ socket, connected, meetingId }: Props) {
       }
     };
 
-    const scheduleBatchFlush = () => {
-      if (batchTimerRef.current !== null) return;
-      logLab('batch-started', { chunks: batchChunksRef.current.length, byteLength: batchBytesRef.current });
-      batchTimerRef.current = window.setTimeout(() => {
-        batchTimerRef.current = null;
-        void flushBatch('timer');
-      }, CAPTIONS_BATCH_WINDOW_MS);
-    };
-
-    const stopCapture = () => {
-      clearBatchTimer();
-      resetBatch();
-      if (localRecorder && localRecorder.state !== 'inactive') {
+    const stopCurrentRecorder = () => {
+      if (!localRecorder) return;
+      if (localRecorder.state !== 'inactive') {
         try {
           localRecorder.stop();
         } catch {
           // ignored
         }
       }
+    };
+
+    const startSegmentSession = () => {
+      if (cancelled || !enabled || !socket || !connected || !meetingId) return;
+      if (batchInFlightRef.current) {
+        logLab('batch-skipped-inflight', { reason: 'segment-start' });
+        return;
+      }
+      if (sessionStartedAtRef.current === null) {
+        sessionStartedAtRef.current = Date.now();
+      }
+      const now = Date.now();
+      if (now - sessionStartedAtRef.current > CAPTIONS_MAX_SESSION_MS) {
+        setCaptureError('جلسه آزمایشی زیرنویس به پایان رسید');
+        setEnabled(false);
+        return;
+      }
+      if (!localRecorder || localRecorder.state !== 'inactive') return;
+      segmentParts = [];
+      logLab('batch-started', { windowMs: CAPTIONS_BATCH_WINDOW_MS });
+      try {
+        localRecorder.start(1000);
+      } catch {
+        setCaptureError('شروع ضبط زیرنویس ناموفق بود');
+        setEnabled(false);
+        return;
+      }
+      clearSegmentStopTimer();
+      segmentStopTimerRef.current = window.setTimeout(() => {
+        stopCurrentRecorder();
+      }, CAPTIONS_BATCH_WINDOW_MS);
+    };
+
+    const stopCapture = () => {
+      clearSegmentStopTimer();
+      stopCurrentRecorder();
       if (recorderRef.current && recorderRef.current.state !== 'inactive') {
         try {
           recorderRef.current.stop();
@@ -245,21 +263,30 @@ function MeetingCaptionsLabComponent({ socket, connected, meetingId }: Props) {
         const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus') ? 'audio/webm;codecs=opus' : undefined;
         localRecorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
         recorderRef.current = localRecorder;
+        const finalMimeType = localRecorder.mimeType || mimeType || 'audio/webm';
         localRecorder.ondataavailable = (event: BlobEvent) => {
-          if (cancelled || !socket || !connected || !meetingId) return;
+          if (cancelled) return;
           if (!event.data || event.data.size === 0) return;
-          batchChunksRef.current.push(event.data);
-          batchBytesRef.current += event.data.size;
-          scheduleBatchFlush();
+          segmentParts.push(event.data);
         };
         localRecorder.onstop = () => {
-          void flushBatch('recorder-stop');
+          clearSegmentStopTimer();
+          const parts = segmentParts;
+          segmentParts = [];
+          if (parts.length > 0) {
+            void sendSegment('segment-stop', finalMimeType, parts);
+          }
+          if (!cancelled && enabled && connected) {
+            window.setTimeout(() => {
+              startSegmentSession();
+            }, 60);
+          }
         };
         localRecorder.onerror = () => {
           setCaptureError('خطا در ضبط صدای زیرنویس');
           setEnabled(false);
         };
-        localRecorder.start(1000);
+        startSegmentSession();
       } catch (error) {
         setCaptureError('دسترسی میکروفون برای زیرنویس داده نشد');
         setEnabled(false);
