@@ -1,8 +1,9 @@
 'use client';
 
 import Link from 'next/link';
+import dynamic from 'next/dynamic';
 import { useParams, useRouter } from 'next/navigation';
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AuthGate } from '@/components/AuthGate';
 import { useAppRealtime } from '@/context/AppRealtimeSocketContext';
 import { fetchJoinToken, fetchMeeting, fetchMeetingChat, type JoinTokenResponse, type MeetingDetail } from '@/lib/meetings';
@@ -35,12 +36,7 @@ type LocalReactionBurst = {
   emoji: string;
 };
 
-type LiveCaption = {
-  id: string;
-  speakerLabel: string;
-  faText: string;
-  enText: string;
-};
+const MeetingCaptionsLab = dynamic(() => import('./MeetingCaptionsLab'), { ssr: false });
 
 export default function MeetingRoomPage() {
   const params = useParams();
@@ -65,7 +61,6 @@ export default function MeetingRoomPage() {
   const [chatDraft, setChatDraft] = useState('');
   const [chatMessages, setChatMessages] = useState<LocalMeetingChatMessage[]>([]);
   const [reactionBursts, setReactionBursts] = useState<LocalReactionBurst[]>([]);
-  const [captionsEnabled, setCaptionsEnabled] = useState(false);
   const [screenShareNotice, setScreenShareNotice] = useState<string | null>(null);
   const [rtcStage, setRtcStage] = useState<RtcStage>('waiting');
   const [offererUserId, setOffererUserId] = useState<string | null>(null);
@@ -798,11 +793,6 @@ export default function MeetingRoomPage() {
     window.setTimeout(() => setScreenShareNotice(null), 2500);
   }
 
-  const triggerDemoCaptions = useCallback(() => {
-    if (!captionsLabAvailable || !socket || !id) return;
-    socket.emit('meeting_caption_trigger_demo', { meetingId: id });
-  }, [captionsLabAvailable, id, socket]);
-
   return (
     <AuthGate>
       <div className="flex min-h-[calc(100vh-8rem)] flex-col bg-[var(--surface-strong)]">
@@ -876,9 +866,6 @@ export default function MeetingRoomPage() {
               </div>
             ) : null}
 
-            {captionsLabAvailable && captionsEnabled ? (
-              <MeetingCaptionsOverlay socket={socket} connected={connected} meetingId={id} />
-            ) : null}
           </div>
 
           <div className="rounded-2xl border border-dashed border-[var(--border-soft)] bg-[var(--card-bg)] p-2 ring-1 ring-[var(--border-soft)]">
@@ -973,13 +960,7 @@ export default function MeetingRoomPage() {
             >
               اشتراک صفحه
             </button>
-            {captionsLabAvailable ? (
-              <MeetingCaptionsControls
-                enabled={captionsEnabled}
-                onToggle={() => setCaptionsEnabled((v) => !v)}
-                onTriggerDemo={triggerDemoCaptions}
-              />
-            ) : null}
+            {captionsLabAvailable ? <MeetingCaptionsLab socket={socket} connected={connected} meetingId={id} /> : null}
           </div>
           <div className="mt-2 flex items-center justify-center gap-2">
             {SELF_REACTIONS.map((emoji) => (
@@ -1085,139 +1066,6 @@ export default function MeetingRoomPage() {
     </AuthGate>
   );
 }
-
-const MeetingCaptionsOverlay = memo(function MeetingCaptionsOverlay({
-  socket,
-  connected,
-  meetingId,
-}: {
-  socket: ReturnType<typeof useAppRealtime>['socket'];
-  connected: boolean;
-  meetingId: string;
-}) {
-  const [caption, setCaption] = useState<LiveCaption | null>(null);
-  const [visible, setVisible] = useState(false);
-  const hideTimerRef = useRef<number | null>(null);
-  const clearTimerRef = useRef<number | null>(null);
-
-  useEffect(() => {
-    if (!socket || !connected || !meetingId) return;
-
-    const clearHideTimer = () => {
-      if (hideTimerRef.current) {
-        clearTimeout(hideTimerRef.current);
-        hideTimerRef.current = null;
-      }
-    };
-    const clearClearTimer = () => {
-      if (clearTimerRef.current) {
-        clearTimeout(clearTimerRef.current);
-        clearTimerRef.current = null;
-      }
-    };
-
-    const scheduleHide = () => {
-      clearHideTimer();
-      clearClearTimer();
-      hideTimerRef.current = window.setTimeout(() => {
-        setVisible(false);
-        clearTimerRef.current = window.setTimeout(() => {
-          setCaption(null);
-          clearTimerRef.current = null;
-        }, 220);
-      }, 4500);
-    };
-
-    const onMeetingCaption = (payload: {
-      meetingId: string;
-      id?: string;
-      speakerLabel?: string;
-      faText?: string;
-      enText?: string;
-    }) => {
-      if (payload.meetingId !== meetingId) return;
-      const faText = payload.faText?.trim();
-      const enText = payload.enText?.trim();
-      if (!faText || !enText) return;
-      setCaption({
-        id: payload.id || `${Date.now()}`,
-        speakerLabel: payload.speakerLabel?.trim() || 'گوینده',
-        faText,
-        enText,
-      });
-      setVisible(true);
-      scheduleHide();
-    };
-
-    const onMeetingCaptionClear = (payload: { meetingId: string }) => {
-      if (payload.meetingId !== meetingId) return;
-      clearHideTimer();
-      clearClearTimer();
-      setVisible(false);
-      clearTimerRef.current = window.setTimeout(() => {
-        setCaption(null);
-        clearTimerRef.current = null;
-      }, 220);
-    };
-
-    socket.on('meeting_caption', onMeetingCaption);
-    socket.on('meeting_caption_clear', onMeetingCaptionClear);
-
-    return () => {
-      clearHideTimer();
-      clearClearTimer();
-      socket.off('meeting_caption', onMeetingCaption);
-      socket.off('meeting_caption_clear', onMeetingCaptionClear);
-    };
-  }, [connected, meetingId, socket]);
-
-  if (!caption) return null;
-
-  return (
-    <div className="pointer-events-none absolute inset-x-4 bottom-3 z-30 flex justify-center">
-      <div
-        className={`max-w-[92%] rounded-xl bg-black/72 px-3 py-2 text-center text-white transition-opacity duration-200 ${
-          visible ? 'opacity-100' : 'opacity-0'
-        }`}
-      >
-        <p className="text-[10px] font-bold text-emerald-200">{caption.speakerLabel}</p>
-        <p className="text-sm font-extrabold leading-tight">{caption.faText}</p>
-        <p className="mt-0.5 text-xs leading-tight text-zinc-200">{caption.enText}</p>
-      </div>
-    </div>
-  );
-});
-
-const MeetingCaptionsControls = memo(function MeetingCaptionsControls({
-  enabled,
-  onToggle,
-  onTriggerDemo,
-}: {
-  enabled: boolean;
-  onToggle: () => void;
-  onTriggerDemo: () => void;
-}) {
-  return (
-    <>
-      <button
-        type="button"
-        onClick={onToggle}
-        className={`flex h-12 min-w-[5.2rem] items-center justify-center rounded-full px-3 text-xs font-extrabold shadow-md ${
-          enabled ? 'bg-emerald-600 text-white' : 'bg-[var(--surface-soft)] text-[var(--text-primary)]'
-        }`}
-      >
-        زیرنویس آزمایشی
-      </button>
-      <button
-        type="button"
-        onClick={onTriggerDemo}
-        className="flex h-12 min-w-[4.2rem] items-center justify-center rounded-full bg-[var(--surface-soft)] px-3 text-xs font-extrabold text-[var(--text-primary)] shadow-md"
-      >
-        دمو
-      </button>
-    </>
-  );
-});
 
 function SelfPreviewVideo({ stream, className }: { stream: MediaStream | null; className?: string }) {
   const ref = useRef<HTMLVideoElement | null>(null);
