@@ -36,14 +36,14 @@ type LocalReactionBurst = {
   emoji: string;
 };
 
-const MeetingCaptionsLab = dynamic(() => import('./MeetingCaptionsLab'), { ssr: false });
+const captionsLabEnabled = process.env.NEXT_PUBLIC_MEETING_CAPTIONS_ENABLED === 'true';
+const MeetingCaptionsLab = captionsLabEnabled ? dynamic(() => import('./MeetingCaptionsLab'), { ssr: false }) : null;
 
 export default function MeetingRoomPage() {
   const params = useParams();
   const router = useRouter();
   const { socket, connected } = useAppRealtime();
   const id = typeof params?.id === 'string' ? params.id : '';
-  const captionsLabAvailable = process.env.NEXT_PUBLIC_MEETING_CAPTIONS_ENABLED === 'true';
 
   const [m, setM] = useState<MeetingDetail | null>(null);
   const [join, setJoin] = useState<JoinTokenResponse | null>(null);
@@ -960,7 +960,9 @@ export default function MeetingRoomPage() {
             >
               اشتراک صفحه
             </button>
-            {captionsLabAvailable ? <MeetingCaptionsLab socket={socket} connected={connected} meetingId={id} /> : null}
+            {captionsLabEnabled && MeetingCaptionsLab ? (
+              <MeetingCaptionsLab socket={socket} connected={connected} meetingId={id} />
+            ) : null}
           </div>
           <div className="mt-2 flex items-center justify-center gap-2">
             {SELF_REACTIONS.map((emoji) => (

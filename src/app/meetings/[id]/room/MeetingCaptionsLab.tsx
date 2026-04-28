@@ -18,10 +18,13 @@ type Props = {
 };
 
 function MeetingCaptionsLabComponent({ socket, connected, meetingId }: Props) {
+  const captionsLabEnabled = process.env.NEXT_PUBLIC_MEETING_CAPTIONS_ENABLED === 'true';
   const [enabled, setEnabled] = useState(false);
   const [caption, setCaption] = useState<LiveCaption | null>(null);
   const hideTimerRef = useRef<number | null>(null);
   const mountedRef = useRef(false);
+
+  if (!captionsLabEnabled) return null;
 
   useEffect(() => {
     mountedRef.current = true;
