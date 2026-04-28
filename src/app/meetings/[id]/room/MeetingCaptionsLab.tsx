@@ -21,10 +21,12 @@ function MeetingCaptionsLabComponent({ socket, connected, meetingId }: Props) {
   const captionsLabEnabled = process.env.NEXT_PUBLIC_MEETING_CAPTIONS_ENABLED === 'true';
   const [enabled, setEnabled] = useState(false);
   const [caption, setCaption] = useState<LiveCaption | null>(null);
+  const [captureError, setCaptureError] = useState<string | null>(null);
   const hideTimerRef = useRef<number | null>(null);
+  const recorderRef = useRef<MediaRecorder | null>(null);
+  const recorderStreamRef = useRef<MediaStream | null>(null);
+  const chunkSeqRef = useRef(0);
   const mountedRef = useRef(false);
-
-  if (!captionsLabEnabled) return null;
 
   useEffect(() => {
     mountedRef.current = true;
@@ -34,11 +36,13 @@ function MeetingCaptionsLabComponent({ socket, connected, meetingId }: Props) {
   }, []);
 
   useEffect(() => {
+    if (!captionsLabEnabled) return;
     if (!enabled) {
       if (hideTimerRef.current !== null) {
         window.clearTimeout(hideTimerRef.current);
         hideTimerRef.current = null;
       }
+      setCaptureError(null);
       setCaption(null);
       return;
     }
@@ -89,7 +93,82 @@ function MeetingCaptionsLabComponent({ socket, connected, meetingId }: Props) {
       socket.off('meeting_caption', onMeetingCaption);
       socket.off('meeting_caption_clear', onMeetingCaptionClear);
     };
-  }, [connected, enabled, meetingId, socket]);
+  }, [captionsLabEnabled, connected, enabled, meetingId, socket]);
+
+  useEffect(() => {
+    if (!captionsLabEnabled || !enabled || !socket || !connected || !meetingId) return;
+
+    let cancelled = false;
+    let localRecorder: MediaRecorder | null = null;
+
+    const stopCapture = () => {
+      if (localRecorder && localRecorder.state !== 'inactive') {
+        try {
+          localRecorder.stop();
+        } catch {
+          // ignored
+        }
+      }
+      if (recorderRef.current && recorderRef.current.state !== 'inactive') {
+        try {
+          recorderRef.current.stop();
+        } catch {
+          // ignored
+        }
+      }
+      recorderRef.current = null;
+      const stream = recorderStreamRef.current;
+      recorderStreamRef.current = null;
+      if (stream) {
+        stream.getTracks().forEach((track) => track.stop());
+      }
+    };
+
+    const startCapture = async () => {
+      try {
+        setCaptureError(null);
+        chunkSeqRef.current = 0;
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+        if (cancelled) {
+          stream.getTracks().forEach((track) => track.stop());
+          return;
+        }
+        recorderStreamRef.current = stream;
+        const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus') ? 'audio/webm;codecs=opus' : undefined;
+        localRecorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
+        recorderRef.current = localRecorder;
+        localRecorder.ondataavailable = (event: BlobEvent) => {
+          if (cancelled || !socket || !connected || !meetingId) return;
+          if (!event.data || event.data.size === 0) return;
+          const seq = ++chunkSeqRef.current;
+          socket.emit('meeting_caption_chunk', {
+            meetingId,
+            seq,
+            byteLength: event.data.size,
+            mimeType: localRecorder?.mimeType || mimeType || 'audio/webm',
+          });
+        };
+        localRecorder.onerror = () => {
+          setCaptureError('خطا در ضبط صدای زیرنویس');
+          setEnabled(false);
+        };
+        localRecorder.start(1200);
+      } catch (error) {
+        setCaptureError('دسترسی میکروفون برای زیرنویس داده نشد');
+        setEnabled(false);
+        stopCapture();
+      }
+    };
+
+    void startCapture();
+
+    return () => {
+      cancelled = true;
+      stopCapture();
+    };
+  }, [captionsLabEnabled, connected, enabled, meetingId, socket]);
+
+  if (!captionsLabEnabled) return null;
 
   function triggerDemoCaptions() {
     if (!enabled || !socket || !meetingId) return;
@@ -115,6 +194,7 @@ function MeetingCaptionsLabComponent({ socket, connected, meetingId }: Props) {
       >
         دمو
       </button>
+      {captureError ? <span className="text-[10px] font-bold text-amber-300">{captureError}</span> : null}
       {mountedRef.current && caption
         ? createPortal(
             <div className="pointer-events-none fixed inset-x-0 bottom-24 z-40 flex justify-center px-4">
