@@ -17,16 +17,19 @@ type Props = {
   meetingId: string;
 };
 
-const CAPTIONS_BATCH_WINDOW_MS = 6000;
+const CAPTIONS_BATCH_WINDOW_MS = 3500;
 const CAPTIONS_MAX_SESSION_MS = 2 * 60 * 1000;
-const CAPTIONS_MAX_REQUESTS_PER_MINUTE = 5;
+const CAPTIONS_MAX_REQUESTS_PER_MINUTE = 8;
+const CAPTIONS_PROCESSING_TIMEOUT_MS = 12000;
 
 function MeetingCaptionsLabComponent({ socket, connected, meetingId }: Props) {
   const captionsLabEnabled = process.env.NEXT_PUBLIC_MEETING_CAPTIONS_ENABLED === 'true';
   const [enabled, setEnabled] = useState(false);
   const [caption, setCaption] = useState<LiveCaption | null>(null);
   const [captureError, setCaptureError] = useState<string | null>(null);
+  const [processing, setProcessing] = useState(false);
   const hideTimerRef = useRef<number | null>(null);
+  const processingTimerRef = useRef<number | null>(null);
   const recorderRef = useRef<MediaRecorder | null>(null);
   const recorderStreamRef = useRef<MediaStream | null>(null);
   const segmentStopTimerRef = useRef<number | null>(null);
@@ -81,6 +84,12 @@ function MeetingCaptionsLabComponent({ socket, connected, meetingId }: Props) {
         hideTimerRef.current = null;
       }
     };
+    const clearProcessingTimer = () => {
+      if (processingTimerRef.current !== null) {
+        window.clearTimeout(processingTimerRef.current);
+        processingTimerRef.current = null;
+      }
+    };
 
     const onMeetingCaption = (payload: {
       meetingId: string;
@@ -92,6 +101,8 @@ function MeetingCaptionsLabComponent({ socket, connected, meetingId }: Props) {
       if (payload.meetingId !== meetingId) return;
       const text = payload.text?.trim();
       if (!text) return;
+      clearProcessingTimer();
+      setProcessing(false);
       setCaption({
         id: payload.id || `${Date.now()}`,
         speakerLabel: payload.speakerLabel?.trim() || 'گوینده',
@@ -108,6 +119,8 @@ function MeetingCaptionsLabComponent({ socket, connected, meetingId }: Props) {
     const onMeetingCaptionClear = (payload: { meetingId: string }) => {
       if (payload.meetingId !== meetingId) return;
       clearHideTimer();
+      clearProcessingTimer();
+      setProcessing(false);
       setCaption(null);
     };
 
@@ -116,6 +129,7 @@ function MeetingCaptionsLabComponent({ socket, connected, meetingId }: Props) {
 
     return () => {
       clearHideTimer();
+      clearProcessingTimer();
       socket.off('meeting_caption', onMeetingCaption);
       socket.off('meeting_caption_clear', onMeetingCaptionClear);
     };
@@ -137,6 +151,11 @@ function MeetingCaptionsLabComponent({ socket, connected, meetingId }: Props) {
       requestWindowRef.current = { startedAt: 0, count: 0 };
       pausedByVisibilityRef.current = false;
       setCaptureError(null);
+      setProcessing(false);
+      if (processingTimerRef.current !== null) {
+        window.clearTimeout(processingTimerRef.current);
+        processingTimerRef.current = null;
+      }
       return;
     }
   }, [captionsLabEnabled, enabled]);
@@ -190,6 +209,14 @@ function MeetingCaptionsLabComponent({ socket, connected, meetingId }: Props) {
       const startedAt = performance.now();
       batchInFlightRef.current = true;
       requestWindowRef.current.count += 1;
+      setProcessing(true);
+      if (processingTimerRef.current !== null) {
+        window.clearTimeout(processingTimerRef.current);
+      }
+      processingTimerRef.current = window.setTimeout(() => {
+        setProcessing(false);
+        processingTimerRef.current = null;
+      }, CAPTIONS_PROCESSING_TIMEOUT_MS);
       logLab('batch-sent', { seq, blobSize: payloadBlob.size, batchPartCount: parts.length, mimeType, reason });
       try {
         const ab = await payloadBlob.arrayBuffer();
@@ -229,10 +256,6 @@ function MeetingCaptionsLabComponent({ socket, connected, meetingId }: Props) {
 
     const startSegmentSession = () => {
       if (cancelled || !enabled || !socket || !connected || !meetingId) return;
-      if (batchInFlightRef.current) {
-        logLab('batch-skipped-inflight', { reason: 'segment-start' });
-        return;
-      }
       if (sessionStartedAtRef.current === null) {
         sessionStartedAtRef.current = Date.now();
       }
@@ -397,6 +420,9 @@ function MeetingCaptionsLabComponent({ socket, connected, meetingId }: Props) {
         نسخه آزمایشی؛ فعلاً برای گفتار انگلیسی بهتر عمل می‌کند
       </span>
       {captureError ? <span className="text-[10px] font-bold text-amber-300">{captureError}</span> : null}
+      {enabled && processing ? (
+        <span className="text-[10px] font-bold text-zinc-300">در حال پردازش...</span>
+      ) : null}
       {mountedRef.current && caption
         ? createPortal(
             <div className="pointer-events-none fixed inset-x-0 bottom-24 z-40 flex justify-center px-4">
