@@ -25,6 +25,7 @@ type NetworkRow = {
 };
 
 type AssistantSource = {
+  id?: string;
   title: string;
   type?: string;
   networkId?: string;
@@ -67,6 +68,7 @@ function normalizeAssistantResult(payload: unknown): AssistantResult {
               : '';
       if (!title) return acc;
       acc.push({
+        id: typeof item.id === 'string' ? item.id : undefined,
         title,
         type: typeof item.type === 'string' ? item.type : undefined,
         networkId: typeof item.networkId === 'string' ? item.networkId : undefined,
@@ -89,6 +91,29 @@ function normalizeAssistantResult(payload: unknown): AssistantResult {
     sources,
     suggestions,
   };
+}
+
+function sourceTypeFa(type?: string): string {
+  if (type === 'post') return 'پست';
+  if (type === 'business' || type === 'directory') return 'کسب‌وکار';
+  if (type === 'poll') return 'نظرسنجی';
+  if (type === 'bulletin') return 'اطلاعیه';
+  if (type === 'spotlight') return 'ویترین';
+  return 'منبع';
+}
+
+function sourceHref(src: AssistantSource): string {
+  const sid = src.id?.trim() ?? '';
+  if (src.type === 'post') {
+    return sid ? `/home?postId=${encodeURIComponent(sid)}` : '/home';
+  }
+  if (src.type === 'business' || src.type === 'directory') {
+    return sid ? `/spaces/business/directory/${encodeURIComponent(sid)}` : '/spaces/business/directory';
+  }
+  if (src.type === 'poll') return '/spaces/neighborhood/polls';
+  if (src.type === 'bulletin') return '/spaces/neighborhood/bulletin';
+  if (src.type === 'spotlight') return '/spaces/neighborhood/showcase';
+  return '/spaces/neighborhood/showcase';
 }
 
 export default function NeighborhoodAssistantDevPage() {
@@ -300,12 +325,25 @@ export default function NeighborhoodAssistantDevPage() {
               <Card>
                 <h2 className="text-sm font-extrabold text-[var(--text-primary)]">منابع</h2>
                 {result.sources.length > 0 ? (
-                  <ul className="mt-2 space-y-1.5 text-xs text-[var(--text-secondary)]">
+                  <ul className="mt-2 space-y-2">
                     {result.sources.map((src, idx) => (
-                      <li key={`${src.title}-${idx}`} className="rounded-xl bg-[var(--surface-soft)] px-3 py-2">
-                        <span className="font-semibold text-[var(--text-primary)]">{src.title}</span>
-                        {src.type ? <span> · {src.type}</span> : null}
-                        {src.networkId ? <span> · {src.networkId}</span> : null}
+                      <li key={`${src.type ?? 'source'}-${src.id ?? idx}-${src.title}`}>
+                        <Link
+                          href={sourceHref(src)}
+                          className="group block rounded-xl border border-[var(--border-soft)] bg-[var(--surface-soft)] px-3 py-2.5 transition hover:bg-[var(--card-bg)] hover:shadow-sm active:scale-[0.99]"
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="rounded-full border border-[var(--border-soft)] px-2 py-0.5 text-[10px] font-bold text-[var(--text-secondary)]">
+                              {sourceTypeFa(src.type)}
+                            </span>
+                            <span className="text-xs font-bold text-[var(--accent-hover)] transition group-hover:translate-x-[-1px]">
+                              ←
+                            </span>
+                          </div>
+                          <p className="mt-1.5 line-clamp-2 text-xs font-semibold text-[var(--text-primary)]">
+                            {src.title}
+                          </p>
+                        </Link>
                       </li>
                     ))}
                   </ul>
