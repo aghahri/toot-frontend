@@ -1,16 +1,26 @@
 'use client';
 
-import { FormEvent, useCallback, useMemo, useState } from 'react';
+import Link from 'next/link';
+import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import { AuthGate } from '@/components/AuthGate';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { apiFetch } from '@/lib/api';
 import { getAccessToken } from '@/lib/auth';
 import { featureFlags } from '@/lib/feature-flags';
+import {
+  dedupedGet,
+  getCachedNetworksList,
+  NEIGHBORHOOD_NETWORKS_QUERY,
+  readLastSelectedNetworkId,
+  setCachedNetworksList,
+  writeLastSelectedNetworkId,
+} from '@/lib/neighborhoodFormsPerf';
 
 type NetworkRow = {
   id: string;
   name: string;
+  spaceCategory?: string;
   isMember?: boolean;
 };
 
@@ -86,10 +96,11 @@ export default function NeighborhoodAssistantDevPage() {
   const [question, setQuestion] = useState('');
   const [networkId, setNetworkId] = useState('');
   const [networks, setNetworks] = useState<NetworkRow[]>([]);
-  const [networksLoading, setNetworksLoading] = useState(false);
+  const [networksLoading, setNetworksLoading] = useState(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<AssistantResult | null>(null);
+  const NETWORKS_PATH = `networks?${NEIGHBORHOOD_NETWORKS_QUERY}`;
 
   const selectedNetwork = useMemo(
     () => networks.find((row) => row.id === networkId) ?? null,
@@ -99,19 +110,52 @@ export default function NeighborhoodAssistantDevPage() {
   const loadNetworks = useCallback(async () => {
     if (!enabled) return;
     const token = getAccessToken();
-    if (!token) return;
-    setNetworksLoading(true);
+    if (!token) {
+      setError('برای استفاده از دستیار باید وارد شوید.');
+      setNetworksLoading(false);
+      return;
+    }
+    const cached = getCachedNetworksList<NetworkRow[]>(NEIGHBORHOOD_NETWORKS_QUERY);
+    if (cached?.length) {
+      setNetworks(cached);
+      const last = readLastSelectedNetworkId();
+      const pick = last && cached.some((row) => row.id === last) ? last : cached[0].id;
+      setNetworkId((prev) => (prev && cached.some((row) => row.id === prev) ? prev : pick));
+      setNetworksLoading(false);
+    } else {
+      setNetworksLoading(true);
+    }
     try {
-      const rows = await apiFetch<NetworkRow[]>('networks', { method: 'GET', token });
-      const joined = rows.filter((row) => row.isMember !== false);
+      const fresh = await dedupedGet(`GET:${NETWORKS_PATH}`, () =>
+        apiFetch<NetworkRow[]>(NETWORKS_PATH, { method: 'GET', token }),
+      );
+      const joined = fresh.filter((row) => row.isMember !== false);
+      setCachedNetworksList(NEIGHBORHOOD_NETWORKS_QUERY, joined);
       setNetworks(joined);
-      setNetworkId((prev) => prev || joined[0]?.id || '');
-    } catch {
+      setNetworkId((prev) => {
+        if (prev && joined.some((row) => row.id === prev)) return prev;
+        const last = readLastSelectedNetworkId();
+        if (last && joined.some((row) => row.id === last)) return last;
+        return joined[0]?.id ?? '';
+      });
+      setError(null);
+    } catch (e) {
       setNetworks([]);
+      setError(e instanceof Error ? e.message : 'بارگذاری شبکه‌ها ممکن نیست');
     } finally {
       setNetworksLoading(false);
     }
-  }, [enabled]);
+  }, [NETWORKS_PATH, enabled]);
+
+  useEffect(() => {
+    if (!enabled) return;
+    void loadNetworks();
+  }, [enabled, loadNetworks]);
+
+  useEffect(() => {
+    if (!networkId) return;
+    writeLastSelectedNetworkId(networkId);
+  }, [networkId]);
 
   const ask = useCallback(
     async (q: string) => {
@@ -127,7 +171,7 @@ export default function NeighborhoodAssistantDevPage() {
         return;
       }
       if (!networkId.trim()) {
-        setError('شناسه شبکه لازم است.');
+        setError('ابتدا شبکه محله را انتخاب کنید.');
         return;
       }
 
@@ -180,13 +224,25 @@ export default function NeighborhoodAssistantDevPage() {
             </p>
           </div>
 
-          <button
-            type="button"
-            onClick={() => void loadNetworks()}
-            className="rounded-xl border border-[var(--border-soft)] px-3 py-2 text-xs font-bold text-[var(--text-primary)] transition hover:bg-[var(--surface-soft)]"
-          >
-            {networksLoading ? 'در حال بارگذاری شبکه‌ها...' : 'بارگذاری شبکه‌های من'}
-          </button>
+          {networksLoading ? (
+            <div className="rounded-xl bg-[var(--surface-soft)] px-3 py-3 text-xs font-semibold text-[var(--text-secondary)]">
+              در حال بارگذاری محله‌های شما...
+            </div>
+          ) : null}
+
+          {!networksLoading && networks.length === 0 ? (
+            <Card className="space-y-3">
+              <p className="text-sm font-semibold text-[var(--text-primary)]">
+                برای استفاده از دستیار محله، ابتدا عضو یک محله شوید.
+              </p>
+              <Link
+                href="/spaces"
+                className="inline-flex rounded-xl border border-[var(--border-soft)] px-3 py-2 text-xs font-bold text-[var(--text-primary)] transition hover:bg-[var(--surface-soft)]"
+              >
+                رفتن به فضاها
+              </Link>
+            </Card>
+          ) : null}
 
           <form className="space-y-3" onSubmit={onSubmit}>
             <label className="block text-xs font-bold text-[var(--text-primary)]">
@@ -200,9 +256,9 @@ export default function NeighborhoodAssistantDevPage() {
               />
             </label>
 
-            {networks.length > 0 ? (
+            {!networksLoading && networks.length > 0 ? (
               <label className="block text-xs font-bold text-[var(--text-primary)]">
-                شبکه
+                محله
                 <select
                   value={networkId}
                   onChange={(e) => setNetworkId(e.target.value)}
@@ -217,23 +273,13 @@ export default function NeighborhoodAssistantDevPage() {
               </label>
             ) : null}
 
-            <label className="block text-xs font-bold text-[var(--text-primary)]">
-              شناسه شبکه {networks.length > 0 ? '(در صورت نیاز دستی تغییر دهید)' : ''}
-              <input
-                value={networkId}
-                onChange={(e) => setNetworkId(e.target.value)}
-                className="mt-1 w-full rounded-2xl border border-[var(--border-soft)] bg-[var(--surface-soft)] px-3 py-2 text-sm outline-none focus:border-[var(--accent)]"
-                placeholder="networkId"
-              />
-            </label>
-
             {selectedNetwork ? (
               <p className="rounded-xl bg-[var(--surface-soft)] px-3 py-2 text-xs text-[var(--text-secondary)]">
                 شبکه انتخاب‌شده: <span className="font-bold text-[var(--text-primary)]">{selectedNetwork.name}</span>
               </p>
             ) : null}
 
-            <Button type="submit" loading={loading}>
+            <Button type="submit" loading={loading} disabled={!networkId || networks.length === 0}>
               پرسش
             </Button>
           </form>
