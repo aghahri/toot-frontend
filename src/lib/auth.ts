@@ -1,6 +1,7 @@
 import { buildApiUrl } from './api-url';
 import { getErrorMessageFromResponse } from './api';
-
+import { clearAllDirectDrafts } from './direct-drafts';
+import { clearAllGroupDrafts } from './group-drafts';
 const ACCESS_KEY = 'toot_access_token';
 const REFRESH_KEY = 'toot_refresh_token';
 
@@ -51,8 +52,14 @@ export function setSessionTokens(accessToken: string, refreshToken: string) {
 
 export function clearSession() {
   if (typeof window === 'undefined') return;
-  window.localStorage.removeItem(ACCESS_KEY);
-  window.localStorage.removeItem(REFRESH_KEY);
+  try {
+    window.localStorage.removeItem(ACCESS_KEY);
+    window.localStorage.removeItem(REFRESH_KEY);
+  } catch {
+    // ignore storage failures
+  }
+  clearAllDirectDrafts();
+  clearAllGroupDrafts();
   notifyAuthTokenChanged();
 }
 
@@ -127,6 +134,7 @@ async function rawJsonFetch<T>(path: string, init: RequestInit): Promise<T> {
 
 export async function login(email: string, password: string): Promise<{
   accessToken: string;
+  refreshToken?: string;
 }> {
   const data = await rawJsonFetch<TokenPayload>('auth/login', {
     method: 'POST',
@@ -209,6 +217,7 @@ export async function requestOtp(phone: string): Promise<{
 
 export async function verifyOtp(phone: string, code: string): Promise<{
   accessToken: string;
+  refreshToken?: string;
 }> {
   const data = await rawJsonFetch<TokenPayload>('auth/verify-otp', {
     method: 'POST',

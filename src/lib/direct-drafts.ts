@@ -58,3 +58,7 @@ export function clearDirectDraft(conversationId: string) {
   delete all[conversationId];
   writeRaw(all);
 }
+
+export function clearAllDirectDrafts() {
+  writeRaw({});
+}

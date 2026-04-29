@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { apiFetch } from '@/lib/api';
 import { getAccessToken, performServerLogout } from '@/lib/auth';
@@ -10,7 +10,6 @@ import { NotificationsNavLink } from '@/components/NotificationsNavLink';
 type MeBrief = { id: string; name: string; avatar: string | null };
 
 export function Navbar() {
-  const router = useRouter();
   const pathname = usePathname() ?? '';
   const [tokenPresent, setTokenPresent] = useState(false);
   const [me, setMe] = useState<MeBrief | null>(null);
@@ -55,7 +54,7 @@ export function Navbar() {
 
   async function onLogout() {
     await performServerLogout();
-    router.replace('/login');
+    window.location.assign('/login');
   }
 
   const initial = (me?.name ?? '؟').trim().slice(0, 1) || '؟';

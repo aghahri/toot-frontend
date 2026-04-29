@@ -58,3 +58,7 @@ export function clearGroupDraft(groupId: string) {
   delete all[groupId];
   writeRaw(all);
 }
+
+export function clearAllGroupDrafts() {
+  writeRaw({});
+}
