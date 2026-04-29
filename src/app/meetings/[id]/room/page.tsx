@@ -74,6 +74,9 @@ export default function MeetingRoomPage() {
   const localVideoRef = useRef<HTMLVideoElement | null>(null);
   const localStreamRef = useRef<MediaStream | null>(null);
   const [localPreviewStream, setLocalPreviewStream] = useState<MediaStream | null>(null);
+  const latestSocketRef = useRef<ReturnType<typeof useAppRealtime>['socket']>(null);
+  const latestMeetingIdRef = useRef('');
+  const leaveEmittedRef = useRef(false);
   const pcsRef = useRef<Map<string, RTCPeerConnection>>(new Map());
   const remoteStreamsRef = useRef<Map<string, MediaStream>>(new Map());
   const pendingIceRef = useRef<Map<string, RTCIceCandidateInit[]>>(new Map());
@@ -92,6 +95,31 @@ export default function MeetingRoomPage() {
 
   const participantCount = participants.length;
   const SELF_REACTIONS = ['👍', '👏', '😂', '❤️', '✋'];
+
+  const emitMeetingLeave = useCallback(() => {
+    if (leaveEmittedRef.current) return;
+    const activeSocket = latestSocketRef.current;
+    const meetingId = latestMeetingIdRef.current;
+    if (!activeSocket || !meetingId) return;
+    activeSocket.emit('meeting_leave', { meetingId });
+    leaveEmittedRef.current = true;
+  }, []);
+
+  useEffect(() => {
+    latestSocketRef.current = socket;
+    latestMeetingIdRef.current = id;
+  }, [socket, id]);
+
+  useEffect(() => {
+    leaveEmittedRef.current = false;
+  }, [id]);
+
+  useEffect(() => {
+    return () => {
+      // True unmount path only; avoids false leave during effect re-runs on reconnect churn.
+      emitMeetingLeave();
+    };
+  }, [emitMeetingLeave]);
 
   const upsertChatMessage = useCallback((msg: LocalMeetingChatMessage) => {
     setChatMessages((prev) => {
@@ -445,7 +473,6 @@ export default function MeetingRoomPage() {
   useEffect(() => {
     void load();
     return () => {
-      if (socket && id) socket.emit('meeting_leave', { meetingId: id });
       closeAllPeerConnections();
       stopAndClearMedia();
       setMediaReady(false);
@@ -699,7 +726,6 @@ export default function MeetingRoomPage() {
 
     return () => {
       mounted = false;
-      socket.emit('meeting_leave', { meetingId: id });
       socket.off('meeting_participant_joined', onParticipantJoined);
       socket.off('meeting_participant_left', onParticipantLeft);
       socket.off('meeting_signal', onSignal);
@@ -739,7 +765,7 @@ export default function MeetingRoomPage() {
   }
 
   function leaveRoom() {
-    if (socket && id) socket.emit('meeting_leave', { meetingId: id });
+    emitMeetingLeave();
     closeAllPeerConnections();
     stopAndClearMedia();
     setMediaReady(false);
