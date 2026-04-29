@@ -77,6 +77,7 @@ export default function MeetingRoomPage() {
   const pcsRef = useRef<Map<string, RTCPeerConnection>>(new Map());
   const remoteStreamsRef = useRef<Map<string, MediaStream>>(new Map());
   const pendingIceRef = useRef<Map<string, RTCIceCandidateInit[]>>(new Map());
+  const disconnectCleanupTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
   const makingOfferRef = useRef<Map<string, boolean>>(new Map());
   const isSettingRemoteAnswerRef = useRef<Map<string, boolean>>(new Map());
   const iceRestartTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
@@ -117,7 +118,11 @@ export default function MeetingRoomPage() {
     for (const t of iceRestartTimersRef.current.values()) {
       clearTimeout(t);
     }
+    for (const t of disconnectCleanupTimersRef.current.values()) {
+      clearTimeout(t);
+    }
     iceRestartTimersRef.current.clear();
+    disconnectCleanupTimersRef.current.clear();
     pcsRef.current.clear();
     pendingIceRef.current.clear();
     makingOfferRef.current.clear();
@@ -252,7 +257,7 @@ export default function MeetingRoomPage() {
       };
 
       const handleDisconnect = () => {
-        if (pc.connectionState === 'closed' || pc.connectionState === 'disconnected') {
+        if (pc.connectionState === 'closed' || pc.connectionState === 'failed') {
           pc.close();
           pcsRef.current.delete(remoteUserId);
           pendingIceRef.current.delete(remoteUserId);
@@ -264,6 +269,11 @@ export default function MeetingRoomPage() {
             clearTimeout(restartTimer);
             iceRestartTimersRef.current.delete(remoteUserId);
           }
+          const disconnectTimer = disconnectCleanupTimersRef.current.get(remoteUserId);
+          if (disconnectTimer) {
+            clearTimeout(disconnectTimer);
+            disconnectCleanupTimersRef.current.delete(remoteUserId);
+          }
           setRemoteStreams(Array.from(remoteStreamsRef.current.entries()).map(([userId, s]) => ({ userId, stream: s })));
         }
       };
@@ -271,8 +281,32 @@ export default function MeetingRoomPage() {
         const st = pc.connectionState;
         logRtc('pc_connection_state', { peer: remoteUserId, state: st });
         if (st === 'connecting') setRtcStage('ice_connecting');
-        if (st === 'connected') setRtcStage('connected');
-        if (st === 'failed' || st === 'disconnected') setRtcStage('failed');
+        if (st === 'connected') {
+          setRtcStage('connected');
+          const existing = disconnectCleanupTimersRef.current.get(remoteUserId);
+          if (existing) {
+            clearTimeout(existing);
+            disconnectCleanupTimersRef.current.delete(remoteUserId);
+          }
+        }
+        if (st === 'disconnected') {
+          setRtcStage('ice_connecting');
+          const existing = disconnectCleanupTimersRef.current.get(remoteUserId);
+          if (existing) clearTimeout(existing);
+          const timer = setTimeout(() => {
+            disconnectCleanupTimersRef.current.delete(remoteUserId);
+            if (
+              pc.connectionState === 'disconnected' ||
+              pc.connectionState === 'failed' ||
+              pc.iceConnectionState === 'failed'
+            ) {
+              logRtc('pc_disconnect_grace_expired', { peer: remoteUserId, state: pc.connectionState, ice: pc.iceConnectionState });
+              handleDisconnect();
+            }
+          }, 6500);
+          disconnectCleanupTimersRef.current.set(remoteUserId, timer);
+        }
+        if (st === 'failed') setRtcStage('failed');
         handleDisconnect();
       };
       pc.oniceconnectionstatechange = () => {
@@ -306,7 +340,7 @@ export default function MeetingRoomPage() {
             logRtc('restart-ice-failed', { peer: remoteUserId });
           }
         }
-        if (st === 'disconnected') setRtcStage('failed');
+        if (st === 'disconnected') setRtcStage('ice_connecting');
         handleDisconnect();
       };
 
